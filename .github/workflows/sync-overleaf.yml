@@ -27,18 +27,34 @@ jobs:
           OVERLEAF_ID: ${{ secrets.OVERLEAF_ID }}
           OVERLEAF_TOKEN: ${{ secrets.OVERLEAF_TOKEN }}
         run: |
-          git remote add overleaf https://git:${OVERLEAF_TOKEN}@git.overleaf.com/${OVERLEAF_ID}
+          set -e
+          # Idempotent remote add
+          if git remote get-url overleaf >/dev/null 2>&1; then
+            git remote set-url overleaf https://git:${OVERLEAF_TOKEN}@git.overleaf.com/${OVERLEAF_ID}
+          else
+            git remote add overleaf https://git:${OVERLEAF_TOKEN}@git.overleaf.com/${OVERLEAF_ID}
+          fi
           git fetch overleaf
-          git merge overleaf/master --allow-unrelated-histories -m "Auto merge from Overleaf"
+          # Merge favoring Overleaf on conflicts; auto-resolve if still failing (add/add, binaries)
+          if ! git merge overleaf/master --allow-unrelated-histories -X theirs --no-edit; then
+            echo "Conflict detected. Auto-resolving in favor of Overleaf (theirs)."
+            git checkout --theirs .
+            git add .
+            git commit -m "Auto-resolve conflicts favoring Overleaf"
 
       - name: Pull from GitHub and merge (auto-resolve on conflict)
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
         run: |
+          set -e
           git remote set-url origin https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git
-          # 嘗試拉遠端 master，無則新建本地 branch 並 push
           if git ls-remote --exit-code --heads origin master; then
-            git pull origin master --allow-unrelated-histories --no-edit -X theirs
+            if ! git pull origin master --allow-unrelated-histories --no-edit -X ours; then
+              echo "Conflict pulling origin. Keeping local (with Overleaf) version."
+              git checkout --ours .
+              git add .
+              git commit -m "Auto-resolve conflicts favoring local (Overleaf merged)"
+            fi
           else
             git checkout -b master || git checkout master
           fi
