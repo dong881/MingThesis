@@ -1,7 +1,7 @@
 name: Sync Overleaf to GitHub
 on:
   schedule:
-    - cron: '0 * * * *'  # 每小時執行一次
+    - cron: '0 * * * *'
   workflow_dispatch:
 
 jobs:
@@ -11,7 +11,7 @@ jobs:
       - name: Checkout GitHub repo
         uses: actions/checkout@v3
         with:
-          persist-credentials: false  # 禁用預設 token，改用 PAT
+          persist-credentials: false
 
       - name: Set git identity
         run: |
@@ -27,9 +27,16 @@ jobs:
           git fetch overleaf
           git merge overleaf/master --allow-unrelated-histories -m "Auto merge from Overleaf"
 
-      - name: Push back to GitHub using PAT
+      - name: Pull from GitHub and merge (auto-resolve on conflict)
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
         run: |
           git remote set-url origin https://dong881:${GH_TOKEN}@github.com/dong881/MingThesis.git
+          # 自動拉取 GitHub master 並以 ours 為主自動解衝突
+          git pull origin master --allow-unrelated-histories --no-edit -X theirs
+
+      - name: Push merged changes back to GitHub
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        run: |
           git push origin master
