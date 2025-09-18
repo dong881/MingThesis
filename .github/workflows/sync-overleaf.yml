@@ -1,7 +1,7 @@
 name: Sync Overleaf to GitHub
 on:
   schedule:
-    - cron: '0 * * * *'
+    - cron: '* * * * *'
   workflow_dispatch:
 
 jobs:
