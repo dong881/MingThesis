@@ -22,12 +22,24 @@ jobs:
           git config --global user.name "$GIT_USER_NAME"
           git config --global user.email "$GIT_USER_EMAIL"
 
-      - name: Add Overleaf as remote and fetch/merge
+      - name: Pull from GitHub to get latest changes
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        run: |
+          set -e
+          git remote set-url origin https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git
+          # If master branch exists on remote, pull changes. Otherwise, we are on a fresh repo.
+          if git ls-remote --exit-code --heads origin master; then
+            echo "Pulling latest changes from GitHub..."
+            git pull origin master --rebase
+          else
+            echo "No master branch on remote. Skipping pull."
+          fi
+
+      - name: Add Overleaf as remote and merge
         env:
           OVERLEAF_ID: ${{ secrets.OVERLEAF_ID }}
           OVERLEAF_TOKEN: ${{ secrets.OVERLEAF_TOKEN }}
-          GIT_USER_NAME: ${{ secrets.GIT_USER_NAME }}
-          GIT_USER_EMAIL: ${{ secrets.GIT_USER_EMAIL }}
         run: |
           set -e
           # Idempotent remote add
@@ -38,12 +50,12 @@ jobs:
           fi
           git fetch overleaf
           
-          # Only merge if there are actual changes
+          # Only merge if there are actual changes from Overleaf
           if [ -z "$(git diff HEAD..overleaf/master)" ]; then
             echo "No changes from Overleaf. Nothing to merge."
           else
             echo "Changes detected from Overleaf. Merging..."
-            # Merge favoring Overleaf on conflicts; auto-resolve if still failing (add/add, binaries)
+            # Merge favoring Overleaf on conflicts
             if ! git merge overleaf/master --allow-unrelated-histories -X theirs --no-edit; then
               echo "Conflict detected. Auto-resolving in favor of Overleaf (theirs)."
               git checkout --theirs .
@@ -52,27 +64,15 @@ jobs:
             fi
           fi
 
-      - name: Pull from GitHub and merge (auto-resolve on conflict)
-        env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
-          GIT_USER_NAME: ${{ secrets.GIT_USER_NAME }}
-          GIT_USER_EMAIL: ${{ secrets.GIT_USER_EMAIL }}
-        run: |
-          set -e
-          git remote set-url origin https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git
-          if git ls-remote --exit-code --heads origin master; then
-            if ! git pull origin master --allow-unrelated-histories --no-edit -X ours; then
-              echo "Conflict pulling origin. Keeping local (with Overleaf) version."
-              git checkout --ours .
-              git add .
-              git commit -m "Auto-resolve conflicts favoring local (Overleaf merged)"
-            fi
-          else
-            git checkout -b master || git checkout master
-          fi
-
       - name: Push merged changes back to GitHub
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
         run: |
+          # Only push if there are changes to push
+          if [ -z "$(git log origin/master..HEAD)" ]; then
+            echo "No new commits to push."
+          else
+            echo "Pushing changes to GitHub..."
+            git push origin master
+          fi
           git push origin master
