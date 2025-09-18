@@ -41,6 +41,7 @@ jobs:
             git checkout --theirs .
             git add .
             git commit -m "Auto-resolve conflicts favoring Overleaf"
+          fi
 
       - name: Pull from GitHub and merge (auto-resolve on conflict)
         env:
