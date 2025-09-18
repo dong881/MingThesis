@@ -1,27 +1,36 @@
 name: Sync Overleaf to GitHub
 on:
   schedule:
-    - cron: '0 * * * *' # 每小時執行一次，可調整頻率
+    - cron: '0 * * * *'  # 每小時執行一次
   workflow_dispatch:
+
 jobs:
   sync-overleaf:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repo
+      - name: Checkout GitHub repo
         uses: actions/checkout@v3
-      - name: Configure git user
+
+      - name: Set git identity
         run: |
           git config --global user.name "dong881"
           git config --global user.email "minghunghsu.taiwan@gmail.com"
-      - name: Clone Overleaf project
+
+      - name: Clone Overleaf as tmp dir
         env:
           OVERLEAF_ID: ${{ secrets.OVERLEAF_ID }}
           OVERLEAF_TOKEN: ${{ secrets.OVERLEAF_TOKEN }}
         run: |
           git clone https://git:${OVERLEAF_TOKEN}@git.overleaf.com/${OVERLEAF_ID} overleaf
-      - name: Sync Overleaf to GitHub
+
+      - name: Pull Overleaf changes into GitHub repo
         run: |
-          cd overleaf
-          git remote add github https://github.com/dong881/MingThesis.git
-          git pull overleaf master
-          git push github master
+          # 將 Overleaf 的 master pull 到目前 actions 的 GitHub workspace
+          cd $GITHUB_WORKSPACE
+          git remote add overleaf ../overleaf
+          git fetch overleaf
+          git merge overleaf/master --allow-unrelated-histories -m "Auto-merge from Overleaf"
+
+      - name: Push merged changes back to GitHub
+        run: |
+          git push origin master
