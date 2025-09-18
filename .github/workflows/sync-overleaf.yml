@@ -37,12 +37,19 @@ jobs:
             git remote add overleaf https://git:${OVERLEAF_TOKEN}@git.overleaf.com/${OVERLEAF_ID}
           fi
           git fetch overleaf
-          # Merge favoring Overleaf on conflicts; auto-resolve if still failing (add/add, binaries)
-          if ! git merge overleaf/master --allow-unrelated-histories -X theirs --no-edit; then
-            echo "Conflict detected. Auto-resolving in favor of Overleaf (theirs)."
-            git checkout --theirs .
-            git add .
-            git commit -m "Auto-resolve conflicts favoring Overleaf"
+          
+          # Only merge if there are actual changes
+          if [ -z "$(git diff HEAD..overleaf/master)" ]; then
+            echo "No changes from Overleaf. Nothing to merge."
+          else
+            echo "Changes detected from Overleaf. Merging..."
+            # Merge favoring Overleaf on conflicts; auto-resolve if still failing (add/add, binaries)
+            if ! git merge overleaf/master --allow-unrelated-histories -X theirs --no-edit; then
+              echo "Conflict detected. Auto-resolving in favor of Overleaf (theirs)."
+              git checkout --theirs .
+              git add .
+              git commit -m "Auto-resolve conflicts favoring Overleaf"
+            fi
           fi
 
       - name: Pull from GitHub and merge (auto-resolve on conflict)
