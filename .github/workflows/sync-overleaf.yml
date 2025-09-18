@@ -1,7 +1,7 @@
 name: Sync Overleaf to GitHub
 on:
   schedule:
-    - cron: '0 * * * *'  # 每小時執行一次，可調整頻率
+    - cron: '0 * * * *'  # 每小時執行一次
   workflow_dispatch:
 
 jobs:
@@ -10,26 +10,26 @@ jobs:
     steps:
       - name: Checkout GitHub repo
         uses: actions/checkout@v3
+        with:
+          persist-credentials: false  # 禁用預設 token，改用 PAT
 
       - name: Set git identity
         run: |
           git config --global user.name "dong881"
           git config --global user.email "minghunghsu.taiwan@gmail.com"
 
-      - name: Clone Overleaf as tmp dir
+      - name: Add Overleaf as remote and fetch/merge
         env:
           OVERLEAF_ID: ${{ secrets.OVERLEAF_ID }}
           OVERLEAF_TOKEN: ${{ secrets.OVERLEAF_TOKEN }}
         run: |
-          git clone https://git:${OVERLEAF_TOKEN}@git.overleaf.com/${OVERLEAF_ID} overleaf || (echo "Overleaf Clone Failed" && exit 1)
-          ls overleaf # Debug: 顯示 clone 內容是否完整
-
-      - name: Add overleaf as remote, fetch & merge to main repo
-        run: |
-          git remote add overleaf ./overleaf
+          git remote add overleaf https://git:${OVERLEAF_TOKEN}@git.overleaf.com/${OVERLEAF_ID}
           git fetch overleaf
-          git merge overleaf/master --allow-unrelated-histories -m "Auto-merge from Overleaf"
+          git merge overleaf/master --allow-unrelated-histories -m "Auto merge from Overleaf"
 
-      - name: Push merged changes back to GitHub
+      - name: Push back to GitHub using PAT
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
         run: |
+          git remote set-url origin https://dong881:${GH_TOKEN}@github.com/dong881/MingThesis.git
           git push origin master
