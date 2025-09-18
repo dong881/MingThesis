@@ -58,11 +58,44 @@ jobs:
             # Squash merge to combine Overleaf commits into one
             if ! git merge --squash overleaf/master --allow-unrelated-histories; then
               echo "Conflict detected. Auto-resolving in favor of Overleaf (theirs)."
-              # For files that were deleted on Overleaf (theirs) but modified locally (ours), we remove them.
-              git diff --name-status | grep -E '^UD' | cut -f2 | xargs -r git rm
-              # For all other conflicts, we take the version from Overleaf (theirs).
-              git checkout --theirs .
-              git add .
+              
+              # Handle different types of conflicts
+              git status --porcelain | while read -r status file; do
+                case "$status" in
+                  "DU")
+                    # File deleted by us (local), modified by them (overleaf) - keep their version
+                    echo "Keeping Overleaf version of: $file"
+                    git add "$file"
+                    ;;
+                  "UD")
+                    # File modified by us (local), deleted by them (overleaf) - remove it
+                    echo "Removing file deleted in Overleaf: $file"
+                    git rm "$file"
+                    ;;
+                  "AA"|"UU")
+                    # File modified by both - take their version if it exists
+                    if git cat-file -e overleaf/master:"$file" 2>/dev/null; then
+                      echo "Taking Overleaf version of: $file"
+                      git checkout --theirs "$file"
+                      git add "$file"
+                    else
+                      echo "File doesn't exist in Overleaf, removing: $file"
+                      git rm "$file"
+                    fi
+                    ;;
+                  *)
+                    # Other conflicts - try to take their version
+                    if git cat-file -e overleaf/master:"$file" 2>/dev/null; then
+                      echo "Resolving conflict for: $file"
+                      git checkout --theirs "$file"
+                      git add "$file"
+                    else
+                      echo "Cannot resolve conflict for: $file, removing"
+                      git rm "$file" 2>/dev/null || true
+                    fi
+                    ;;
+                esac
+              done
             fi
             git commit -m "Automatically pull from Overleaf."
           fi
