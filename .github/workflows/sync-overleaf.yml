@@ -1,7 +1,7 @@
 name: Sync Overleaf to GitHub
 on:
   schedule:
-    - cron: '0 * * * *'  # 每小時執行一次
+    - cron: '0 * * * *'  # 每小時執行一次，可調整頻率
   workflow_dispatch:
 
 jobs:
@@ -21,13 +21,12 @@ jobs:
           OVERLEAF_ID: ${{ secrets.OVERLEAF_ID }}
           OVERLEAF_TOKEN: ${{ secrets.OVERLEAF_TOKEN }}
         run: |
-          git clone https://git:${OVERLEAF_TOKEN}@git.overleaf.com/${OVERLEAF_ID} overleaf
+          git clone https://git:${OVERLEAF_TOKEN}@git.overleaf.com/${OVERLEAF_ID} overleaf || (echo "Overleaf Clone Failed" && exit 1)
+          ls overleaf # Debug: 顯示 clone 內容是否完整
 
-      - name: Pull Overleaf changes into GitHub repo
+      - name: Add overleaf as remote, fetch & merge to main repo
         run: |
-          # 將 Overleaf 的 master pull 到目前 actions 的 GitHub workspace
-          cd $GITHUB_WORKSPACE
-          git remote add overleaf ../overleaf
+          git remote add overleaf ./overleaf
           git fetch overleaf
           git merge overleaf/master --allow-unrelated-histories -m "Auto-merge from Overleaf"
 
