@@ -101,10 +101,15 @@ jobs:
           fi
 
       - name: Generate commit message with Gemini
-        if: env.GEMINI_TOKEN != ''
         env:
           GEMINI_TOKEN: ${{ secrets.GEMINI_TOKEN }}
         run: |
+          # Check if GEMINI_TOKEN is available
+          if [ -z "$GEMINI_TOKEN" ]; then
+            echo "GEMINI_TOKEN not available, skipping AI commit message generation"
+            exit 0
+          fi
+          
           # Check if there are staged changes or recent commits to describe
           if git diff --cached --quiet && [ -z "$(git log origin/master..HEAD)" ]; then
             echo "No changes to describe"
@@ -150,8 +155,16 @@ jobs:
           fi
 
       - name: Update commit message if generated
-        if: env.GEMINI_TOKEN != ''
+        env:
+          GEMINI_TOKEN: ${{ secrets.GEMINI_TOKEN }}
         run: |
+          # Only proceed if GEMINI_TOKEN is available
+          if [ -z "$GEMINI_TOKEN" ]; then
+            echo "GEMINI_TOKEN not available, using default commit message"
+            echo "COMMIT_MESSAGE=Automatically pull from Overleaf." >> $GITHUB_ENV
+            exit 0
+          fi
+          
           # If we have a generated message and there are commits to amend
           if [ -n "$COMMIT_MESSAGE" ] && [ "$COMMIT_MESSAGE" != "Automatically pull from Overleaf." ]; then
             # Check if there are commits to amend (commits ahead of origin/master)
