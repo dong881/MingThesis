@@ -1,0 +1,163 @@
+\documentclass[conference]{IEEEtran}
+\usepackage{cite}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{algorithmic}
+\usepackage{graphicx}
+\usepackage{color}
+\begin{document}
+
+\title{Automated Latency Characterization of FAPI and nFAPI under Traffic Loads via an O-RAN SMO rAPP}
+
+\author{\IEEEauthorblockN{Ming-Hong HSU, Ray-Guang Cheng, Co-author 1}
+\IEEEauthorblockA{Dept. of Electronic and Computer Engineering, National Taiwan University of Science and Technology, Taiwan\\ Email: crg@mail.ntust.edu.tw}}
+
+\maketitle
+
+\begin{abstract}
+This paper presents an automated latency characterization system for FAPI and nFAPI interfaces under various traffic loads using an O-RAN SMO rAPP. The proposed method enables real-time performance monitoring and comparative analysis between different interface implementations.
+\end{abstract}
+
+\section{Introduction}
+\subsection{Introduction}
+{\bf Purpose:} To explain {\bf what} the paper is about, {\bf why} the problem matters, and {\bf what} the others authors have done to address it.
+
+The main contributions of this paper are summarized as follows.
+\begin{itemize}
+\item Contribution 1: Automated FAPI/nFAPI latency characterization
+\item Contribution 2: O-RAN SMO rAPP implementation
+\item Contribution 3: Comparative performance analysis under traffic loads
+\end{itemize}
+
+The rest of the paper is organized as follows. Section II defines the system model/architecture considered in this paper. The proposed analytical model/method is given in Section III. Section IV shows the numerical results. Concluding remarks are given in Section V.
+
+\section{System Model/Architecture}
+{\color{blue} Purpose: Define the system architecture, key components, input/output parameters, and mathematical formulation of the problem.}
+
+Figure~\ref{fig:Fig1} shows the system model/architecture considered in this paper.
+{\color{blue} (Draw a figure showing the key components and their relationship in the system model. It may consist the I/P and O/P parameters of your system or the major components showing your contributions.)}
+
+{\color{blue} Describe the system architecture components:}
+\begin{itemize}
+\item {\color{blue} Component 1: Define the O-RAN SMO rAPP and its role in the system}
+\item {\color{blue} Component 2: Explain FAPI and nFAPI interfaces}
+\item {\color{blue} Component 3: Describe traffic load generation mechanisms}
+\end{itemize}
+
+{\color{blue} Mathematical Model Setup:}
+\begin{itemize}
+\item {\color{blue} Input Parameters: Traffic load patterns, interface specifications}
+\item {\color{blue} Output Parameters: Latency measurements, performance metrics}
+\item {\color{blue} System Variables: Define all variables used in the analysis}
+\end{itemize}
+
+The following assumptions were made in this paper.
+\begin{itemize}
+\item {\color{blue} Assumption 1: State the first key assumption about the system model}
+\item {\color{blue} Assumption 2: Define assumptions about traffic patterns and load conditions}
+\item {\color{blue} Assumption 3: Specify assumptions about measurement accuracy and system stability}
+\end{itemize}
+
+\section{Proposed Method}
+{\color{blue} Purpose: Present your novel approach, algorithm, or methodology in detail.}
+
+{\color{blue} Method Overview:}
+\begin{itemize}
+\item {\color{blue} Step 1: Describe the automated latency characterization framework}
+\item {\color{blue} Step 2: Explain the rAPP implementation approach}
+\item {\color{blue} Step 3: Detail the measurement and analysis methodology}
+\end{itemize}
+
+{\color{blue} Key Innovation Points:}
+\begin{itemize}
+\item {\color{blue} Innovation 1: Automated characterization using O-RAN SMO rAPP}
+\item {\color{blue} Innovation 2: Real-time traffic load adaptation}
+\item {\color{blue} Innovation 3: Comparative analysis of FAPI vs nFAPI performance}
+\end{itemize}
+
+{\color{blue} Algorithm Description:}
+\begin{enumerate}
+\item {\color{blue} Initialize the O-RAN SMO environment and rAPP deployment}
+\item {\color{blue} Configure FAPI and nFAPI interface parameters}
+\item {\color{blue} Generate controlled traffic loads with varying patterns}
+\item {\color{blue} Measure latency characteristics across different load conditions}
+\item {\color{blue} Analyze and compare performance metrics}
+\end{enumerate}
+
+\section{Numerical/Simulation/Experimental Results}
+{\color{blue} Purpose: Present experimental validation of your proposed method and demonstrate its effectiveness.}
+
+Computer simulations/Experiments were conducted to verify {\color{blue} the effectiveness of the proposed automated latency characterization method using O-RAN SMO rAPP}.
+
+In the following figures, each point represented the average value of $10^5$ samples. In each sample, we collect the statistics of {\color{blue} latency measurements under different traffic load conditions}. Symbols and lines were used to show the simulation and analytical results, respectively.
+
+{\color{blue} Experimental Setup:}
+\begin{itemize}
+\item {\color{blue} Hardware Platform: Describe the O-RAN testbed configuration}
+\item {\color{blue} Software Environment: Detail the SMO and rAPP implementation}
+\item {\color{blue} Traffic Patterns: Specify the load generation scenarios}
+\item {\color{blue} Measurement Tools: Explain latency measurement methodology}
+\end{itemize}
+
+{\color{blue} Three main scenarios were investigated. Each scenario was designed to demonstrate specific aspects of the automated latency characterization system.}
+
+\subsection{Contribution 1}
+{\color{blue} Scenario 1: FAPI Latency Characterization under Variable Traffic Loads}
+
+{\color{blue} Objective: Demonstrate the effectiveness of automated FAPI latency measurement across different traffic intensities.}
+
+{\color{blue} Fig. 1.1: FAPI Latency vs Traffic Load}
+\begin{itemize}
+\item {\color{blue} X axis: Traffic load (Mbps or packets/sec)}
+\item {\color{blue} Y axis: Average latency (ms) with confidence intervals}
+\item {\color{blue} Expected Result: Show how FAPI latency varies with increasing traffic load}
+\item {\color{blue} Analysis: Explain the relationship between load and latency}
+\end{itemize}
+
+\subsection{Contribution 2}
+{\color{blue} Scenario 2: nFAPI Performance Comparison}
+
+{\color{blue} Objective: Compare nFAPI latency characteristics against FAPI under similar conditions.}
+
+{\color{blue} Fig. 2.1: FAPI vs nFAPI Latency Comparison}
+\begin{itemize}
+\item {\color{blue} X axis: Traffic load conditions or time}
+\item {\color{blue} Y axis: Comparative latency measurements (ms)}
+\item {\color{blue} Expected Result: Demonstrate performance differences between interfaces}
+\item {\color{blue} Analysis: Discuss advantages and limitations of each interface}
+\end{itemize}
+
+\subsection{Contribution 3}
+{\color{blue} Scenario 3: rAPP Automation Effectiveness}
+
+{\color{blue} Objective: Validate the automated characterization capability of the O-RAN SMO rAPP.}
+
+{\color{blue} Fig. 3.1: Automation Accuracy and Response Time}
+\begin{itemize}
+\item {\color{blue} X axis: Number of test iterations or measurement duration}
+\item {\color{blue} Y axis: Measurement accuracy (\%) and response time (s)}
+\item {\color{blue} Expected Result: Show consistent accuracy and reasonable response times}
+\item {\color{blue} Analysis: Demonstrate the practical viability of the automated approach}
+\end{itemize}
+
+{\color{blue} Performance Summary:}
+\begin{itemize}
+\item {\color{blue} Key Finding 1: Quantify the latency improvement achieved}
+\item {\color{blue} Key Finding 2: Compare automation benefits vs manual characterization}
+\item {\color{blue} Key Finding 3: Identify optimal operating conditions}
+\end{itemize}
+
+{\color{blue} Statistical Analysis:}
+\begin{itemize}
+\item {\color{blue} Confidence intervals and error bars explanation}
+\item {\color{blue} Statistical significance testing results}
+\item {\color{blue} Reproducibility and reliability assessment}
+\end{itemize}
+
+\section{Conclusions}
+{\color{blue} Summarize key contributions and future work directions.}
+
+\begin{thebibliography}{00}
+\bibitem{b1} Reference 1.
+\end{thebibliography}
+
+\end{document}
