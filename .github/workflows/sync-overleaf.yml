@@ -26,6 +26,8 @@ jobs:
         env:
           OVERLEAF_ID: ${{ secrets.OVERLEAF_ID }}
           OVERLEAF_TOKEN: ${{ secrets.OVERLEAF_TOKEN }}
+          GIT_USER_NAME: ${{ secrets.GIT_USER_NAME }}
+          GIT_USER_EMAIL: ${{ secrets.GIT_USER_EMAIL }}
         run: |
           set -e
           # Idempotent remote add
@@ -46,6 +48,8 @@ jobs:
       - name: Pull from GitHub and merge (auto-resolve on conflict)
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          GIT_USER_NAME: ${{ secrets.GIT_USER_NAME }}
+          GIT_USER_EMAIL: ${{ secrets.GIT_USER_EMAIL }}
         run: |
           set -e
           git remote set-url origin https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git
