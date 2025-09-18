@@ -2,6 +2,7 @@ name: Sync Overleaf to GitHub
 on:
   schedule:
     - cron: '0 * * * *' # 每小時執行一次，可調整頻率
+  workflow_dispatch:
 jobs:
   sync-overleaf:
     runs-on: ubuntu-latest
