@@ -100,6 +100,74 @@ jobs:
             git commit -m "Automatically pull from Overleaf."
           fi
 
+      - name: Generate commit message with Gemini
+        if: env.GEMINI_TOKEN != ''
+        env:
+          GEMINI_TOKEN: ${{ secrets.GEMINI_TOKEN }}
+        run: |
+          # Check if there are staged changes or recent commits to describe
+          if git diff --cached --quiet && [ -z "$(git log origin/master..HEAD)" ]; then
+            echo "No changes to describe"
+            echo "COMMIT_MESSAGE=Automatically pull from Overleaf." >> $GITHUB_ENV
+            exit 0
+          fi
+          
+          # Get the diff for staged changes or recent commits
+          if ! git diff --cached --quiet; then
+            DIFF_OUTPUT=$(git diff --cached)
+          else
+            DIFF_OUTPUT=$(git diff origin/master..HEAD)
+          fi
+          
+          # Prepare prompt for Gemini
+          PROMPT="請根據以下Git diff內容，生成一個簡短的中文commit訊息（不超過50字），並在下一行列出主要變更項目的大綱（每項用-開頭）：$DIFF_OUTPUT 請用以下格式回覆：\n[簡短摘要]\n\n- [變更項目1]\n- [變更項目2]\n- [變更項目3]"
+          
+          # Call Gemini API
+          RESPONSE=$(curl -s -X POST \
+            "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${GEMINI_TOKEN}" \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"contents\": [{
+                \"parts\": [{
+                  \"text\": \"$PROMPT\"
+                }]
+              }]
+            }")
+          
+          # Extract the generated text from response
+          GENERATED_MESSAGE=$(echo "$RESPONSE" | jq -r '.candidates[0].content.parts[0].text // empty' 2>/dev/null)
+          
+          # Validate the response and set commit message
+          if [ -n "$GENERATED_MESSAGE" ] && [ "$GENERATED_MESSAGE" != "null" ] && [ "$GENERATED_MESSAGE" != "" ]; then
+            echo "Generated commit message:"
+            echo "$GENERATED_MESSAGE"
+            # Escape newlines for GitHub environment variable
+            ESCAPED_MESSAGE=$(echo "$GENERATED_MESSAGE" | sed ':a;N;$!ba;s/\n/\\n/g')
+            echo "COMMIT_MESSAGE=$ESCAPED_MESSAGE" >> $GITHUB_ENV
+          else
+            echo "Failed to generate commit message, using default"
+            echo "COMMIT_MESSAGE=Automatically pull from Overleaf." >> $GITHUB_ENV
+          fi
+
+      - name: Update commit message if generated
+        if: env.GEMINI_TOKEN != ''
+        run: |
+          # If we have a generated message and there are commits to amend
+          if [ -n "$COMMIT_MESSAGE" ] && [ "$COMMIT_MESSAGE" != "Automatically pull from Overleaf." ]; then
+            if ! git log origin/master..HEAD --quiet 2>/dev/null || [ $? -eq 0 ]; then
+              # Decode escaped newlines
+              FINAL_MESSAGE=$(echo -e "$COMMIT_MESSAGE")
+              echo "Updating commit message to:"
+              echo "$FINAL_MESSAGE"
+              git commit --amend -m "$FINAL_MESSAGE"
+            fi
+          fi
+
+      - name: Set default commit message if no Gemini token
+        if: env.GEMINI_TOKEN == ''
+        run: |
+          echo "COMMIT_MESSAGE=Automatically pull from Overleaf." >> $GITHUB_ENV
+
       - name: Push merged changes back to GitHub
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
