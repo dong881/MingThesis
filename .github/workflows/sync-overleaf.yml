@@ -120,11 +120,11 @@ jobs:
           fi
           
           # Prepare prompt for Gemini
-          PROMPT="請根據以下Git diff內容，生成一個簡短的中文commit訊息（不超過50字），並在下一行列出主要變更項目的大綱（每項用-開頭）：$DIFF_OUTPUT 請用以下格式回覆：\n[簡短摘要]\n\n- [變更項目1]\n- [變更項目2]\n- [變更項目3]"
+          PROMPT="請根據以下Git diff內容，生成一個簡短的commit訊息（不超過50字），並在下一行列出主要變更項目的大綱（每項用-開頭）：$DIFF_OUTPUT 請用以下格式回覆：\n[簡短摘要]\n\n- [變更項目1]\n- [變更項目2]\n- [變更項目3]"
           
           # Call Gemini API
           RESPONSE=$(curl -s -X POST \
-            "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${GEMINI_TOKEN}" \
+            "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${GEMINI_TOKEN}" \
             -H "Content-Type: application/json" \
             -d "{
               \"contents\": [{
