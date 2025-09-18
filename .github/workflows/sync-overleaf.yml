@@ -58,10 +58,13 @@ jobs:
             # Squash merge to combine Overleaf commits into one
             if ! git merge --squash overleaf/master --allow-unrelated-histories; then
               echo "Conflict detected. Auto-resolving in favor of Overleaf (theirs)."
+              # For files that were deleted on Overleaf (theirs) but modified locally (ours), we remove them.
+              git diff --name-status | grep -E '^UD' | cut -f2 | xargs -r git rm
+              # For all other conflicts, we take the version from Overleaf (theirs).
               git checkout --theirs .
               git add .
             fi
-            git commit -m "auto pull from overleaf"
+            git commit -m "Automatically pull from Overleaf."
           fi
 
       - name: Push merged changes back to GitHub
@@ -75,4 +78,3 @@ jobs:
             echo "Pushing changes to GitHub..."
             git push origin master
           fi
-          git push origin master
