@@ -154,13 +154,18 @@ jobs:
         run: |
           # If we have a generated message and there are commits to amend
           if [ -n "$COMMIT_MESSAGE" ] && [ "$COMMIT_MESSAGE" != "Automatically pull from Overleaf." ]; then
-            if ! git log origin/master..HEAD --quiet 2>/dev/null || [ $? -eq 0 ]; then
+            # Check if there are commits to amend (commits ahead of origin/master)
+            if git rev-list origin/master..HEAD | grep -q .; then
               # Decode escaped newlines
               FINAL_MESSAGE=$(echo -e "$COMMIT_MESSAGE")
               echo "Updating commit message to:"
               echo "$FINAL_MESSAGE"
               git commit --amend -m "$FINAL_MESSAGE"
+            else
+              echo "No commits to amend"
             fi
+          else
+            echo "Using default commit message or no COMMIT_MESSAGE set"
           fi
 
       - name: Set default commit message if no Gemini token
