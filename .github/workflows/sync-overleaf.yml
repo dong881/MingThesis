@@ -12,11 +12,15 @@ jobs:
         uses: actions/checkout@v3
         with:
           persist-credentials: false
+          fetch-depth: 0  # 取回完整 git tree 方便新建/快取 branch
 
       - name: Set git identity
+        env:
+          GIT_USER_NAME: ${{ secrets.GIT_USER_NAME }}
+          GIT_USER_EMAIL: ${{ secrets.GIT_USER_EMAIL }}
         run: |
-          git config --global user.name "dong881"
-          git config --global user.email "minghunghsu.taiwan@gmail.com"
+          git config --global user.name "$GIT_USER_NAME"
+          git config --global user.email "$GIT_USER_EMAIL"
 
       - name: Add Overleaf as remote and fetch/merge
         env:
@@ -31,9 +35,13 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
         run: |
-          git remote set-url origin https://dong881:${GH_TOKEN}@github.com/dong881/MingThesis.git
-          # 自動拉取 GitHub master 並以 ours 為主自動解衝突
-          git pull origin master --allow-unrelated-histories --no-edit -X theirs
+          git remote set-url origin https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git
+          # 嘗試拉遠端 master，無則新建本地 branch 並 push
+          if git ls-remote --exit-code --heads origin master; then
+            git pull origin master --allow-unrelated-histories --no-edit -X theirs
+          else
+            git checkout -b master || git checkout master
+          fi
 
       - name: Push merged changes back to GitHub
         env:
