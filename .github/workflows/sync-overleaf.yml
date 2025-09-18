@@ -54,14 +54,14 @@ jobs:
           if [ -z "$(git diff HEAD..overleaf/master)" ]; then
             echo "No changes from Overleaf. Nothing to merge."
           else
-            echo "Changes detected from Overleaf. Merging..."
-            # Merge favoring Overleaf on conflicts
-            if ! git merge overleaf/master --allow-unrelated-histories -X theirs --no-edit; then
+            echo "Changes detected from Overleaf. Merging and squashing..."
+            # Squash merge to combine Overleaf commits into one
+            if ! git merge --squash overleaf/master --allow-unrelated-histories; then
               echo "Conflict detected. Auto-resolving in favor of Overleaf (theirs)."
               git checkout --theirs .
               git add .
-              git commit -m "Auto-resolve conflicts favoring Overleaf"
             fi
+            git commit -m "auto pull from overleaf"
           fi
 
       - name: Push merged changes back to GitHub
