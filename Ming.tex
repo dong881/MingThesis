@@ -128,10 +128,17 @@ The main contributions of this paper are summarized as follows.
 % \end{figure}
 The following assumptions were made in this paper.
 \begin{itemize}
-\item Assumption 1.
-\item Assumption 2. 
-\item Assumption 3. 
+\item 5G O-RAN架構下End-to-End的自動化性能評估挑戰
+\item O-RAN SMO智能管理需求
+\item FAPI 與 NFAPI的比較研究分析
 \end{itemize}
+
+隨著5G技術的發展和O-RAN聯盟推動開放式架構，FAPI (Functional Application Platform Interface) 和 nFAPI (network FAPI) 作為關鍵的拆分介面標準，其性能差異對實際部署具有重大影響。電信運營商和設備供應商需要客觀資料來選擇合適的功能分割架構，以平衡成本與性能。以目前實驗室合作的計畫案為例，義傳科技等專門從事RU開發的公司在整合DU LOW和RU時，需要依據可靠數據選擇適合的分割點(split 6)架構。
+
+
+目前學術界與業界缺乏End-to-End環境下FAPI與nFAPI架構性能差異的系統性測量工具，特別是缺乏自動化的throughput、latency及CPU資源使用率綜合呈現方案。現有測試方法多依賴人工干預和簡單指標測量，無法提供全面且可重現的性能比較結果。
+
+在O-RAN架構中，Service Management and Orchestration (SMO) 框架提供統一的管理服務，Non-RT RIC支援非即時的無線電資源管理和策略優化。而現有的rApp主要聚焦於特定功能（如能源管理、網路切片），但缺乏專門針對End-to-End性能自動化測量的通用解決方案。
 
 \section{Proposed Method}
 \section{Numerical/Simulation/Experimental Results}
