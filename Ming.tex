@@ -167,7 +167,7 @@ The following assumptions were made in this paper.
     \item 設計可配置的測量參數和測試場景，支援小流量到大流量的自動化測試
 \end{itemize}
 
-\textbf{技術實現}
+\textbf{實現}
 \begin{itemize}
     \item 利用O-RAN SMO rApp的互動機制，實現對底層網路功能的環境自動化建置（可基於Joe's rAPP去延伸，搭配Summer's rapp去整合）
 \end{itemize}
@@ -175,7 +175,7 @@ The following assumptions were made in this paper.
 \subsection{第二階段：FAPI與nFAPI架構下的比較測試}
 \begin{itemize}
     \item 基於OpenAirInterface的實驗平台
-    \item 運用EURECOM實習期間開發的nFAPI模組和實驗室既有的FAPI實作經驗
+    \item 運用EURECOM實習期間開發的nFAPI和實驗室既有的FAPI實作經驗
     \item 建立統一的測試環境，確保兩種架構測試條件的一致性
     \item 實現自動化測試腳本（可建置於SMO rApp），支援可重複的實驗流程
 \end{itemize}
@@ -199,10 +199,10 @@ The following assumptions were made in this paper.
 目前已實作且得到Robert的認可方法合理，但只能從結果提出證據驗證有效，且無法100\%驗證完全根本解決問題，算是一種暫時性解法。
 \end{quote}
 
-\textbf{性能改進驗證}
-\begin{itemize}
-    \item 驗證優化方案對FAPI和nFAPI架構性能影響的差異性
-\end{itemize}
+% \textbf{性能改進驗證}
+% \begin{itemize}
+%     \item 驗證優化方案對FAPI和nFAPI架構性能影響的差異性
+% \end{itemize}
 
 \section{研究貢獻}
 
@@ -210,28 +210,27 @@ The following assumptions were made in this paper.
     \item 新穎的End-to-End自動化測量rApp
     \item 通用性能測量解決方案
     \item 開發首個專門針對End-to-End性能自動化測量的O-RAN rApp
-    \item 提供標準化的測量框架，支援不同廠商和部署環境的通用性應用
+    \item 提供標準化的測量框架，支援不同廠商和部署環境的通用性應用與參考報告
     \item RU支援Metanoia, pegatron, liteon
     \item UE支援root Android
-    \item 實現throughput、latency、資源使用率等多維度指標的統整報告
+    \item 實現throughput、latency、資源使用率等多維度指標的報告
 \end{itemize}
 
 \begin{quote}
 進階功能展望：
 \begin{itemize}
     \item 更花俏的功能？
-    \item 智能化測試能力
     \item 套用LLM API提供報告之摘要
-    \item 提供可視化的性能分析儀表板和報告生成功能
+    \item 提供可視化的性能分析UI 報告
 \end{itemize}
 \end{quote}
 
 
-\textbf{實證性的FAPI vs nFAPI性能數據集}
+\textbf{FAPI vs nFAPI性能數據集}
 \begin{itemize}
     \item 全面的比較分析結果
     \item 基於實際測量提供FAPI與nFAPI在各種流量條件下的延遲、吞吐量比較數據
-    \item 建立包含系統資源使用效率、可靠性指標的完整性能數據集
+    \item 建立包含系統資源使用效率、記憶體使用率的完整性能數據集
     \item 提供不同硬體配置和網路條件下的架構選擇決策模型
     \item 提出觀點：NFAPI將DU分散在兩個server上跑真的會分擔CPU效能嗎？還是不會？
 \end{itemize}
@@ -242,13 +241,6 @@ The following assumptions were made in this paper.
     \item 提出針對OAI錯誤封包處理的跳過機制優化方案
     \item NFAPI mode修復
     \item 於法國EURECOM與工程師合作參與NFAPI修復開發計畫，並貢獻開源社群，推動OpenAirInterface平台的持續改進
-    \item 驗證優化效果並提供實作指南，提升整體系統流量處理能力
-\end{itemize}
-
-\textbf{工程實踐指南}
-\begin{itemize}
-    \item 總結OpenAirInterface平台上FAPI/nFAPI實作的關鍵經驗
-    \item 建立可重現的實驗流程和測試基準
 \end{itemize}
 
 \section{學術與產業應用價值}
