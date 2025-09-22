@@ -126,7 +126,11 @@ The main contributions of this paper are summarized as follows.
 %   \centerline{\includegraphics[width=1\columnwidth]{root/fig1_v5.png}}
 %   \caption{Timing diagram of the system model considered in this paper.}
 %   \label{fig:Fig1}
+
 % \end{figure}
+% 用一個大括號{} 將這個區間內的文字都設定成藍色字體
+{\color{blue}
+
 The following assumptions were made in this paper.
 \begin{itemize}
 \item 5G O-RAN架構下End-to-End的自動化性能評估挑戰
@@ -134,8 +138,6 @@ The following assumptions were made in this paper.
 \item FAPI 與 NFAPI的比較研究分析
 \end{itemize}
 
-% 用一個大括號{} 將這個區間內的文字都設定成藍色字體
-{\color{blue}
 
 
 隨著5G技術的發展和O-RAN聯盟推動開放式架構，\textbf{FAPI (Functional Application Platform Interface)} 和 \textbf{nFAPI (network FAPI)} 作為關鍵的拆分介面標準，其性能差異對實際部署具有重大影響。電信運營商和設備供應商需要客觀資料來選擇合適的功能分割架構，以平衡成本與性能。以目前實驗室合作的計畫案為例，義傳科技等專門從事RU開發的公司在整合DU LOW和RU時，需要依據可靠數據選擇適合的分割點（\textbf{split 6}）架構。
@@ -303,6 +305,6 @@ The following assumptions were made in this paper.
 % \begin{thebibliography}{00}
 % \bibitem{b1} 
 \end{thebibliography}
-\end{CJK}\
+\end{CJK}
 \end{document}
 
