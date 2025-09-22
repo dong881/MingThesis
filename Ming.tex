@@ -6,6 +6,7 @@
 \usepackage{algorithmic}
 \usepackage{graphicx}
 \usepackage{tabularx}
+\usepackage{xcolor}
 \usepackage{color}
 \begin{document}
 \begin{CJK}{UTF8}{bsmi}
@@ -133,6 +134,10 @@ The following assumptions were made in this paper.
 \item FAPI 與 NFAPI的比較研究分析
 \end{itemize}
 
+% 用一個大括號{} 將這個區間內的文字都設定成藍色字體
+{\color{blue}
+
+
 隨著5G技術的發展和O-RAN聯盟推動開放式架構，\textbf{FAPI (Functional Application Platform Interface)} 和 \textbf{nFAPI (network FAPI)} 作為關鍵的拆分介面標準，其性能差異對實際部署具有重大影響。電信運營商和設備供應商需要客觀資料來選擇合適的功能分割架構，以平衡成本與性能。以目前實驗室合作的計畫案為例，義傳科技等專門從事RU開發的公司在整合DU LOW和RU時，需要依據可靠數據選擇適合的分割點（\textbf{split 6}）架構。
 
 \vspace{1em}
@@ -142,6 +147,7 @@ The following assumptions were made in this paper.
 \vspace{1em}
 
 在O-RAN架構中，\textbf{Service Management and Orchestration (SMO)} 框架提供統一的管理服務，\textbf{Non-RT RIC}支援非即時的無線電資源管理和策略優化。而現有的rApp主要聚焦於特定功能（如能源管理、網路切片），但缺乏專門針對End-to-End性能自動化測量的通用解決方案。
+
 
 
 % \section{Proposed Method}
@@ -218,6 +224,7 @@ The following assumptions were made in this paper.
 \end{itemize}
 \end{quote}
 
+
 \textbf{實證性的FAPI vs nFAPI性能數據集}
 \begin{itemize}
     \item 全面的比較分析結果
@@ -257,7 +264,7 @@ The following assumptions were made in this paper.
     \item 促進開源5G軟體平台的性能改進和廣泛採用
 \end{itemize}
 
-\section*{本研究提案優勢}
+\section*{本研究優勢}
 \begin{itemize}
     \item 創新性：提出End-to-End自動化測量rApp的新概念，填補現有研究空白
     \item 實用性：基於實際的OpenAirInterface實作經驗和業界真實需求
@@ -265,7 +272,7 @@ The following assumptions were made in this paper.
     \item 貢獻明確：同時具備學術價值和產業應用潛力的具體成果
     \item 技術可行性：建立在已有的實作基礎和成熟的O-RAN標準之上
 \end{itemize}
-
+}
 
 
 %很多同學無法討論的原因是因為花了很多時間畫圖，但是圖畫錯。
@@ -281,20 +288,20 @@ The following assumptions were made in this paper.
 % For each contribution, tell us
 % HOW do you design experiments to demonstrate your contribution 
 % WHY your results can support your contribution
-\subsection{Contribution 1}
-Fig. 1.1: Purpose
-    X axis: 
-    Y axis:
-\subsection{Contribution 2}
-Fig. 2.1: 
-    X axis: 
-    Y axis:
-\subsection{Contribution 3}
-Fig. 3.1: 
-    X axis: 
-    Y axis:
-\begin{thebibliography}{00}
-\bibitem{b1} 
+% \subsection{Contribution 1}
+% Fig. 1.1: Purpose
+%     X axis: 
+%     Y axis:
+% \subsection{Contribution 2}
+% Fig. 2.1: 
+%     X axis: 
+%     Y axis:
+% \subsection{Contribution 3}
+% Fig. 3.1: 
+%     X axis: 
+%     Y axis:
+% \begin{thebibliography}{00}
+% \bibitem{b1} 
 \end{thebibliography}
 \end{CJK}\
 \end{document}
