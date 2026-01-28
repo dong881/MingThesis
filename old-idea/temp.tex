@@ -7,6 +7,11 @@
 \usepackage{graphicx}
 \usepackage{tabularx}
 \usepackage{color}
+\usepackage{longtable}
+\documentclass{article}
+\usepackage{booktabs}  % 改善表格線條
+\usepackage{array}     % 支援欄位格式
+\usepackage{multirow}  % 如果需要合併儲存格
 \begin{document}
 \begin{CJK}{UTF8}{bsmi}
 \title{Adaptive Timing Scheduler for Low-Latency Split-6 Networks}
@@ -104,6 +109,28 @@ The main contributions of this paper are summarized as follows.
 The rest of the paper is organized as follows. Section II defines the system model/architecture considered in this paper. The proposed analytical model/method is given in Section III. Section IV shows the numerical results. Concluding remarks are given in Section VI.
 
 \section{System Model/Architecture}
+
+\begin{longtable}{p{1cm}|p{1cm}|p{4cm}|p{2cm}}
+\caption{nFAPI Delay Management Configuration Parameters [10]} \\
+\toprule
+\textbf{Tag} & \textbf{Field Type} & \textbf{Description} & \textbf{Reference} \\
+\midrule
+\endfirsthead
+
+\caption[]{nFAPI Delay Management Configuration Parameters (continued)} \\
+\toprule
+\textbf{Tag} & \textbf{Field Type} & \textbf{Description} & \textbf{Reference} \\
+\midrule
+\endhead
+
+\bottomrule
+\endfoot
+
+0x011E & uint16\_t & timingWindow-v3: See section 3.2.9 of [10]. Applies to Delay Management with or without Timestamps, whichever is configured. & See section 3.2.9 of [10] \\
+0x011F & uint8\_t & timingMode-v3: See section 3.2.9 of [10]. Applies to Timing Info or Timing Indication APIs, depending on whether Delay Management with or without Timestamps is configured. & See section 3.2.9 of [10] \\
+0x0120 & uint8\_t & timingPeriod-v3: See section 3.2.9 of [10]. Applies to Timing Info or Timing Indication APIs, depending on whether Delay Management with or without Timestamps is configured. & See section 3.2.9 of [10] \\
+\end{longtable}
+
 
 Figure~\ref{fig:Fig1} shows the system model/architecture considered in this paper.
 (Draw a figure showing the key components and their relationship in the system model. It may consist the I/P and O/P parameters of your system or the major components showing your contributions.) 
