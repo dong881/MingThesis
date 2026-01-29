@@ -16,7 +16,11 @@
 \usepackage{multirow}  % 如果需要合併儲存格
 \begin{document}
 \begin{CJK}{UTF8}{bsmi}
+<<<<<<<< HEAD:drafting.tex
+\title{Timing-Feedback Adaptive Scheduler for Split-6 Latency Reduction}
+========
 \title{Adaptive Timing Scheduler for Low-Latency Split-6 Networks}
+>>>>>>>> overleaf/master:old-idea/temp.tex
 \author{
 \author{\IEEEauthorblockN{
         Ming-Hong HSU\IEEEauthorrefmark{1}, 
@@ -110,8 +114,17 @@ The main contributions of this paper are summarized as follows.
 
 The rest of the paper is organized as follows. Section II defines the system model/architecture considered in this paper. The proposed analytical model/method is given in Section III. Section IV shows the numerical results. Concluding remarks are given in Section VI.
 
-\section{System Model/Architecture}
+% 用一個大括號{} 將這個區間內的文字都設定成藍色字體
+{\color{blue}
 
+<<<<<<<< HEAD:drafting.tex
+\section{System Model}
+
+
+
+% Figure~\ref{fig:Fig1} shows the system model/architecture considered in this paper.
+% (Draw a figure showing the key components and their relationship in the system model. It may consist the I/P and O/P parameters of your system or the major components showing your contributions.) 
+========
 \begin{longtable}{l|l|p{4cm}}
 \caption{nFAPI Delay Management Configuration Parameters} \\
 \toprule
@@ -137,17 +150,20 @@ timingPeriod & uint8\_t & Timing period for Timing Info. See section 3.2.9 of [1
 
 Figure~\ref{fig:Fig1} shows the system model/architecture considered in this paper.
 (Draw a figure showing the key components and their relationship in the system model. It may consist the I/P and O/P parameters of your system or the major components showing your contributions.) 
+>>>>>>>> overleaf/master:old-idea/temp.tex
 % \begin{figure}[h]
 %   \centerline{\includegraphics[width=1\columnwidth]{root/fig1_v5.png}}
 %   \caption{Timing diagram of the system model considered in this paper.}
 %   \label{fig:Fig1}
 % \end{figure}
-The following assumptions were made in this paper.
-\begin{itemize}
-\item Assumption 1.
-\item Assumption 2. 
-\item Assumption 3. 
-\end{itemize}
+% The following assumptions were made in this paper.
+% \begin{itemize}
+% \item Assumption 1.
+% \item Assumption 2. 
+% \item Assumption 3. 
+% \end{itemize}
+
+}
 
 \section{Proposed Method}
 \section{Numerical/Simulation/Experimental Results}
