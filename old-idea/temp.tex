@@ -112,25 +112,25 @@ The rest of the paper is organized as follows. Section II defines the system mod
 
 \section{System Model/Architecture}
 
-\begin{longtable}{l|l|p{3cm}}
+\begin{longtable}{l|l|p{4cm}}
 \caption{nFAPI Delay Management Configuration Parameters} \\
 \toprule
-\textbf{Parameter Name} & \textbf{Field Type} & \textbf{Description} \\
+\textbf{Parameter} & \textbf{Type} & \textbf{Description} \\
 \midrule
 \endfirsthead
 
 \caption[]{nFAPI Delay Management Configuration Parameters (continued)} \\
 \toprule
-\textbf{Parameter Name} & \textbf{Field Type} & \textbf{Description} \\
+\textbf{Parameter} & \textbf{Type} & \textbf{Description} \\
 \midrule
 \endhead
 
 \bottomrule
 \endfoot
 
-timingWindow-v3 & uint16\_t & Timing window for delay management (with or without timestamps). See section 3.2.9 of [10] \\
-timingMode-v3 & uint8\_t & Timing mode for Timing Info or Timing Indication APIs. See section 3.2.9 of [10] \\
-timingPeriod-v3 & uint8\_t & Timing period for Timing Info or Timing Indication APIs. See section 3.2.9 of [10] \\
+timingWindow & uint16\_t & Timing window for delay management. See section 3.2.9 of [10] \\
+timingMode & uint8\_t & Timing mode for Timing Info. See section 3.2.9 of [10] \\
+timingPeriod & uint8\_t & Timing period for Timing Info. See section 3.2.9 of [10] \\
 \end{longtable}
 
 
