@@ -133,30 +133,46 @@ jobs:
           # Prepare prompt for Gemini
           PROMPT="請根據以下Git diff內容，生成一個簡短的commit訊息（不超過50字），並在下一行列出主要變更項目的大綱（每項用-開頭）：$DIFF_OUTPUT 請用以下格式回覆：\n[簡短摘要]\n\n- [變更項目1]\n- [變更項目2]\n- [變更項目3]"
           
-          # Call Gemini API
-          RESPONSE=$(curl -s -X POST \
-            "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${GEMINI_TOKEN}" \
-            -H "Content-Type: application/json" \
-            -d "{
-              \"contents\": [{
-                \"parts\": [{
-                  \"text\": \"$PROMPT\"
-                }]
-              }]
-            }")
+          # Define models to try in order
+          MODELS=("gemini-3-flash-preview" "gemini-2.5-pro" "gemini-2.5-flash" "gemini-2.5-flash-lite")
+          GENERATED_MESSAGE=""
           
-          # Extract the generated text from response
-          GENERATED_MESSAGE=$(echo "$RESPONSE" | jq -r '.candidates[0].content.parts[0].text // empty' 2>/dev/null)
+          for MODEL in "${MODELS[@]}"; do
+            echo "Trying to generate commit message with model: $MODEL"
+            
+            # Call Gemini API
+            RESPONSE=$(curl -s -X POST \
+              "https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${GEMINI_TOKEN}" \
+              -H "Content-Type: application/json" \
+              -d "{
+                \"contents\": [{
+                  \"parts\": [{
+                    \"text\": \"$PROMPT\"
+                  }]
+                }]
+              }")
+            
+            # Extract the generated text from response
+            CANDIDATE=$(echo "$RESPONSE" | jq -r '.candidates[0].content.parts[0].text // empty' 2>/dev/null)
+            
+            if [ -n "$CANDIDATE" ] && [ "$CANDIDATE" != "null" ] && [ "$CANDIDATE" != "" ]; then
+              echo "Successfully generated message with $MODEL"
+              GENERATED_MESSAGE="$CANDIDATE"
+              break
+            else
+              echo "Failed to generate with $MODEL. Response snippet: $(echo "$RESPONSE" | head -c 100)..."
+            fi
+          done
           
           # Validate the response and set commit message
-          if [ -n "$GENERATED_MESSAGE" ] && [ "$GENERATED_MESSAGE" != "null" ] && [ "$GENERATED_MESSAGE" != "" ]; then
-            echo "Generated commit message:"
+          if [ -n "$GENERATED_MESSAGE" ]; then
+            echo "Final generated commit message:"
             echo "$GENERATED_MESSAGE"
             # Escape newlines for GitHub environment variable
             ESCAPED_MESSAGE=$(echo "$GENERATED_MESSAGE" | sed ':a;N;$!ba;s/\n/\\n/g')
             echo "COMMIT_MESSAGE=$ESCAPED_MESSAGE" >> $GITHUB_ENV
           else
-            echo "Failed to generate commit message, using default"
+            echo "All models failed to generate commit message, using default"
             echo "COMMIT_MESSAGE=Automatically pull from Overleaf." >> $GITHUB_ENV
           fi
 
