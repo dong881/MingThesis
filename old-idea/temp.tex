@@ -8,7 +8,9 @@
 \usepackage{tabularx}
 \usepackage{color}
 \usepackage{longtable}
-\documentclass{article}
+\usepackage[T1]{fontenc}
+\usepackage{geometry}
+\geometry{margin=1in}
 \usepackage{booktabs}  % 改善表格線條
 \usepackage{array}     % 支援欄位格式
 \usepackage{multirow}  % 如果需要合併儲存格
@@ -110,26 +112,27 @@ The rest of the paper is organized as follows. Section II defines the system mod
 
 \section{System Model/Architecture}
 
-\begin{longtable}{p{1cm}|p{1cm}|p{4cm}|p{2cm}}
-\caption{nFAPI Delay Management Configuration Parameters [10]} \\
+\begin{longtable}{l|l|p{3cm}}
+\caption{nFAPI Delay Management Configuration Parameters} \\
 \toprule
-\textbf{Tag} & \textbf{Field Type} & \textbf{Description} & \textbf{Reference} \\
+\textbf{Parameter Name} & \textbf{Field Type} & \textbf{Description} \\
 \midrule
 \endfirsthead
 
 \caption[]{nFAPI Delay Management Configuration Parameters (continued)} \\
 \toprule
-\textbf{Tag} & \textbf{Field Type} & \textbf{Description} & \textbf{Reference} \\
+\textbf{Parameter Name} & \textbf{Field Type} & \textbf{Description} \\
 \midrule
 \endhead
 
 \bottomrule
 \endfoot
 
-0x011E & uint16\_t & timingWindow-v3: See section 3.2.9 of [10]. Applies to Delay Management with or without Timestamps, whichever is configured. & See section 3.2.9 of [10] \\
-0x011F & uint8\_t & timingMode-v3: See section 3.2.9 of [10]. Applies to Timing Info or Timing Indication APIs, depending on whether Delay Management with or without Timestamps is configured. & See section 3.2.9 of [10] \\
-0x0120 & uint8\_t & timingPeriod-v3: See section 3.2.9 of [10]. Applies to Timing Info or Timing Indication APIs, depending on whether Delay Management with or without Timestamps is configured. & See section 3.2.9 of [10] \\
+timingWindow-v3 & uint16\_t & Timing window for delay management (with or without timestamps). See section 3.2.9 of [10] \\
+timingMode-v3 & uint8\_t & Timing mode for Timing Info or Timing Indication APIs. See section 3.2.9 of [10] \\
+timingPeriod-v3 & uint8\_t & Timing period for Timing Info or Timing Indication APIs. See section 3.2.9 of [10] \\
 \end{longtable}
+
 
 
 Figure~\ref{fig:Fig1} shows the system model/architecture considered in this paper.
