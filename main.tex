@@ -7,9 +7,16 @@
 \usepackage{graphicx}
 \usepackage{tabularx}
 \usepackage{color}
+\usepackage{longtable}
+\usepackage[T1]{fontenc}
+\usepackage{geometry}
+\geometry{margin=1in}
+\usepackage{booktabs}  % 改善表格線條
+\usepackage{array}     % 支援欄位格式
+\usepackage{multirow}  % 如果需要合併儲存格
 \begin{document}
 \begin{CJK}{UTF8}{bsmi}
-\title{Timing-Feedback Adaptive Scheduler for Split-6 Latency Reduction}
+\title{Adaptive Timing Scheduler for Low-Latency Split-6 Networks}
 \author{
 \author{\IEEEauthorblockN{
         Ming-Hong HSU\IEEEauthorrefmark{1}, 
@@ -103,28 +110,31 @@ The main contributions of this paper are summarized as follows.
 
 The rest of the paper is organized as follows. Section II defines the system model/architecture considered in this paper. The proposed analytical model/method is given in Section III. Section IV shows the numerical results. Concluding remarks are given in Section VI.
 
-% 用一個大括號{} 將這個區間內的文字都設定成藍色字體
-{\color{blue}
+\section{System Model/Architecture}
 
-\section{System Model}
+\begin{tabular}{l l p{4cm}}
+\toprule
+\textbf{Parameter} & \textbf{Type} & \textbf{Description} \\
+\midrule
+timingWindow & uint16\_t & Timing window for delay management. See section 3.2.9 of [10] \\
+timingMode & uint8\_t & Timing mode for Timing Info. See section 3.2.9 of [10] \\
+timingPeriod & uint8\_t & Timing period for Timing Info. See section 3.2.9 of [10] \\
+\bottomrule
+\end{tabular}
 
-
-
-% Figure~\ref{fig:Fig1} shows the system model/architecture considered in this paper.
-% (Draw a figure showing the key components and their relationship in the system model. It may consist the I/P and O/P parameters of your system or the major components showing your contributions.) 
+Figure~\ref{fig:Fig1} shows the system model/architecture considered in this paper.
+(Draw a figure showing the key components and their relationship in the system model. It may consist the I/P and O/P parameters of your system or the major components showing your contributions.) 
 % \begin{figure}[h]
 %   \centerline{\includegraphics[width=1\columnwidth]{root/fig1_v5.png}}
 %   \caption{Timing diagram of the system model considered in this paper.}
 %   \label{fig:Fig1}
 % \end{figure}
-% The following assumptions were made in this paper.
-% \begin{itemize}
-% \item Assumption 1.
-% \item Assumption 2. 
-% \item Assumption 3. 
-% \end{itemize}
-
-}
+The following assumptions were made in this paper.
+\begin{itemize}
+\item Assumption 1.
+\item Assumption 2. 
+\item Assumption 3. 
+\end{itemize}
 
 \section{Proposed Method}
 \section{Numerical/Simulation/Experimental Results}
