@@ -3,3 +3,5 @@ drafting.fdb_latexmk
 drafting.fls
 drafting.log
 drafting.synctex.gz
+.vscode/settings.json
+indent.log
