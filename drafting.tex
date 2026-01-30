@@ -130,7 +130,46 @@ The primary objective of this system is to adaptively adjust the VNF's execution
 
 }
 
+{\color{blue}
 \section{Proposed Method}
+\label{sec:proposed_method}
+
+To address the timing synchronization challenges in Split-6 RAN, we propose a Timing-Feedback Adaptive Scheduler. This mechanism introduces a closed-loop control system that dynamically adjusts the VNF's execution timing based on feedback from the PNF. As shown in Section \ref{sec:system_model}, the core objective is to minimize the timing difference between the arrival of TTI messages and the PNF's slot boundary, ensuring reliable transmission while minimizing latency. The proposed method consists of three key components: Jitter Mitigation via Baseline Envelope, Drift Prevention with a Time Bank mechanism, and Severe Deviation Handling.
+
+\subsection{Dynamic Timing Adjustment Algorithm}
+The core of the proposed method is an adaptive algorithm that calculates the optimal sleep duration ($T_{sleep}$) for the VNF timing thread.
+Let $t_{arrival}$ be the arrival time of the TTI message at the PNF and $t_{slot}$ be the start time of the corresponding slot. The timing error $\Delta t$ is defined as:
+\begin{equation}
+    \Delta t = t_{arrival} - t_{slot}
+\end{equation}
+If $\Delta t > 0$, the packet is late; if $\Delta t < 0$, it is early. The PNF feeds this $\Delta t$ back to the VNF. The scheduler uses this feedback to adjust the start time of the next slot calculation.
+
+\subsection{Jitter Mitigation via Baseline Envelope}
+Network jitter and processing variations can cause significant fluctuations in $\Delta t$. Direct reaction to every instantaneous value would lead to system instability. To mitigate this, we employ a Baseline Envelope mechanism.
+The system maintains a variable $E_{base}$ representing the minimum observed processing and transmission delay.
+\begin{itemize}
+    \item \textbf{Fast Attack}: If the current measured delay $d_{curr}$ is less than $E_{base}$, we update $E_{base} = d_{curr}$. This allows the system to quickly adapt to improved network conditions.
+    \item \textbf{Slow Decay}: If $d_{curr} > E_{base}$, we treat the excess as potential jitter. $E_{base}$ is slowly incremented (decayed) over time to ensure it doesn't get stuck at a transient minimum.
+\end{itemize}
+This envelope provides a stable reference point, effectively filtering out high-frequency noise.
+
+\subsection{Drift Prevention with Time Bank Mechanism}
+Traditional Proportional-Integral (PI) controllers can suffer from integral windup or oscillation in this context. We propose a "Time Bank" mechanism, utilizing a variable $T_{pending}$, to manage accumulated timing deviation without over-correction.
+\begin{itemize}
+    \item \textbf{Accumulation}: When the system is late ($\Delta t > 0$), the lateness is added to $T_{pending}$. This represents a debt of time that must be recovered.
+    \item \textbf{Gradual Recovery}: Instead of forcing an immediate large correction, the scheduler pays back this debt only when it has "spare time" (i.e., when the estimated computation time allows).
+\end{itemize}
+This approach ensures that the recovery process does not induce new violations in subsequent slots.
+
+\subsection{Severe Deviation Handling}
+In cases of extreme network disruption or process preemption, the VNF may fall significantly behind (e.g., lagging by more than one entire slot duration $T_{slot}$). Attempting to process these stale slots is futile.
+We implement a slot-skipping mechanism:
+\begin{equation}
+    N_{skip} = \lfloor \frac{\Delta t_{accumulated}}{T_{slot}} \rfloor
+\end{equation}
+If $N_{skip} \ge 1$, the scheduler immediately advances its internal slot counter by $N_{skip}$ and resets the timing state. This "hard reset" allows the system to re-synchronize instantly with the current PNF time, preventing a cascade of late slots.
+}
+
 \section{Numerical/Simulation/Experimental Results}
 Computer simulations/Experiments were conducted to verify xxx (the effectiveness of the proposed analytical model). 
 In the following figures, each point represented the average value of $10^5$ samples. In each sample, we collect the statistics of xxx. Symbols and lines were used to show the simulation and analytical results, respectively. 
