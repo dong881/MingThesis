@@ -50,24 +50,9 @@ Word count: typically 150–250 words.
 Keywords: list 3–6 keywords.
 
 \section{Introduction}
-\subsection{Introduction}
-{\bf Purpose:} To explain {\bf what} the paper is about, {\bf why} the problem matters, and {\bf what} the others authors have done to address it.
+Directly reusing the FAPI slot.indication mechanism in nFAPI mode without following the SCF specification leads to significant latency because FAPI timing control was not designed for nFAPI’s transport and synchronization characteristics. Automated testing and analysis are required to detect and verify the timing delays caused by non-compliant implementations with the SCF specification.
 
-Typical content:
-\begin{itemize}
-\item Background and motivation
-\item Problem statement
-\item Goals of the paper
-\item Contributions (what’s new or important)
-\item High-level overview of the approach or results
-\end{itemize}
-
-Example phrases:
-\begin{itemize}
-\item “In recent years, …”
-\item “This paper addresses the problem of …”
-\item “Our main contributions are …”
-\end{itemize}
+Each step of the nFAPI procedure must be individually measured and analyzed to isolate delay sources through repeated end-to-end testing. Continuous automated testing, data collection, and graphical analysis are needed to compare delay patterns and identify timing bottlenecks efficiently.
 
 
 
@@ -96,9 +81,8 @@ Example phrases:
 % Contribution: The last TWO paragraphs of your paper.
 The main contributions of this paper are summarized as follows.
 \begin{itemize}
-\item Contribution 1.
-\item Contribution 2. 
-\item Contribution 3. 
+\item A fully SCF-compliant nFAPI implementation flow is established, replacing the legacy slot.indication mechanism with a delay-management process and introducing a VNF-side timing-window maintenance algorithm to cover undefined timing logic in the standard.
+\item An SMO RAPP module is developed to automate end-to-end testing, data acquisition, and chart generation, enabling validation and optimization of the proposed delay-management mechanism.
 \end{itemize}
 
 The rest of the paper is organized as follows. Section II defines the system model/architecture considered in this paper. The proposed analytical model/method is given in Section III. Section IV shows the numerical results. Concluding remarks are given in Section VI.
