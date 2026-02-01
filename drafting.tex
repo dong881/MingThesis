@@ -139,10 +139,21 @@ To address the timing synchronization challenges in Split-6 RAN, we propose a Ti
 \subsection{Dynamic Timing Adjustment Algorithm}
 The core of the proposed method is an adaptive algorithm that calculates the optimal sleep duration ($T_{sleep}$) for the VNF timing thread.
 Let $t_{arrival}$ be the arrival time of the TTI message at the PNF and $t_{slot}$ be the start time of the corresponding slot. The timing error $\Delta t$ is defined as:
+\subsection{VNF-PNF Clock Synchronization}
+To achieve precise time alignment between the VNF and PNF, a four-way handshake mechanism (Node Sync) is employed. Let $t_1$ be the timestamp when the VNF sends a synchronization request, $t_2$ and $t_3$ be the timestamps when the PNF receives and responds to the request, and $t_4$ be the timestamp when the VNF receives the response. The clock offset $\Delta t_{offset}$ and the one-way delay $T_{owd}$ are calculated as follows:
 \begin{equation}
-    \Delta t = t_{arrival} - t_{slot}
+    \Delta t_{offset} = \frac{(t_2 - t_1) - (t_4 - t_3)}{2}
 \end{equation}
-If $\Delta t > 0$, the packet is late; if $\Delta t < 0$, it is early. The PNF feeds this $\Delta t$ back to the VNF. The scheduler uses this feedback to adjust the start time of the next slot calculation.
+\begin{equation}
+    T_{owd} = \frac{(t_4 - t_1) - (t_3 - t_2)}{2}
+\end{equation}
+A positive $\Delta t_{offset}$ indicates that the VNF clock is lagging behind the PNF, while a negative value indicates it is ahead. To maintain a stable buffer at the PNF, a target margin $T_{margin}$ is added to the adjustment. The resulting slot-level adjustment $N_{slot\_adj}$ and microsecond-level adjustment $T_{us\_adj}$ are:
+\begin{equation}
+    N_{slot\_adj} = \lfloor \frac{\Delta t_{offset} + T_{margin}}{T_{slot}} \rfloor
+\end{equation}
+\begin{equation}
+    T_{us\_adj} = (\Delta t_{offset} + T_{margin}) \pmod{T_{slot}}
+\end{equation}
 
 \subsection{Jitter Mitigation via Baseline Envelope}
 Network jitter and processing variations can cause significant fluctuations in $\Delta t$. Direct reaction to every instantaneous value would lead to system instability. To mitigate this, we employ a Baseline Envelope mechanism.
