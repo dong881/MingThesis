@@ -51,11 +51,11 @@ Word count: typically 150–250 words.
 Keywords: list 3–6 keywords.
 
 \section{Introduction}
+{\color{blue}
 Directly reusing the FAPI slot.indication mechanism in nFAPI mode without following the SCF specification leads to significant latency because FAPI timing control was not designed for nFAPI’s transport and synchronization characteristics. Automated testing and analysis are required to detect and verify the timing delays caused by non-compliant implementations with the SCF specification.
 
 Each step of the nFAPI procedure must be individually measured and analyzed to isolate delay sources through repeated end-to-end testing. Continuous automated testing, data collection, and graphical analysis are needed to compare delay patterns and identify timing bottlenecks efficiently.
-
-
+}
 
 \subsection{Related Works}
 {\bf Purpose:} To show how your work fits into the existing body of knowledge, and how it differs from or improves upon previous work.
@@ -88,12 +88,11 @@ The main contributions of this paper are summarized as follows.
 
 The rest of the paper is organized as follows. Section II defines the system model/architecture considered in this paper. The proposed analytical model/method is given in Section III. Section IV shows the numerical results. Concluding remarks are given in Section VI.
 
-% 用一個大括號{} 將這個區間內的文字都設定成藍色字體
-{\color{blue}
 
 \section{System Model}
 \label{sec:system_model}
 
+{\color{blue}
 Figure~\ref{fig:system_model} illustrates the system architecture of the proposed Timing-Feedback Adaptive Scheduler within a Split-6 RAN environment. The system comprises two main entities: the Virtual Network Function (VNF) and the Physical Network Function (PNF), connected via a packet-switched network.
 
 The VNF hosts the upper layer protocol stack and the scheduler. To minimize transmission latency and ensure synchronization with the PNF, the VNF implements a feedback-based timing mechanism. The key components include:
@@ -104,6 +103,7 @@ The VNF hosts the upper layer protocol stack and the scheduler. To minimize tran
     \item \textbf{Scheduler}: Detailed scheduling operations are performed here. Multiple scheduler instances generate the Transmission Time Interval (TTI) messages, which are then transmitted to the PNF.
     \item \textbf{PNF}: The Physical Network Function receives the TTI messages for radio transmission. It measures the arrival time of these messages and feeds this "Timing Info" back to the VNF, closing the control loop. The specific parameters included in the Timing Info message are summarized in Table~\ref{tab:timing_info}, as defined in the 5G nFAPI Specification~\cite{nfapi_spec}.
 \end{itemize}
+}
 
 \begin{table}[htbp]
 \caption{nFAPI Timing Info Parameters~\cite{nfapi_spec}}
@@ -148,6 +148,7 @@ timingPeriod & uint8\_t & Timing period for Timing Info. See section 3.2.9 of [1
 \end{center}
 \end{table}
 
+{\color{blue}
 The primary objective of this system is to adaptively adjust the VNF's execution offset such that TTI messages arrive at the PNF within the valid reception window, thereby avoiding slot drops due to late arrival while minimizing buffering latency caused by excessive earliness.
 
 \begin{figure}[htbp]
@@ -155,27 +156,33 @@ The primary objective of this system is to adaptively adjust the VNF's execution
   \caption{System Model of the Timing-Feedback Adaptive Scheduler.}
   \label{fig:system_model}
 \end{figure}
-
 }
 
-{\color{blue}
+
 \section{Proposed Method}
 \label{sec:proposed_method}
 
+{\color{blue}
 To address the timing synchronization challenges in Split-6 RAN, we propose a Timing-Feedback Adaptive Scheduler. This mechanism introduces a closed-loop control system that dynamically adjusts the VNF's execution timing based on feedback from the PNF. As shown in Section \ref{sec:system_model}, the core objective is to minimize the timing difference between the arrival of TTI messages and the PNF's slot boundary, ensuring reliable transmission while minimizing latency. The proposed method consists of three key components: Jitter Mitigation via Baseline Envelope, Drift Prevention with a Time Bank mechanism, and Severe Deviation Handling.
 
 \subsection{Dynamic Timing Adjustment Algorithm}
 The core of the proposed method is an adaptive algorithm that calculates the optimal sleep duration ($T_{sleep}$) for the VNF timing thread.
 Let $t_{arrival}$ be the arrival time of the TTI message at the PNF and $t_{slot}$ be the start time of the corresponding slot. The timing error $\Delta t$ is defined as:
+}
+
 \subsection{VNF-PNF Clock Synchronization}
+{\color{blue}
 To achieve precise time alignment between the VNF and PNF, a four-way handshake mechanism (Node Sync) is employed. Let $t_1$ be the timestamp when the VNF sends a synchronization request, $t_2$ and $t_3$ be the timestamps when the PNF receives and responds to the request, and $t_4$ be the timestamp when the VNF receives the response. The clock offset $\Delta t_{offset}$ and the one-way delay $T_{owd}$ are calculated as follows:
+}
 \begin{equation}
     \Delta t_{offset} = \frac{(t_2 - t_1) - (t_4 - t_3)}{2}
 \end{equation}
 \begin{equation}
     T_{owd} = \frac{(t_4 - t_1) - (t_3 - t_2)}{2}
 \end{equation}
+{\color{blue}
 A positive $\Delta t_{offset}$ indicates that the VNF clock is lagging behind the PNF, while a negative value indicates it is ahead. To maintain a stable buffer at the PNF, a target margin $T_{margin}$ is added to the adjustment. The resulting slot-level adjustment $N_{slot\_adj}$ and microsecond-level adjustment $T_{us\_adj}$ are:
+}
 \begin{equation}
     N_{slot\_adj} = \lfloor \frac{\Delta t_{offset} + T_{margin}}{T_{slot}} \rfloor
 \end{equation}
@@ -183,6 +190,7 @@ A positive $\Delta t_{offset}$ indicates that the VNF clock is lagging behind th
     T_{us\_adj} = (\Delta t_{offset} + T_{margin}) \pmod{T_{slot}}
 \end{equation}
 
+{\color{blue}
 \subsection{Jitter Mitigation via Baseline Envelope}
 Network jitter and processing variations can cause significant fluctuations in $\Delta t$. Direct reaction to every instantaneous value would lead to system instability. To mitigate this, we employ a Baseline Envelope mechanism.
 The system maintains a variable $E_{base}$ representing the minimum observed processing and transmission delay.
@@ -203,11 +211,14 @@ This approach ensures that the recovery process does not induce new violations i
 \subsection{Severe Deviation Handling}
 In cases of extreme network disruption or process preemption, the VNF may fall significantly behind (e.g., lagging by more than one entire slot duration $T_{slot}$). Attempting to process these stale slots is futile.
 We implement a slot-skipping mechanism:
+}
 \begin{equation}
     N_{skip} = \lfloor \frac{\Delta t_{accumulated}}{T_{slot}} \rfloor
 \end{equation}
+{\color{blue}
 If $N_{skip} \ge 1$, the scheduler immediately advances its internal slot counter by $N_{skip}$ and resets the timing state. This "hard reset" allows the system to re-synchronize instantly with the current PNF time, preventing a cascade of late slots.
 }
+
 
 \section{Numerical/Simulation/Experimental Results}
 Computer simulations/Experiments were conducted to verify xxx (the effectiveness of the proposed analytical model). 
