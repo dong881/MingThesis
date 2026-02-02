@@ -123,6 +123,18 @@ Subcarrier Spacing & uint8\_t & SCS index (0: 15kHz to 4: 240kHz) as defined in 
 \end{table}
 
 \begin{table}[htbp]
+\caption{nFAPI Delay Management Timing Offset Parameters~\cite{nfapi_spec}}
+\label{tab:delay_mgmt_offsets}
+\begin{center}
+\begin{tabularx}{\columnwidth}{X|l|X}
+\toprule
+\textbf{Parameter} & \textbf{Type} & \textbf{Description} \\ \midrule
+Timing offsets (DL\_TTI, UL\_TTI, UL\_DCI, Tx\_Data) & uint32\_t & The timing offset ($\mu$s) before the slot start that the corresponding request must be received at PHY. \\ \bottomrule
+\end{tabularx}
+\end{center}
+\end{table}
+
+\begin{table}[htbp]
 \caption{nFAPI Delay Management Configuration Parameters}
 \label{tab:delay_mgmt_config}
 \begin{center}
