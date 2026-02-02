@@ -447,6 +447,51 @@ struct pnf_p7_t {
 
 ---
 
+## Standard Parameters & Tables
+
+### nFAPI Timing Info (Feedback from PNF)
+This table summarizes the parameters returned by the PNF to the VNF to provide timing feedback.
+
+```latex
+\begin{table}[htbp]
+\caption{nFAPI Timing Info Parameters}
+\label{tab:timing_info}
+\centering
+\begin{tabularx}{\columnwidth}{l|l|X}
+\toprule
+\textbf{Field} & \textbf{Type} & \textbf{Description} \\ \midrule
+Last SFN / Slot & uint16\_t & The completed SFN (0--1023) and slot (0--159) that triggered the message. \\ 
+Time Since Last Info & uint32\_t & Time in ms since the last Timing Info message was sent. \\ 
+Jitter & uint32\_t & Inter-message jitter ($\mu$s) for DL\_TTI, TxData, UL\_TTI, and UL\_DCI. \\ 
+Latest Delay & int32\_t & Latest delay offset ($\mu$s) from acceptable window. Positive: late, negative: early. \\ 
+Earliest Arrival & int32\_t & Earliest arrival offset ($\mu$s) from acceptable window. \\ 
+Subcarrier Spacing & uint8\_t & SCS index (0: 15kHz to 4: 240kHz) as defined in TS38.211. \\ \bottomrule
+\end{tabularx}
+\end{table}
+```
+
+### nFAPI Delay Management Configuration (VNF to PNF)
+This table summarizes the configuration parameters sent from the VNF to the PNF to manage the timing window.
+
+```latex
+\begin{table}[htbp]
+\caption{nFAPI Delay Management Configuration Parameters}
+\label{tab:delay_mgmt_config}
+\centering
+\begin{tabularx}{\columnwidth}{l|p{1.5cm}|X}
+\toprule
+\textbf{Parameter} & \textbf{Type} & \textbf{Description} \\ \midrule
+timingWindow & uint16\_t & Timing window for delay management. See section 3.2.9 of [10] \\
+timingMode & uint8\_t & Timing mode for Timing Info. See section 3.2.9 of [10] \\
+timingPeriod & uint8\_t & Timing period for Timing Info. See section 3.2.9 of [10] \\ \bottomrule
+\end{tabularx}
+\end{table}
+```
+
+---
+
+---
+
 ## Message Sequence Chart
 
 ```mermaid
