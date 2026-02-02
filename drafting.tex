@@ -101,8 +101,25 @@ The VNF hosts the upper layer protocol stack and the scheduler. To minimize tran
     \item \textbf{Timing-Feedback Adaptive Module}: This module acts as the core controller. It receives timing feedback from the PNF, specifically the difference between the packet arrival time and the expected slot time (denoted as late by $N$ $\mu$s or early by $M$ $\mu$s). It also incorporates internal scheduler timing metrics. Based on these inputs, it dynamically computes the optimal sleep duration for the VNF timing thread to align with the PNF's slot cycle.
     \item \textbf{VNF Timing Thread}: This thread is responsible for triggering the scheduler instances. It utilizes the corrected timing provided by the Adaptive Module to wake up at the precise moment, compensating for network jitter and processing delays.
     \item \textbf{Scheduler}: Detailed scheduling operations are performed here. Multiple scheduler instances generate the Transmission Time Interval (TTI) messages, which are then transmitted to the PNF.
-    \item \textbf{PNF}: The Physical Network Function receives the TTI messages for radio transmission. It measures the arrival time of these messages and feeds this "Timing Info" back to the VNF, closing the control loop.
+    \item \textbf{PNF}: The Physical Network Function receives the TTI messages for radio transmission. It measures the arrival time of these messages and feeds this "Timing Info" back to the VNF, closing the control loop. The specific parameters included in the Timing Info message are summarized in Table~\ref{tab:timing_info}, as defined in the 5G nFAPI Specification~\cite{nfapi_spec}.
 \end{itemize}
+
+\begin{table}[htbp]
+\caption{nFAPI Timing Info Parameters~\cite{nfapi_spec}}
+\label{tab:timing_info}
+\begin{center}
+\begin{tabularx}{\columnwidth}{|l|l|X|}
+\hline
+\textbf{Field} & \textbf{Type} & \textbf{Description} \\ \hline
+Last SFN / Slot & uint16\_t & The completed SFN (0--1023) and slot (0--159) that triggered the message. \\ \hline
+Time Since Last Info & uint32\_t & Time in ms since the last Timing Info message was sent. \\ \hline
+Jitter & uint32\_t & Inter-message jitter ($\mu$s) for DL\_TTI, TxData, UL\_TTI, and UL\_DCI. \\ \hline
+Latest Delay & int32\_t & Latest delay offset ($\mu$s) from acceptable window. Positive: late, negative: early. \\ \hline
+Earliest Arrival & int32\_t & Earliest arrival offset ($\mu$s) from acceptable window. \\ \hline
+Subcarrier Spacing & uint8\_t & SCS index (0: 15kHz to 4: 240kHz) as defined in TS38.211. \\ \hline
+\end{tabularx}
+\end{center}
+\end{table}
 
 The primary objective of this system is to adaptively adjust the VNF's execution offset such that TTI messages arrive at the PNF within the valid reception window, thereby avoiding slot drops due to late arrival while minimizing buffering latency caused by excessive earliness.
 
@@ -194,9 +211,8 @@ Fig. 2.1:
 Fig. 3.1: 
     X axis: 
     Y axis:
-\begin{thebibliography}{00}
-\bibitem{b1} 
-\end{thebibliography}
+\bibliographystyle{IEEEtran}
+\bibliography{references}
 \end{CJK}\
 \end{document}
 

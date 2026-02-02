@@ -1,7 +1,9 @@
-drafting.aux
-drafting.fdb_latexmk
-drafting.fls
-drafting.log
-drafting.synctex.gz
+*.aux
+*.fdb_latexmk
+*.fls
+*.log
+*.synctex.gz
+*.bbl
+*.blg
 .vscode/settings.json
 indent.log
