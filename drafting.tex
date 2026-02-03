@@ -106,23 +106,6 @@ The VNF hosts the upper layer protocol stack and the scheduler. To minimize tran
 }
 
 \begin{table}[htbp]
-\caption{nFAPI Timing Info Parameters~\cite{nfapi_spec}}
-\label{tab:timing_info}
-\begin{center}
-\begin{tabularx}{\columnwidth}{l|l|X}
-\toprule
-\textbf{Field} & \textbf{Type} & \textbf{Description} \\ \midrule
-Last SFN / Slot & uint16\_t & The completed SFN (0--1023) and slot (0--159) that triggered the message. \\ 
-Time Since Last Info & uint32\_t & Time in ms since the last Timing Info message was sent. \\ 
-Jitter & uint32\_t & Inter-message jitter ($\mu$s) for DL\_TTI, TxData, UL\_TTI, and UL\_DCI. \\ 
-Latest Delay & int32\_t & Latest delay offset ($\mu$s) from acceptable window. Positive: late, negative: early. \\ 
-Earliest Arrival & int32\_t & Earliest arrival offset ($\mu$s) from acceptable window. \\ 
-Subcarrier Spacing & uint8\_t & SCS index (0: 15kHz to 4: 240kHz) as defined in TS38.211. \\ \bottomrule
-\end{tabularx}
-\end{center}
-\end{table}
-
-\begin{table}[htbp]
 \caption{nFAPI Delay Management Timing Offset Parameters~\cite{nfapi_spec}}
 \label{tab:delay_mgmt_offsets}
 \begin{center}
@@ -135,15 +118,32 @@ Timing offsets (DL\_TTI, UL\_TTI, UL\_DCI, Tx\_Data) & uint32\_t & The timing of
 \end{table}
 
 \begin{table}[htbp]
+\caption{nFAPI Timing Info Parameters~\cite{nfapi_spec}}
+\label{tab:timing_info}
+\begin{center}
+\begin{tabularx}{\columnwidth}{l|l|X}
+\toprule
+\textbf{Field} & \textbf{Type} & \textbf{Description} \\ \midrule
+\textbf{Last SFN / Slot} & uint16\_t & The completed SFN (0--1023) and slot (0--159) that triggered the message. \\ 
+Time Since Last Info & uint32\_t & Time in ms since the last Timing Info message was sent. \\ 
+Jitter & uint32\_t & Inter-message jitter ($\mu$s) for DL\_TTI, TxData, UL\_TTI, and UL\_DCI. \\ 
+Latest Delay & int32\_t & Latest delay offset ($\mu$s) from acceptable window. Positive: late, negative: early. \\ 
+Earliest Arrival & int32\_t & Earliest arrival offset ($\mu$s) from acceptable window. \\ 
+Subcarrier Spacing & uint8\_t & SCS index (0: 15kHz to 4: 240kHz) as defined in TS38.211. \\ \bottomrule
+\end{tabularx}
+\end{center}
+\end{table}
+
+\begin{table}[htbp]
 \caption{nFAPI Delay Management Configuration Parameters}
 \label{tab:delay_mgmt_config}
 \begin{center}
 \begin{tabularx}{\columnwidth}{l|p{1.5cm}|X}
 \toprule
 \textbf{Parameter} & \textbf{Type} & \textbf{Description} \\ \midrule
-timingWindow & uint16\_t & Timing window for delay management. See section 3.2.9 of [10] \\
-timingMode & uint8\_t & Timing mode for Timing Info. See section 3.2.9 of [10] \\
-timingPeriod & uint8\_t & Timing period for Timing Info. See section 3.2.9 of [10] \\ \bottomrule
+timingWindow & uint16\_t & Duration of the sliding window used for delay calculation. \\
+timingMode & uint8\_t & Reporting mode for Timing Info: Periodic, Aperiodic, or Both. \\
+timingPeriod & uint8\_t & Transmission interval for Timing Info messages. \\ \bottomrule
 \end{tabularx}
 \end{center}
 \end{table}
@@ -172,8 +172,15 @@ Let $t_{arrival}$ be the arrival time of the TTI message at the PNF and $t_{slot
 
 \subsection{VNF-PNF Clock Synchronization}
 {\color{blue}
-To achieve precise time alignment between the VNF and PNF, a four-way handshake mechanism (Node Sync) is employed. Let $t_1$ be the timestamp when the VNF sends a synchronization request, $t_2$ and $t_3$ be the timestamps when the PNF receives and responds to the request, and $t_4$ be the timestamp when the VNF receives the response. The clock offset $\Delta t_{offset}$ and the one-way delay $T_{owd}$ are calculated as follows:
-}
+To achieve precise time alignment between the VNF and PNF, a four-way handshake mechanism (Node Sync) is employed. We define the following variables:
+\begin{itemize}
+    \item $t_1, t_2, t_3, t_4$: Timestamps corresponding to the VNF request transmission, PNF request reception, PNF response transmission, and VNF response reception, respectively.
+    \item $T_{slot}$: The duration of a single slot in $\mu$s.
+    \item $T_{margin}$: The target timing margin to accommodate network jitter.
+\end{itemize}
+
+The clock offset $\Delta t_{offset}$ and the one-way delay $T_{owd}$ are calculated as follows:
+} 
 \begin{equation}
     \Delta t_{offset} = \frac{(t_2 - t_1) - (t_4 - t_3)}{2}
 \end{equation}
@@ -181,13 +188,28 @@ To achieve precise time alignment between the VNF and PNF, a four-way handshake 
     T_{owd} = \frac{(t_4 - t_1) - (t_3 - t_2)}{2}
 \end{equation}
 {\color{blue}
-A positive $\Delta t_{offset}$ indicates that the VNF clock is lagging behind the PNF, while a negative value indicates it is ahead. To maintain a stable buffer at the PNF, a target margin $T_{margin}$ is added to the adjustment. The resulting slot-level adjustment $N_{slot\_adj}$ and microsecond-level adjustment $T_{us\_adj}$ are:
+The system calculates the total timing deviation $\Delta t_{total}$ by adding the target margin to the offset:
 }
 \begin{equation}
-    N_{slot\_adj} = \lfloor \frac{\Delta t_{offset} + T_{margin}}{T_{slot}} \rfloor
+    \Delta t_{total} = \Delta t_{offset} + T_{margin}
+\end{equation}
+{\color{blue}
+This total deviation is then decomposed into a slot-level adjustment $N_{slot}$ and a microsecond-level adjustment $T_{us}$:
+}
+\begin{equation}
+    N_{slot} = \lfloor \frac{\Delta t_{total}}{T_{slot}} \rfloor
 \end{equation}
 \begin{equation}
-    T_{us\_adj} = (\Delta t_{offset} + T_{margin}) \pmod{T_{slot}}
+    T_{us} = \Delta t_{total} \pmod{T_{slot}}
+\end{equation}
+{\color{blue}
+Finally, the adjustment parameters applied to the VNF timing info are:
+}
+\begin{equation}
+    A_{us} = -T_{us}
+\end{equation}
+\begin{equation}
+    A_{slot} = N_{slot}
 \end{equation}
 
 {\color{blue}

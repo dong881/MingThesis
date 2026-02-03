@@ -1,0 +1,122 @@
+
+\documentclass[conference,onecolumn]{IEEEtran}
+\usepackage[encapsulated]{CJK}
+\usepackage{cite}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{algorithmic}
+\usepackage{graphicx}
+\usepackage{tabularx}
+\usepackage{booktabs}
+\usepackage{color}
+
+\begin{document}
+\begin{CJK}{UTF8}{bsmi}
+\section*{Extracted Content}
+
+\begin{table}[htbp]
+\caption{nFAPI Delay Management Timing Offset Parameters~\cite{nfapi_spec}}
+\label{tab:delay_mgmt_offsets}
+\begin{center}
+\begin{tabularx}{\columnwidth}{X|l|X}
+\toprule
+\textbf{Parameter} & \textbf{Type} & \textbf{Description} \\ \midrule
+Timing offsets (DL\_TTI, UL\_TTI, UL\_DCI, Tx\_Data) & uint32\_t & The timing offset ($\mu$s) before the slot start that the corresponding request must be received at PHY. \\ \bottomrule
+\end{tabularx}
+\end{center}
+\end{table}
+
+\hrulefill\par\vspace{1cm}
+
+\begin{table}[htbp]
+\caption{nFAPI Timing Info Parameters~\cite{nfapi_spec}}
+\label{tab:timing_info}
+\begin{center}
+\begin{tabularx}{\columnwidth}{l|l|X}
+\toprule
+\textbf{Field} & \textbf{Type} & \textbf{Description} \\ \midrule
+\textbf{Last SFN / Slot} & uint16\_t & The completed SFN (0--1023) and slot (0--159) that triggered the message. \\ 
+Time Since Last Info & uint32\_t & Time in ms since the last Timing Info message was sent. \\ 
+Jitter & uint32\_t & Inter-message jitter ($\mu$s) for DL\_TTI, TxData, UL\_TTI, and UL\_DCI. \\ 
+Latest Delay & int32\_t & Latest delay offset ($\mu$s) from acceptable window. Positive: late, negative: early. \\ 
+Earliest Arrival & int32\_t & Earliest arrival offset ($\mu$s) from acceptable window. \\ 
+Subcarrier Spacing & uint8\_t & SCS index (0: 15kHz to 4: 240kHz) as defined in TS38.211. \\ \bottomrule
+\end{tabularx}
+\end{center}
+\end{table}
+
+\hrulefill\par\vspace{1cm}
+
+\begin{table}[htbp]
+\caption{nFAPI Delay Management Configuration Parameters}
+\label{tab:delay_mgmt_config}
+\begin{center}
+\begin{tabularx}{\columnwidth}{l|p{1.5cm}|X}
+\toprule
+\textbf{Parameter} & \textbf{Type} & \textbf{Description} \\ \midrule
+timingWindow & uint16\_t & Duration of the sliding window used for delay calculation. \\
+timingMode & uint8\_t & Reporting mode for Timing Info: Periodic, Aperiodic, or Both. \\
+timingPeriod & uint8\_t & Transmission interval for Timing Info messages. \\ \bottomrule
+\end{tabularx}
+\end{center}
+\end{table}
+
+\hrulefill\par\vspace{1cm}
+
+\begin{figure}[htbp]
+  \centerline{\includegraphics[width=1\columnwidth]{figures/system_model.png}}
+  \caption{System Model of the Timing-Feedback Adaptive Scheduler.}
+  \label{fig:system_model}
+\end{figure}
+
+\hrulefill\par\vspace{1cm}
+
+\begin{equation}
+    \Delta t_{offset} = \frac{(t_2 - t_1) - (t_4 - t_3)}{2}
+\end{equation}
+
+\hrulefill\par\vspace{1cm}
+
+\begin{equation}
+    T_{owd} = \frac{(t_4 - t_1) - (t_3 - t_2)}{2}
+\end{equation}
+
+\hrulefill\par\vspace{1cm}
+
+\begin{equation}
+    \Delta t_{total} = \Delta t_{offset} + T_{margin}
+\end{equation}
+
+\hrulefill\par\vspace{1cm}
+
+\begin{equation}
+    N_{slot} = \lfloor \frac{\Delta t_{total}}{T_{slot}} \rfloor
+\end{equation}
+
+\hrulefill\par\vspace{1cm}
+
+\begin{equation}
+    T_{us} = \Delta t_{total} \pmod{T_{slot}}
+\end{equation}
+
+\hrulefill\par\vspace{1cm}
+
+\begin{equation}
+    A_{us} = -T_{us}
+\end{equation}
+
+\hrulefill\par\vspace{1cm}
+
+\begin{equation}
+    A_{slot} = N_{slot}
+\end{equation}
+
+\hrulefill\par\vspace{1cm}
+
+\begin{equation}
+    N_{skip} = \lfloor \frac{\Delta t_{accumulated}}{T_{slot}} \rfloor
+\end{equation}
+
+\hrulefill\par\vspace{1cm}
+
+\end{CJK}
+\end{document}
