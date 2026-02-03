@@ -53,11 +53,7 @@ def extract_content(input_file):
     # We scan the body content
     body_content = content[preamble_match.end():]
     
-    # Simple state machine or regex approach?
-    # Nested environments might be tricky with regex 
-    # But for tables/equations usually straightforward.
-    # Let's simple regex for top-level environments.
-    
+    # Simple regex for top-level environments.
     pattern = r'\\begin\{(' + '|'.join(env_names) + r')\}(.*?)\\end\{\1\}'
     
     # The dot matches newlines with re.DOTALL
@@ -67,6 +63,10 @@ def extract_content(input_file):
         full_match = match.group(0)
         extracted_items.append(full_match)
 
+    # Find bibliography commands
+    bib_style_match = re.search(r'\\bibliographystyle\{.*?\}', content)
+    bib_file_match = re.search(r'\\bibliography\{.*?\}', content)
+    
     # Write output
     with open(output_file, 'w', encoding='utf-8') as f:
         f.write(preamble)
@@ -84,6 +84,12 @@ def extract_content(input_file):
             f.write(item)
             f.write("\n\n\\hrulefill\\par\\vspace{1cm}\n\n")
             
+        # Add bibliography if found
+        if bib_style_match:
+            f.write("\n" + bib_style_match.group(0) + "\n")
+        if bib_file_match:
+            f.write(bib_file_match.group(0) + "\n")
+
         if use_cjk:
             f.write(cjk_end + "\n")
             
