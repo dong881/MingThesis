@@ -118,6 +118,56 @@ timingPeriod & uint8\_t & Transmission interval for Timing Info messages. \\ \bo
 
 \hrulefill\par\vspace{1cm}
 
+\begin{figure}[htbp]
+  \centerline{\includegraphics[width=1\columnwidth]{figures/receiving_window.png}} % Placeholder for Figure 2-11
+  \caption{Receiving Window mechanism at the PHY}
+  \label{fig:receiving_window}
+\end{figure}
+
+\hrulefill\par\vspace{1cm}
+
+\begin{figure}[htbp]
+  \centerline{\includegraphics[width=1\columnwidth]{figures/latency_probe.png}} % Placeholder for Figure 2-12
+  \caption{Delay Management Procedure}
+  \label{fig:latency_probe}
+\end{figure}
+
+\hrulefill\par\vspace{1cm}
+
+\begin{table}[htbp]
+\color{blue}
+\caption{DL Node Sync parameters}
+\label{tab:dl_node_sync}
+\begin{center}
+\begin{tabularx}{\columnwidth}{l|l|X}
+\toprule
+\textbf{Field} & \textbf{Type} & \textbf{Description} \\ \midrule
+t1 & uint32\_t & Offset from VNF SFN/slot 0/0 (0..10239999 $\mu$s). \\ \midrule
+Delta SFN/slot & int32\_t & Slot shift update (-163839..163839). Negative pulls timeline. \\ \midrule
+Sub-carrier spacing & uint8\_t & SCS index (0: 15kHz .. 4: 240kHz). \\ \bottomrule
+\end{tabularx}
+\end{center}
+\end{table}
+
+\hrulefill\par\vspace{1cm}
+
+\begin{table}[htbp]
+\color{blue}
+\caption{UL Node Sync parameters}
+\label{tab:ul_node_sync}
+\begin{center}
+\begin{tabularx}{\columnwidth}{l|l|X}
+\toprule
+\textbf{Field} & \textbf{Type} & \textbf{Description} \\ \midrule
+t1 & uint32\_t & The supplied t1 field from DL Node Sync (0..10239999 $\mu$s). \\ \midrule
+t2 & uint32\_t & Reception time of DL Node Sync at PNF (0..10239999 $\mu$s). \\ \midrule
+t3 & uint32\_t & Transmission time of UL Node Sync at PNF (0..10239999 $\mu$s). \\ \bottomrule
+\end{tabularx}
+\end{center}
+\end{table}
+
+\hrulefill\par\vspace{1cm}
+
 
 \bibliographystyle{IEEEtran}
 \bibliography{references}
