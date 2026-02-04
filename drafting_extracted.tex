@@ -5,6 +5,8 @@
 \usepackage{amsmath,amssymb,amsfonts}
 \usepackage{algorithmic}
 \usepackage{graphicx}
+\usepackage{tikz}
+\usetikzlibrary{arrows,decorations.pathreplacing,calc}
 \usepackage{tabularx}
 \usepackage{booktabs}
 \usepackage{color}
@@ -127,15 +129,57 @@ timingPeriod & uint8\_t & Transmission interval for Timing Info messages. \\ \bo
 \hrulefill\par\vspace{1cm}
 
 \begin{figure}[htbp]
-  \centerline{\includegraphics[width=1\columnwidth]{figures/latency_probe.png}} % Placeholder for Figure 2-12
-  \caption{Delay Management Procedure}
-  \label{fig:latency_probe}
+\centering
+\begin{tikzpicture}[>=latex, font=\small]
+
+% Use sans-serif for node labels to match style
+\tikzstyle{block} = [draw, fill=blue!10, rectangle, minimum height=1.5em, minimum width=6em, align=center]
+\tikzstyle{block2} = [draw, fill=orange!20, rectangle, minimum height=1.5em, minimum width=6em, align=center]
+
+% Vertical Lines (Timelines)
+\draw[dotted, ultra thick, color=gray] (0, 0) -- (0, -6);
+\draw[dotted, ultra thick, color=gray] (5, 0) -- (5, -7);
+
+% Top Nodes
+\node[block, fill=blue!10] (VNF) at (0, 0.5) {\textsf{O-DU High (VNF)}};
+\node[block2, fill=orange!20] (PNF) at (5, -0.5) {\textsf{O-DU Low (PNF)}};
+
+% Offset braces at top
+\draw[dotted] (VNF.east) -- (5, 0.5);
+\draw[decorate, decoration={brace, amplitude=5pt}] (5, 0.5) -- (5, -0.1) node[midway, right=6pt] {$\Delta t_{\text{offset}}$};
+
+% T1 -> T2 (DL Node Sync)
+\coordinate (t1) at (0, -1.5);
+\coordinate (t2) at (5, -2.8);
+\draw[->, ultra thick, darkgray] (t1) -- (t2) node[midway, below=5pt] {\textsf{DL node sync}};
+\node[left, red, font=\large] at (t1) {$t_1$};
+\node[right, red, font=\large] at (t2) {$t_2$};
+
+% T1/T2 braces
+\draw[dotted] (t1) -- (5, -1.5);
+\draw[decorate, decoration={brace, amplitude=5pt}] (5, -1.5) -- (5, -2.8) node[midway, right=6pt] {$\text{T}_{\text{owd}} + \Delta t_{\text{offset}}$};
+
+
+% T3 -> T4 (UL Node Sync)
+\coordinate (t3) at (5, -4.8);
+\coordinate (t4) at (0, -4.2);
+\draw[->, ultra thick, darkgray] (t3) -- (t4) node[midway, below=5pt] {\textsf{UL node sync}};
+\node[right, red, font=\large] at (t3) {$t_3$};
+\node[left, red, font=\large] at (t4) {$t_4$};
+
+
+% T3/T4 braces
+\draw[dotted] (t4) -- (5, -4.2);
+\draw[decorate, decoration={brace, amplitude=5pt}] (5, -4.2) -- (5, -4.8) node[midway, right=6pt] {$\text{T}_{\text{owd}} - \Delta t_{\text{offset}}$};
+
+\end{tikzpicture}
+\caption{Delay Management Procedure (Node Sync)}
+\label{fig:latency_probe}
 \end{figure}
 
 \hrulefill\par\vspace{1cm}
 
 \begin{table}[htbp]
-\color{blue}
 \caption{DL Node Sync parameters}
 \label{tab:dl_node_sync}
 \begin{center}
@@ -152,7 +196,6 @@ Sub-carrier spacing & uint8\_t & SCS index (0: 15kHz .. 4: 240kHz). \\ \bottomru
 \hrulefill\par\vspace{1cm}
 
 \begin{table}[htbp]
-\color{blue}
 \caption{UL Node Sync parameters}
 \label{tab:ul_node_sync}
 \begin{center}

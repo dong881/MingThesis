@@ -5,6 +5,8 @@
 \usepackage{amsmath,amssymb,amsfonts}
 \usepackage{algorithmic}
 \usepackage{graphicx}
+\usepackage{tikz}
+\usetikzlibrary{arrows,decorations.pathreplacing,calc}
 \usepackage{tabularx}
 \usepackage{booktabs}
 \usepackage{color}
@@ -80,6 +82,7 @@ Example phrases:
 % Related Work
 
 % Contribution: The last TWO paragraphs of your paper.
+{\color{blue}
 The main contributions of this paper are summarized as follows.
 \begin{itemize}
 \item A fully SCF-compliant nFAPI implementation flow is established, replacing the legacy slot.indication mechanism with a delay-management process and introducing a VNF-side timing-window maintenance algorithm to cover undefined timing logic in the standard.
@@ -87,6 +90,7 @@ The main contributions of this paper are summarized as follows.
 \end{itemize}
 
 The rest of the paper is organized as follows. Section II defines the system model/architecture considered in this paper. The proposed analytical model/method is given in Section III. Section IV shows the numerical results. Concluding remarks are given in Section VI.
+}
 
 
 \section{System Model}
@@ -241,6 +245,7 @@ We implement a slot-skipping mechanism:
 If $N_{skip} \ge 1$, the scheduler immediately advances its internal slot counter by $N_{skip}$ and resets the timing state. This "hard reset" allows the system to re-synchronize instantly with the current PNF time, preventing a cascade of late slots.
 }
 
+{\color{blue}
 \subsection{Delay Management between VNF and PHY}
 The Delay Management ensures that P7 slot procedures occur in a timely fashion. In particular, a PHY instance expects P7 slot-based messages from VNF to reach the instance in a Receive Time Window interval, which the PHY maintains to buffer and process time-critical P7 messages (DL\_TTI.request, UL\_TTI.request, UL\_DCI.request, Tx\_Data.request) to apply at their targeted slots.
 
@@ -253,6 +258,7 @@ As illustrated in Figure~\ref{fig:receiving_window}, each PHY maintains a Receiv
     \item offset prior to the targeted slot ($<$msg$>$ Timing offset, where $<$msg$>$ is one of the above-listed time-critical messages)
 \end{itemize}
 Both of the above time parameters are specified in microseconds ($\mu$s).
+}
 
 \begin{figure}[htbp]
   \centerline{\includegraphics[width=1\columnwidth]{figures/receiving_window.png}} % Placeholder for Figure 2-11
@@ -260,6 +266,7 @@ Both of the above time parameters are specified in microseconds ($\mu$s).
   \label{fig:receiving_window}
 \end{figure}
 
+{\color{blue}
 Relevant P7 messages for Slot S received by PHY Receive Window mechanism:
 \begin{itemize}
     \item inside the Timing Window interval: are processed for transmission, reception or configuration at Slot S;
@@ -276,15 +283,58 @@ As configured by the VNF, the PHY Instance can send either periodic or aperiodic
 \textit{Note: This exact timing definition associated with what constitutes too early or too late is implementation specific and is outside the scope of this document.}
 
 In this example of Figure~\ref{fig:latency_probe}, the delay management procedure is illustrated via a positive timing advance, but the DL Node Sync message also supports a negative number to indicate negative timing advance of the SFN/slot.
+}
 
 \begin{figure}[htbp]
-  \centerline{\includegraphics[width=1\columnwidth]{figures/latency_probe.png}} % Placeholder for Figure 2-12
-  \caption{Delay Management Procedure}
-  \label{fig:latency_probe}
+\centering
+\begin{tikzpicture}[>=latex, font=\small]
+
+% Use sans-serif for node labels to match style
+\tikzstyle{block} = [draw, fill=blue!10, rectangle, minimum height=1.5em, minimum width=6em, align=center]
+\tikzstyle{block2} = [draw, fill=orange!20, rectangle, minimum height=1.5em, minimum width=6em, align=center]
+
+% Vertical Lines (Timelines)
+\draw[dotted, ultra thick, color=gray] (0, 0) -- (0, -6);
+\draw[dotted, ultra thick, color=gray] (5, 0) -- (5, -7);
+
+% Top Nodes
+\node[block, fill=blue!10] (VNF) at (0, 0.5) {\textsf{O-DU High (VNF)}};
+\node[block2, fill=orange!20] (PNF) at (5, -0.5) {\textsf{O-DU Low (PNF)}};
+
+% Offset braces at top
+\draw[dotted] (VNF.east) -- (5, 0.5);
+\draw[decorate, decoration={brace, amplitude=5pt}] (5, 0.5) -- (5, -0.1) node[midway, right=6pt] {$\Delta t_{\text{offset}}$};
+
+% T1 -> T2 (DL Node Sync)
+\coordinate (t1) at (0, -1.5);
+\coordinate (t2) at (5, -2.8);
+\draw[->, ultra thick, darkgray] (t1) -- (t2) node[midway, below=5pt] {\textsf{DL node sync}};
+\node[left, red, font=\large] at (t1) {$t_1$};
+\node[right, red, font=\large] at (t2) {$t_2$};
+
+% T1/T2 braces
+\draw[dotted] (t1) -- (5, -1.5);
+\draw[decorate, decoration={brace, amplitude=5pt}] (5, -1.5) -- (5, -2.8) node[midway, right=6pt] {$\text{T}_{\text{owd}} + \Delta t_{\text{offset}}$};
+
+
+% T3 -> T4 (UL Node Sync)
+\coordinate (t3) at (5, -4.8);
+\coordinate (t4) at (0, -4.2);
+\draw[->, ultra thick, darkgray] (t3) -- (t4) node[midway, below=5pt] {\textsf{UL node sync}};
+\node[right, red, font=\large] at (t3) {$t_3$};
+\node[left, red, font=\large] at (t4) {$t_4$};
+
+
+% T3/T4 braces
+\draw[dotted] (t4) -- (5, -4.2);
+\draw[decorate, decoration={brace, amplitude=5pt}] (5, -4.2) -- (5, -4.8) node[midway, right=6pt] {$\text{T}_{\text{owd}} - \Delta t_{\text{offset}}$};
+
+\end{tikzpicture}
+\caption{Delay Management Procedure (Node Sync)}
+\label{fig:latency_probe}
 \end{figure}
 
 \begin{table}[htbp]
-\color{blue}
 \caption{DL Node Sync parameters}
 \label{tab:dl_node_sync}
 \begin{center}
@@ -299,7 +349,6 @@ Sub-carrier spacing & uint8\_t & SCS index (0: 15kHz .. 4: 240kHz). \\ \bottomru
 \end{table}
 
 \begin{table}[htbp]
-\color{blue}
 \caption{UL Node Sync parameters}
 \label{tab:ul_node_sync}
 \begin{center}
@@ -348,4 +397,3 @@ Fig. 3.1:
 \bibliography{references}
 \end{CJK}\
 \end{document}
-
