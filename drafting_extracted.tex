@@ -19,10 +19,10 @@
 \caption{nFAPI Delay Management Timing Offset Parameters~\cite{nfapi_spec}}
 \label{tab:delay_mgmt_offsets}
 \begin{center}
-\begin{tabularx}{\columnwidth}{X|l|X}
+\begin{tabularx}{\columnwidth}{X|X}
 \toprule
-\textbf{Parameter} & \textbf{Type} & \textbf{Description} \\ \midrule
-Timing offsets (DL\_TTI, UL\_TTI, UL\_DCI, Tx\_Data) & uint32\_t & The timing offset ($\mu$s) before the slot start that the corresponding request must be received at PHY. \\ \bottomrule
+\textbf{Parameter} & \textbf{Description} \\ \midrule
+Timing offsets (DL\_TTI, UL\_TTI, UL\_DCI, Tx\_Data) & The timing offset ($\mu$s) before the slot start that the corresponding request must be received at PHY. \\ \bottomrule
 \end{tabularx}
 \end{center}
 \end{table}
@@ -33,15 +33,15 @@ Timing offsets (DL\_TTI, UL\_TTI, UL\_DCI, Tx\_Data) & uint32\_t & The timing of
 \caption{nFAPI Timing Info Parameters~\cite{nfapi_spec}}
 \label{tab:timing_info}
 \begin{center}
-\begin{tabularx}{\columnwidth}{l|l|X}
+\begin{tabularx}{\columnwidth}{l|X}
 \toprule
-\textbf{Field} & \textbf{Type} & \textbf{Description} \\ \midrule
-\textbf{Last SFN / Slot} & uint16\_t & The completed SFN (0--1023) and slot (0--159) that triggered the message. \\ 
-Time Since Last Info & uint32\_t & Time in ms since the last Timing Info message was sent. \\ 
-Jitter & uint32\_t & Inter-message jitter ($\mu$s) for DL\_TTI, TxData, UL\_TTI, and UL\_DCI. \\ 
-Latest Delay & int32\_t & Latest delay offset ($\mu$s) from acceptable window. Positive: late, negative: early. \\ 
-Earliest Arrival & int32\_t & Earliest arrival offset ($\mu$s) from acceptable window. \\ 
-Subcarrier Spacing & uint8\_t & SCS index (0: 15kHz to 4: 240kHz) as defined in TS38.211. \\ \bottomrule
+\textbf{Field} & \textbf{Description} \\ \midrule
+\textbf{Last SFN / Slot} & Triggering SFN/Slot. \\ 
+Time Since Last Info & Time since last report (ms). \\ 
+Jitter & DL\_TTI, TX\_DATA, UL\_TTI, UL\_DCI. \\ 
+Latest Delay & DL\_TTI, TX\_DATA, UL\_TTI, UL\_DCI from the latest time acceptable ($\mu$s). \\ 
+Earliest Arrival & DL\_TTI, TX\_DATA, UL\_TTI, UL\_DCI from the latest time acceptable ($\mu$s). \\ 
+Subcarrier Spacing & SCS index (TS38.211). \\ \bottomrule
 \end{tabularx}
 \end{center}
 \end{table}
@@ -52,12 +52,12 @@ Subcarrier Spacing & uint8\_t & SCS index (0: 15kHz to 4: 240kHz) as defined in 
 \caption{nFAPI Delay Management Configuration Parameters}
 \label{tab:delay_mgmt_config}
 \begin{center}
-\begin{tabularx}{\columnwidth}{l|p{1.5cm}|X}
+\begin{tabularx}{\columnwidth}{l|X}
 \toprule
-\textbf{Parameter} & \textbf{Type} & \textbf{Description} \\ \midrule
-timingWindow & uint16\_t & Duration of the sliding window used for delay calculation. \\
-timingMode & uint8\_t & Reporting mode for Timing Info: Periodic, Aperiodic, or Both. \\
-timingPeriod & uint8\_t & Transmission interval for Timing Info messages. \\ \bottomrule
+\textbf{Parameter} & \textbf{Description} \\ \midrule
+timingWindow & Duration of the sliding window used for delay calculation. \\
+timingMode & Reporting mode for Timing Info: Periodic, Aperiodic, or Both. \\
+timingPeriod & Transmission interval for Timing Info messages. \\ \bottomrule
 \end{tabularx}
 \end{center}
 \end{table}
@@ -183,12 +183,12 @@ timingPeriod & uint8\_t & Transmission interval for Timing Info messages. \\ \bo
 \caption{DL Node Sync parameters}
 \label{tab:dl_node_sync}
 \begin{center}
-\begin{tabularx}{\columnwidth}{l|l|X}
+\begin{tabularx}{\columnwidth}{l|X}
 \toprule
-\textbf{Field} & \textbf{Type} & \textbf{Description} \\ \midrule
-t1 & uint32\_t & Offset from VNF SFN/slot 0/0 (0..10239999 $\mu$s). \\ \midrule
-Delta SFN/slot & int32\_t & Slot shift update (-163839..163839). Negative pulls timeline. \\ \midrule
-Sub-carrier spacing & uint8\_t & SCS index (0: 15kHz .. 4: 240kHz). \\ \bottomrule
+\textbf{Field} & \textbf{Description} \\ \midrule
+t1 & Offset from VNF SFN/slot 0/0 (0..10239999 $\mu$s). \\ \midrule
+Delta SFN/slot & Slot shift update (-163839..163839). Negative pulls timeline. \\ \midrule
+Sub-carrier spacing & SCS index (0: 15kHz .. 4: 240kHz). \\ \bottomrule
 \end{tabularx}
 \end{center}
 \end{table}
@@ -199,12 +199,12 @@ Sub-carrier spacing & uint8\_t & SCS index (0: 15kHz .. 4: 240kHz). \\ \bottomru
 \caption{UL Node Sync parameters}
 \label{tab:ul_node_sync}
 \begin{center}
-\begin{tabularx}{\columnwidth}{l|l|X}
+\begin{tabularx}{\columnwidth}{l|X}
 \toprule
-\textbf{Field} & \textbf{Type} & \textbf{Description} \\ \midrule
-t1 & uint32\_t & The supplied t1 field from DL Node Sync (0..10239999 $\mu$s). \\ \midrule
-t2 & uint32\_t & Reception time of DL Node Sync at PNF (0..10239999 $\mu$s). \\ \midrule
-t3 & uint32\_t & Transmission time of UL Node Sync at PNF (0..10239999 $\mu$s). \\ \bottomrule
+\textbf{Field} & \textbf{Description} \\ \midrule
+t1 & The supplied t1 field from DL Node Sync (0..10239999 $\mu$s). \\ \midrule
+t2 & Reception time of DL Node Sync at PNF (0..10239999 $\mu$s). \\ \midrule
+t3 & Transmission time of UL Node Sync at PNF (0..10239999 $\mu$s). \\ \bottomrule
 \end{tabularx}
 \end{center}
 \end{table}
