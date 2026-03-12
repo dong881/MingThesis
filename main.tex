@@ -16,7 +16,7 @@
 \usepackage{multirow}  % 如果需要合併儲存格
 \begin{document}
 \begin{CJK}{UTF8}{bsmi}
-\title{Adaptive Timing Scheduler for Low-Latency Split-6 Networks}
+\title{Adaptive Timing Scheduler for Low-Latency nFAPI Networks}
 \author{
 \author{\IEEEauthorblockN{
         Ming-Hong HSU\IEEEauthorrefmark{1}, 
@@ -112,15 +112,28 @@ The rest of the paper is organized as follows. Section II defines the system mod
 
 \section{System Model/Architecture}
 
-\begin{tabular}{l l p{4cm}}
+\begin{longtable}{l|l|p{4cm}}
+\caption{nFAPI Delay Management Configuration Parameters} \\
 \toprule
 \textbf{Parameter} & \textbf{Type} & \textbf{Description} \\
 \midrule
+\endfirsthead
+
+\caption[]{nFAPI Delay Management Configuration Parameters (continued)} \\
+\toprule
+\textbf{Parameter} & \textbf{Type} & \textbf{Description} \\
+\midrule
+\endhead
+
+\bottomrule
+\endfoot
+
 timingWindow & uint16\_t & Timing window for delay management. See section 3.2.9 of [10] \\
 timingMode & uint8\_t & Timing mode for Timing Info. See section 3.2.9 of [10] \\
 timingPeriod & uint8\_t & Timing period for Timing Info. See section 3.2.9 of [10] \\
-\bottomrule
-\end{tabular}
+\end{longtable}
+
+
 
 Figure~\ref{fig:Fig1} shows the system model/architecture considered in this paper.
 (Draw a figure showing the key components and their relationship in the system model. It may consist the I/P and O/P parameters of your system or the major components showing your contributions.) 
