@@ -1,0 +1,4 @@
+[submodule "source/ming-nfapi-debugger"]
+    path = source/ming-nfapi-debugger
+    url  = git@github.com:bmw-ece-ntust/ming-nfapi-debugger-backup2.git
+
