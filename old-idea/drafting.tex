@@ -1,0 +1,399 @@
+
+\documentclass[conference]{IEEEtran}
+\usepackage[encapsulated]{CJK}
+\usepackage{cite}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{algorithmic}
+\usepackage{graphicx}
+\usepackage{tikz}
+\usetikzlibrary{arrows,decorations.pathreplacing,calc}
+\usepackage{tabularx}
+\usepackage{booktabs}
+\usepackage{color}
+\begin{document}
+\begin{CJK}{UTF8}{bsmi}
+\title{Timing-Feedback Adaptive Scheduler for Split-6 Latency Reduction}
+\author{
+\author{\IEEEauthorblockN{
+        Ming-Hong HSU\IEEEauthorrefmark{1}, 
+        Ray-Guang Cheng\IEEEauthorrefmark{1},
+        Co-author 1\IEEEauthorrefmark{2}
+        \\
+  }
+ \IEEEauthorblockA{\IEEEauthorrefmark{1}
+Dept. of Electronic and Computer Engineering, National Taiwan University of Science and Technology, Taiwan
+  }
+  Email: crg@mail.ntust.edu.tw
+}
+
+\IEEEauthorblockA{
+Department of Electronic and Computer Engineering, National Taiwan University of Science and Technology\\
+Taipei, Taiwan, Republic of China \\
+Email: crg@mail.ntust.edu.tw}
+}
+
+\maketitle
+% 1. 請先各自複製本範本的內容，根據這裡所點出的大綱來寫，無關的內容請勿放入。自己加的內容請用「藍字」，老師改過需要確認會用「紅字」，紅字內容確認無誤的字句請自行改為黑字，有問題改成「藍色」。
+% 2. 縮寫字第一次出現前記得要先定義，原則上只有句首第一個字母大寫，請勿誤用！
+% 3. 請用國中英文直述句來寫，正確性最重要
+% 4. 本範本請先寫System Model、Propose Solution, 以及 Numercial/Experimental Results。Introduction請留到最後
+% 5. Introduction僅留下「絕對必要」資訊(沒提到後面就講不下去)即可！
+% 6. 使用任何變數前請先「定義」，寫下變數與公式前，請先想清楚，這是「問題」(I/P)、「答案」(O/P)、「推導過程」(Your Algorithm)、還是「範例」(Example)
+% 問題與答案放在System Model，
+% 推導過程放在Analytical Model，
+% 範例放在Numercial Results
+
+Abstract Section (before Introduction)
+Add a clear placeholder for an abstract:
+
+Purpose: Briefly summarize the problem, method, results, and contribution.
+
+Word count: typically 150–250 words.
+
+Keywords: list 3–6 keywords.
+
+\section{Introduction}
+{\color{blue}
+Directly reusing the FAPI slot.indication mechanism in nFAPI mode without following the SCF specification leads to significant latency because FAPI timing control was not designed for nFAPI’s transport and synchronization characteristics. Automated testing and analysis are required to detect and verify the timing delays caused by non-compliant implementations with the SCF specification.
+
+Each step of the nFAPI procedure must be individually measured and analyzed to isolate delay sources through repeated end-to-end testing. Continuous automated testing, data collection, and graphical analysis are needed to compare delay patterns and identify timing bottlenecks efficiently.
+}
+
+\subsection{Related Works}
+{\bf Purpose:} To show how your work fits into the existing body of knowledge, and how it differs from or improves upon previous work.
+
+Typical content:
+\begin{itemize}
+\item Summary of key prior research
+\item Strengths and limitations of existing approaches
+\item Comparison to your approach
+\item Justification for why a new approach is needed
+\end{itemize}
+
+Example phrases:
+\begin{itemize}
+\item “Several studies have explored …”
+\item “Unlike [Author], we propose …”
+\item “Prior work has not considered …”
+\end{itemize}
+
+% Background Knowledge directly related to Your Thesis Title
+
+% Related Work
+
+% Contribution: The last TWO paragraphs of your paper.
+{\color{blue}
+The main contributions of this paper are summarized as follows.
+\begin{itemize}
+\item A fully SCF-compliant nFAPI implementation flow is established, replacing the legacy slot.indication mechanism with a delay-management process and introducing a VNF-side timing-window maintenance algorithm to cover undefined timing logic in the standard.
+\item An SMO RAPP module is developed to automate end-to-end testing, data acquisition, and chart generation, enabling validation and optimization of the proposed delay-management mechanism.
+\end{itemize}
+
+The rest of the paper is organized as follows. Section II defines the system model/architecture considered in this paper. The proposed analytical model/method is given in Section III. Section IV shows the numerical results. Concluding remarks are given in Section VI.
+}
+
+
+\section{System Model}
+\label{sec:system_model}
+
+{\color{blue}
+Figure~\ref{fig:system_model} illustrates the system architecture of the proposed Timing-Feedback Adaptive Scheduler within a Split-6 RAN environment. The system comprises two main entities: the Virtual Network Function (VNF) and the Physical Network Function (PNF), connected via a packet-switched network.
+
+The VNF hosts the upper layer protocol stack and the scheduler. To minimize transmission latency and ensure synchronization with the PNF, the VNF implements a feedback-based timing mechanism. The key components include:
+
+\begin{itemize}
+    \item \textbf{Timing-Feedback Adaptive Module}: This module acts as the core controller. It receives timing feedback from the PNF, specifically the difference between the packet arrival time and the expected slot time (denoted as late by $N$ $\mu$s or early by $M$ $\mu$s). It also incorporates internal scheduler timing metrics. Based on these inputs, it dynamically computes the optimal sleep duration for the VNF timing thread to align with the PNF's slot cycle.
+    \item \textbf{VNF Timing Thread}: This thread is responsible for triggering the scheduler instances. It utilizes the corrected timing provided by the Adaptive Module to wake up at the precise moment, compensating for network jitter and processing delays.
+    \item \textbf{Scheduler}: Detailed scheduling operations are performed here. Multiple scheduler instances generate the Transmission Time Interval (TTI) messages, which are then transmitted to the PNF.
+    \item \textbf{PNF}: The Physical Network Function receives the TTI messages for radio transmission. It measures the arrival time of these messages and feeds this "Timing Info" back to the VNF, closing the control loop. The specific parameters included in the Timing Info message are summarized in Table~\ref{tab:timing_info}, as defined in the 5G nFAPI Specification~\cite{nfapi_spec}.
+\end{itemize}
+}
+
+\begin{table}[htbp]
+\caption{nFAPI Delay Management Timing Offset Parameters~\cite{nfapi_spec}}
+\label{tab:delay_mgmt_offsets}
+\begin{center}
+\begin{tabularx}{\columnwidth}{X|X}
+\toprule
+\textbf{Parameter} & \textbf{Description} \\ \midrule
+Timing offsets (DL\_TTI, UL\_TTI, UL\_DCI, Tx\_Data) & The timing offset ($\mu$s) before the slot start that the corresponding request must be received at PHY. \\ \bottomrule
+\end{tabularx}
+\end{center}
+\end{table}
+
+\begin{table}[htbp]
+\caption{nFAPI Timing Info Parameters~\cite{nfapi_spec}}
+\label{tab:timing_info}
+\begin{center}
+\begin{tabularx}{\columnwidth}{l|X}
+\toprule
+\textbf{Field} & \textbf{Description} \\ \midrule
+\textbf{Last SFN / Slot} & Triggering SFN/Slot. \\ 
+Time Since Last Info & Time since last report (ms). \\ 
+Jitter & DL\_TTI, TX\_DATA, UL\_TTI, UL\_DCI. \\ 
+Latest Delay & DL\_TTI, TX\_DATA, UL\_TTI, UL\_DCI from the latest time acceptable ($\mu$s). \\ 
+Earliest Arrival & DL\_TTI, TX\_DATA, UL\_TTI, UL\_DCI from the latest time acceptable ($\mu$s). \\ 
+Subcarrier Spacing & SCS index (TS38.211). \\ \bottomrule
+\end{tabularx}
+\end{center}
+\end{table}
+
+\begin{table}[htbp]
+\caption{nFAPI Delay Management Configuration Parameters}
+\label{tab:delay_mgmt_config}
+\begin{center}
+\begin{tabularx}{\columnwidth}{l|X}
+\toprule
+\textbf{Parameter} & \textbf{Description} \\ \midrule
+timingWindow & Duration of the sliding window used for delay calculation. \\
+timingMode & Reporting mode for Timing Info: Periodic, Aperiodic, or Both. \\
+timingPeriod & Transmission interval for Timing Info messages. \\ \bottomrule
+\end{tabularx}
+\end{center}
+\end{table}
+
+{\color{blue}
+The primary objective of this system is to adaptively adjust the VNF's execution offset such that TTI messages arrive at the PNF within the valid reception window, thereby avoiding slot drops due to late arrival while minimizing buffering latency caused by excessive earliness.
+
+\begin{figure}[htbp]
+  \centerline{\includegraphics[width=1\columnwidth]{figures/system_model.png}}
+  \caption{System Model of the Timing-Feedback Adaptive Scheduler.}
+  \label{fig:system_model}
+\end{figure}
+}
+
+
+\section{Proposed Method}
+\label{sec:proposed_method}
+
+{\color{blue}
+To address the timing synchronization challenges in Split-6 RAN, we propose a Timing-Feedback Adaptive Scheduler. This mechanism introduces a closed-loop control system that dynamically adjusts the VNF's execution timing based on feedback from the PNF. As shown in Section \ref{sec:system_model}, the core objective is to minimize the timing difference between the arrival of TTI messages and the PNF's slot boundary, ensuring reliable transmission while minimizing latency. The proposed method consists of three key components: Jitter Mitigation via Baseline Envelope, Drift Prevention with a Time Bank mechanism, and Severe Deviation Handling.
+
+\subsection{Dynamic Timing Adjustment Algorithm}
+The core of the proposed method is an adaptive algorithm that calculates the optimal sleep duration ($T_{sleep}$) for the VNF timing thread.
+Let $t_{arrival}$ be the arrival time of the TTI message at the PNF and $t_{slot}$ be the start time of the corresponding slot. The timing error $\Delta t$ is defined as:
+}
+
+\subsection{VNF-PNF Clock Synchronization}
+{\color{blue}
+To achieve precise time alignment between the VNF and PNF, a four-way handshake mechanism (Node Sync) is employed. We define the following variables:
+\begin{itemize}
+    \item $t_1, t_2, t_3, t_4$: Timestamps corresponding to the VNF request transmission, PNF request reception, PNF response transmission, and VNF response reception, respectively.
+    \item $T_{slot}$: The duration of a single slot in $\mu$s.
+    \item $T_{margin}$: The target timing margin to accommodate network jitter.
+\end{itemize}
+
+The clock offset $\Delta t_{offset}$ and the one-way delay $T_{owd}$ are calculated as follows:
+} 
+\begin{equation}
+    \Delta t_{offset} = \frac{(t_2 - t_1) - (t_4 - t_3)}{2}
+\end{equation}
+\begin{equation}
+    T_{owd} = \frac{(t_4 - t_1) - (t_3 - t_2)}{2}
+\end{equation}
+{\color{blue}
+The system calculates the total timing deviation $\Delta t_{total}$ by adding the target margin to the offset:
+}
+\begin{equation}
+    \Delta t_{total} = \Delta t_{offset} + T_{margin}
+\end{equation}
+{\color{blue}
+This total deviation is then decomposed into a slot-level adjustment $N_{slot}$ and a microsecond-level adjustment $T_{us}$:
+}
+\begin{equation}
+    N_{slot} = \lfloor \frac{\Delta t_{total}}{T_{slot}} \rfloor
+\end{equation}
+\begin{equation}
+    T_{us} = \Delta t_{total} \pmod{T_{slot}}
+\end{equation}
+{\color{blue}
+Finally, the adjustment parameters applied to the VNF timing info are:
+}
+\begin{equation}
+    A_{us} = -T_{us}
+\end{equation}
+\begin{equation}
+    A_{slot} = N_{slot}
+\end{equation}
+
+{\color{blue}
+\subsection{Jitter Mitigation via Baseline Envelope}
+Network jitter and processing variations can cause significant fluctuations in $\Delta t$. Direct reaction to every instantaneous value would lead to system instability. To mitigate this, we employ a Baseline Envelope mechanism.
+The system maintains a variable $E_{base}$ representing the minimum observed processing and transmission delay.
+\begin{itemize}
+    \item \textbf{Fast Attack}: If the current measured delay $d_{curr}$ is less than $E_{base}$, we update $E_{base} = d_{curr}$. This allows the system to quickly adapt to improved network conditions.
+    \item \textbf{Slow Decay}: If $d_{curr} > E_{base}$, we treat the excess as potential jitter. $E_{base}$ is slowly incremented (decayed) over time to ensure it doesn't get stuck at a transient minimum.
+\end{itemize}
+This envelope provides a stable reference point, effectively filtering out high-frequency noise.
+
+\subsection{Drift Prevention with Time Bank Mechanism}
+Traditional Proportional-Integral (PI) controllers can suffer from integral windup or oscillation in this context. We propose a "Time Bank" mechanism, utilizing a variable $T_{pending}$, to manage accumulated timing deviation without over-correction.
+\begin{itemize}
+    \item \textbf{Accumulation}: When the system is late ($\Delta t > 0$), the lateness is added to $T_{pending}$. This represents a debt of time that must be recovered.
+    \item \textbf{Gradual Recovery}: Instead of forcing an immediate large correction, the scheduler pays back this debt only when it has "spare time" (i.e., when the estimated computation time allows).
+\end{itemize}
+This approach ensures that the recovery process does not induce new violations in subsequent slots.
+
+\subsection{Severe Deviation Handling}
+In cases of extreme network disruption or process preemption, the VNF may fall significantly behind (e.g., lagging by more than one entire slot duration $T_{slot}$). Attempting to process these stale slots is futile.
+We implement a slot-skipping mechanism:
+}
+\begin{equation}
+    N_{skip} = \lfloor \frac{\Delta t_{accumulated}}{T_{slot}} \rfloor
+\end{equation}
+{\color{blue}
+If $N_{skip} \ge 1$, the scheduler immediately advances its internal slot counter by $N_{skip}$ and resets the timing state. This "hard reset" allows the system to re-synchronize instantly with the current PNF time, preventing a cascade of late slots.
+}
+
+{\color{blue}
+\subsection{Delay Management between VNF and PHY}
+The Delay Management ensures that P7 slot procedures occur in a timely fashion. In particular, a PHY instance expects P7 slot-based messages from VNF to reach the instance in a Receive Time Window interval, which the PHY maintains to buffer and process time-critical P7 messages (DL\_TTI.request, UL\_TTI.request, UL\_DCI.request, Tx\_Data.request) to apply at their targeted slots.
+
+Delay Management is also applicable to P19-S slot procedures, where Receive Windows are maintained for P19-S messages subject to Time Management; for P19-S messages, it is FEU Instances, rather than PHY Instances, that maintain the Receive Timing Windows.
+
+\subsubsection{Timing window management}
+As illustrated in Figure~\ref{fig:receiving_window}, each PHY maintains a Receive Timing Window characterized by:
+\begin{itemize}
+    \item a size (Timing Window) and
+    \item offset prior to the targeted slot ($<$msg$>$ Timing offset, where $<$msg$>$ is one of the above-listed time-critical messages)
+\end{itemize}
+Both of the above time parameters are specified in microseconds ($\mu$s).
+}
+
+\begin{figure}[htbp]
+  \centerline{\includegraphics[width=1\columnwidth]{figures/receiving_window.png}} % Placeholder for Figure 2-11
+  \caption{Receiving Window mechanism at the PHY}
+  \label{fig:receiving_window}
+\end{figure}
+
+{\color{blue}
+Relevant P7 messages for Slot S received by PHY Receive Window mechanism:
+\begin{itemize}
+    \item inside the Timing Window interval: are processed for transmission, reception or configuration at Slot S;
+    \item outside the Timing Window interval: are marked by PHY as ‘too early’ or ‘too late’, as appropriate, and used to construct a Timing Info Report to the VNF.
+\end{itemize}
+
+\subsubsection{Delay management procedure}
+The delay management mechanism between the VNF and PHY Instance can be used to establish the timing reference differences between them, as well as optionally permitting the VNF to instruct the PHY Instance to update its slot number based on the offset defined by the VNF. The internal slot timing requirements for the P7 procedures are exchanged through the PNF PARAM procedure.
+
+In the latency probe procedure (as illustrated in Figure~\ref{fig:latency_probe}), the VNF sends a DL Node Sync message to the PHY instance containing the parameter t1. Upon reception of DL Node Sync message, the PHY Instance shall respond with UL Node Sync message, indicating t2 and t3, as well as t1 which was indicated in the initiating DL Node Sync control message.
+
+As configured by the VNF, the PHY Instance can send either periodic or aperiodic Timing Info messages informing the VNF of the P7 slot message time of arrival. If configured to aperiodic messages, the Timing Info message is sent when a slot completes and the set of slot messages either arrives too late or too early (depending on window configuration) - see Figure~\ref{fig:latency_probe}. The actions taken by the VNF in response to the Timing Info is out of scope for this specification.
+
+\textit{Note: This exact timing definition associated with what constitutes too early or too late is implementation specific and is outside the scope of this document.}
+
+In this example of Figure~\ref{fig:latency_probe}, the delay management procedure is illustrated via a positive timing advance, but the DL Node Sync message also supports a negative number to indicate negative timing advance of the SFN/slot.
+}
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[>=latex, font=\small]
+
+% Use sans-serif for node labels to match style
+\tikzstyle{block} = [draw, fill=blue!10, rectangle, minimum height=1.5em, minimum width=6em, align=center]
+\tikzstyle{block2} = [draw, fill=orange!20, rectangle, minimum height=1.5em, minimum width=6em, align=center]
+
+% Vertical Lines (Timelines)
+\draw[dotted, ultra thick, color=gray] (0, 0) -- (0, -6);
+\draw[dotted, ultra thick, color=gray] (5, 0) -- (5, -7);
+
+% Top Nodes
+\node[block, fill=blue!10] (VNF) at (0, 0.5) {\textsf{O-DU High (VNF)}};
+\node[block2, fill=orange!20] (PNF) at (5, -0.5) {\textsf{O-DU Low (PNF)}};
+
+% Offset braces at top
+\draw[dotted] (VNF.east) -- (5, 0.5);
+\draw[decorate, decoration={brace, amplitude=5pt}] (5, 0.5) -- (5, -0.1) node[midway, right=6pt] {$\Delta t_{\text{offset}}$};
+
+% T1 -> T2 (DL Node Sync)
+\coordinate (t1) at (0, -1.5);
+\coordinate (t2) at (5, -2.8);
+\draw[->, ultra thick, darkgray] (t1) -- (t2) node[midway, below=5pt] {\textsf{DL node sync}};
+\node[left, red, font=\large] at (t1) {$t_1$};
+\node[right, red, font=\large] at (t2) {$t_2$};
+
+% T1/T2 braces
+\draw[dotted] (t1) -- (5, -1.5);
+\draw[decorate, decoration={brace, amplitude=5pt}] (5, -1.5) -- (5, -2.8) node[midway, right=6pt] {$\text{T}_{\text{owd}} + \Delta t_{\text{offset}}$};
+
+
+% T3 -> T4 (UL Node Sync)
+\coordinate (t3) at (5, -4.8);
+\coordinate (t4) at (0, -4.2);
+\draw[->, ultra thick, darkgray] (t3) -- (t4) node[midway, below=5pt] {\textsf{UL node sync}};
+\node[right, red, font=\large] at (t3) {$t_3$};
+\node[left, red, font=\large] at (t4) {$t_4$};
+
+
+% T3/T4 braces
+\draw[dotted] (t4) -- (5, -4.2);
+\draw[decorate, decoration={brace, amplitude=5pt}] (5, -4.2) -- (5, -4.8) node[midway, right=6pt] {$\text{T}_{\text{owd}} - \Delta t_{\text{offset}}$};
+
+\end{tikzpicture}
+\caption{Delay Management Procedure (Node Sync)}
+\label{fig:latency_probe}
+\end{figure}
+
+\begin{table}[htbp]
+\caption{DL Node Sync parameters}
+\label{tab:dl_node_sync}
+\begin{center}
+\begin{tabularx}{\columnwidth}{l|X}
+\toprule
+\textbf{Field} & \textbf{Description} \\ \midrule
+t1 & Offset from VNF SFN/slot 0/0 (0..10239999 $\mu$s). \\ \midrule
+Delta SFN/slot & Slot shift update (-163839..163839). Negative pulls timeline. \\ \midrule
+Sub-carrier spacing & SCS index (0: 15kHz .. 4: 240kHz). \\ \bottomrule
+\end{tabularx}
+\end{center}
+\end{table}
+
+\begin{table}[htbp]
+\caption{UL Node Sync parameters}
+\label{tab:ul_node_sync}
+\begin{center}
+\begin{tabularx}{\columnwidth}{l|X}
+\toprule
+\textbf{Field} & \textbf{Description} \\ \midrule
+t1 & The supplied t1 field from DL Node Sync (0..10239999 $\mu$s). \\ \midrule
+t2 & Reception time of DL Node Sync at PNF (0..10239999 $\mu$s). \\ \midrule
+t3 & Transmission time of UL Node Sync at PNF (0..10239999 $\mu$s). \\ \bottomrule
+\end{tabularx}
+\end{center}
+\end{table}
+
+
+
+\section{Numerical/Simulation/Experimental Results}
+Computer simulations/Experiments were conducted to verify xxx (the effectiveness of the proposed analytical model). 
+In the following figures, each point represented the average value of $10^5$ samples. In each sample, we collect the statistics of xxx. Symbols and lines were used to show the simulation and analytical results, respectively. 
+
+%很多同學無法討論的原因是因為花了很多時間畫圖，但是圖畫錯。
+%圖畫錯的原因是在畫圖前沒有先思考過，依據手邊的資料打算畫出怎麼樣的圖？這些圖是否能呈現想表達的意義？
+%所以在規劃的時候應該是從目標回頭來看:
+%告訴大家貢獻是什麼？
+%預期從資料分析結果的哪些現象可以證明你的貢獻？
+%想觀察什麼現象？
+%這些現象從什麼的圖可看出？
+%如何畫出這樣的圖？需要哪些資料？
+XXX scenarios were investigated. Scenario I was designed to demonstrate/verify the accuracy/effectiveness of Contribution 1.
+
+% For each contribution, tell us
+% HOW do you design experiments to demonstrate your contribution 
+% WHY your results can support your contribution
+\subsection{Contribution 1}
+Fig. 1.1: Purpose
+    X axis: 
+    Y axis:
+\subsection{Contribution 2}
+Fig. 2.1: 
+    X axis: 
+    Y axis:
+\subsection{Contribution 3}
+Fig. 3.1: 
+    X axis: 
+    Y axis:
+\bibliographystyle{IEEEtran}
+\bibliography{references}
+\end{CJK}\
+\end{document}
