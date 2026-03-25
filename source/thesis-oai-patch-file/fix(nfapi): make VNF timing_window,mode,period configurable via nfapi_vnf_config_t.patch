@@ -1,0 +1,45 @@
+commit 0e8d1e7d30fc8da3ee30fe213673bca218aabf90
+Author: dong881 <minghunghsu.taiwan@gmail.com>
+Date:   Thu Mar 12 19:21:12 2026 +0800
+
+    fix(nfapi): make VNF timing_window/mode/period configurable via nfapi_vnf_config_t
+    
+    Previously, nfapi_vnf_allocate_phy() hardcoded timing parameters (window=30,
+    mode=0x03, period=10) ignoring any user configuration. Add the three fields
+    to nfapi_vnf_config_t and initialize them with sensible defaults in
+    nfapi_vnf_config_create() so callers can override before calling allocate_phy.
+    nfapi_vnf_allocate_phy() now copies from config instead of using literals.
+    
+    Changes:
+    - nfapi_vnf_interface.h: add timing_window, timing_info_mode,
+      timing_info_period to nfapi_vnf_config_t
+    - vnf_interface.c: initialize defaults in nfapi_vnf_config_create();
+      use config fields in nfapi_vnf_allocate_phy()
+
+diff --git a/nfapi/open-nFAPI/vnf/src/vnf_interface.c b/nfapi/open-nFAPI/vnf/src/vnf_interface.c
+index d421976cf1..63b304c607 100644
+--- a/nfapi/open-nFAPI/vnf/src/vnf_interface.c
++++ b/nfapi/open-nFAPI/vnf/src/vnf_interface.c
+@@ -56,6 +56,9 @@ nfapi_vnf_config_t* nfapi_vnf_config_create()
+ 	_this->_public.codec_config.allocate = &malloc;
+ 	_this->_public.codec_config.deallocate = &free;
+ 	
++	_this->_public.timing_window = 30;
++	_this->_public.timing_info_mode = 0x03;
++	_this->_public.timing_info_period = 10;
+ 
+ 	return (nfapi_vnf_config_t* )_this;
+ }
+@@ -758,9 +761,9 @@ int nfapi_vnf_allocate_phy(nfapi_vnf_config_t* config, int p5_idx, uint16_t* phy
+ 	info->p5_idx = p5_idx;
+ 	info->phy_id = vnf->next_phy_id++;
+ 
+-	info->timing_window = 30;       // This seems to override what gets set by the user - why??? //TODO: Change in NR in terms of microsecends,what should be the value?
+-	info->timing_info_mode = 0x03;
+-	info->timing_info_period = 10;
++	info->timing_window = config->timing_window;
++	info->timing_info_mode = config->timing_info_mode;
++	info->timing_info_period = config->timing_info_period;
+ 
+ 	nfapi_vnf_phy_info_list_add(config, info);
+ 

@@ -1,0 +1,265 @@
+commit f08ab2849463310e48fcae0ae793dd4d77470ec4
+Author: dong881 <minghunghsu.taiwan@gmail.com>
+Date:   Thu Mar 12 19:20:31 2026 +0800
+
+    feat(nfapi): implement P7 per-message timing offset TLV exchange in PARAM/CONFIG handshake
+    
+    Add DL_TTI, UL_TTI, UL_DCI and Tx_Data timing offsets as negotiated
+    TLVs in the PARAM.response / CONFIG.request flow so that the VNF can
+    communicate its per-message deadline offsets to the PNF:
+    
+    - nfapi_pnf_interface.h: add *_recv_time_hr receive-timestamp fields
+      to nfapi_pnf_p7_slot_buffer_t for per-message timing calculation
+    - nfapi_vnf.h: add dl/ul_tti/ul_dci/tx_data_timing_offset to vnf_p7_info
+    - nr_fapi_p5.c: pack/unpack the four offset TLVs in both
+      pack_nr_param_response and pack_nr_config_request (and unpack mirrors)
+    - nfapi_vnf.c (nr_param_resp_cb): assign both tag and value for each
+      offset TLV and increment num_tlv by 4; initialise offsets to 0 and
+      timing_window/period in configure_nr_nfapi_vnf
+    - nfapi_pnf.c (nr_config_request): read the four TLVs from the config
+      request into phy_info; propagate to pnf_p7_t in nr_start_request;
+      reset timing_info_mode_periodic/aperiodic before re-applying from VNF
+
+diff --git a/nfapi/oai_integration/nfapi_pnf.c b/nfapi/oai_integration/nfapi_pnf.c
+index 35a32f4600..8d95abb123 100644
+--- a/nfapi/oai_integration/nfapi_pnf.c
++++ b/nfapi/oai_integration/nfapi_pnf.c
+@@ -138,9 +138,13 @@ typedef struct {
+   uint8_t first_subframe_ind;
+ 
+   // timing information recevied from the vnf
+-  uint8_t timing_window;
++  uint16_t timing_window;
+   uint8_t timing_info_mode;
+   uint8_t timing_info_period;
++  uint32_t dl_tti_timing_offset;
++  uint32_t ul_tti_timing_offset;
++  uint32_t ul_dci_timing_offset;
++  uint32_t tx_data_timing_offset;
+ 
+ } phy_info;
+ 
+@@ -1008,7 +1012,22 @@ int nr_config_request(nfapi_pnf_config_t *config, nfapi_pnf_phy_config_t *phy, n
+     phy_info->timing_info_mode = 0;
+     printf("NO timing info mode provided\n");
+   }
+-  // TODO: Read the P7 message offset values
++  if (req->nfapi_config.dl_tti_timing_offset.tl.tag == NFAPI_NR_NFAPI_DL_TTI_TIMING_OFFSET) {
++    phy_info->dl_tti_timing_offset = req->nfapi_config.dl_tti_timing_offset.value;
++    num_tlv++;
++  }
++  if (req->nfapi_config.ul_tti_timing_offset.tl.tag == NFAPI_NR_NFAPI_UL_TTI_TIMING_OFFSET) {
++    phy_info->ul_tti_timing_offset = req->nfapi_config.ul_tti_timing_offset.value;
++    num_tlv++;
++  }
++  if (req->nfapi_config.ul_dci_timing_offset.tl.tag == NFAPI_NR_NFAPI_UL_DCI_TIMING_OFFSET) {
++    phy_info->ul_dci_timing_offset = req->nfapi_config.ul_dci_timing_offset.value;
++    num_tlv++;
++  }
++  if (req->nfapi_config.tx_data_timing_offset.tl.tag == NFAPI_NR_NFAPI_TX_DATA_TIMING_OFFSET) {
++    phy_info->tx_data_timing_offset = req->nfapi_config.tx_data_timing_offset.value;
++    num_tlv++;
++  }
+   if (req->nfapi_config.timing_info_period.tl.tag == NFAPI_NR_NFAPI_TIMING_INFO_PERIOD_TAG) {
+     printf("timing info period provided value:%d\n", req->nfapi_config.timing_info_period.value);
+     phy_info->timing_info_period = req->nfapi_config.timing_info_period.value;
+@@ -1650,10 +1669,13 @@ int nr_start_request(nfapi_pnf_config_t *config, nfapi_pnf_phy_config_t *phy, nf
+   p7_config->subframe_buffer_size = phy_info->timing_window;
+   p7_config->slot_buffer_size = phy_info->timing_window; // TODO: check if correct for NR
+   printf("subframe_buffer_size configured using phy_info->timing_window:%d\n", phy_info->timing_window);
++  // Reset timing info defaults from nfapi_pnf_p7_config_create, use VNF config values instead
++  p7_config->timing_info_mode_periodic = 0;
++  p7_config->timing_info_mode_aperiodic = 0;
++  p7_config->timing_info_period = phy_info->timing_info_period;
+ 
+   if (phy_info->timing_info_mode & 0x1) {
+     p7_config->timing_info_mode_periodic = 1;
+-    p7_config->timing_info_period = phy_info->timing_info_period;
+   }
+ 
+   if (phy_info->timing_info_mode & 0x2) {
+@@ -1742,6 +1764,11 @@ int nr_start_request(nfapi_pnf_config_t *config, nfapi_pnf_phy_config_t *phy, nf
+   DevAssert(scs->tl.tag == NFAPI_NR_CONFIG_SCS_COMMON_TAG);
+   pnf_p7_t* pnf_p7 = (pnf_p7_t*)(p7_config);
+   pnf_p7->mu = scs->value;
++  pnf_p7->timing_window = phy_info->timing_window;
++  pnf_p7->dl_tti_timing_offset = phy_info->dl_tti_timing_offset;
++  pnf_p7->ul_tti_timing_offset = phy_info->ul_tti_timing_offset;
++  pnf_p7->ul_dci_timing_offset = phy_info->ul_dci_timing_offset;
++  pnf_p7->tx_data_timing_offset = phy_info->tx_data_timing_offset;
+ 
+   // Need to wait for main thread to create RU structures
+   while (config_sync_var < 0) {
+diff --git a/nfapi/oai_integration/nfapi_vnf.c b/nfapi/oai_integration/nfapi_vnf.c
+index 777da7c319..0e05fe249e 100644
+--- a/nfapi/oai_integration/nfapi_vnf.c
++++ b/nfapi/oai_integration/nfapi_vnf.c
+@@ -74,6 +74,8 @@ static nfapi_vnf_config_t *config;
+ extern RAN_CONTEXT_t RC;
+ extern UL_RCC_IND_t  UL_RCC_INFO;
+ 
++static int nr_start_resp_received = 0;
++
+ nfapi_vnf_config_t * get_config()
+ {
+   return config;
+@@ -1316,7 +1318,7 @@ void *vnf_p7_thread_start(void *ptr) {
+   p7_vnf->config->codec_config.deallocate = &vnf_deallocate;
+   p7_vnf->config->allocate_p7_vendor_ext = &phy_allocate_p7_vendor_ext;
+   p7_vnf->config->deallocate_p7_vendor_ext = &phy_deallocate_p7_vendor_ext;
+-  NFAPI_TRACE(NFAPI_TRACE_INFO, "[VNF] Creating VNF NFAPI P7 start thread %s\n", __FUNCTION__);
++  NFAPI_TRACE(NFAPI_TRACE_INFO, "[VNF] Creating VNF NFAPI start thread %s\n", __FUNCTION__);
+   pthread_create(&vnf_p7_start_pthread, NULL, &vnf_p7_start_thread, p7_vnf->config);
+   return 0;
+ }
+@@ -1544,6 +1546,7 @@ int start_resp_cb(nfapi_vnf_config_t *config, int p5_idx, nfapi_start_response_t
+ 
+ int nr_start_resp_cb(nfapi_vnf_config_t *config, int p5_idx, nfapi_nr_start_response_scf_t *resp) {
+   NFAPI_TRACE(NFAPI_TRACE_INFO, "[VNF] Received NFAPI_START_RESP idx:%d phy_id:%d\n", p5_idx, resp->header.phy_id);
++  nr_start_resp_received = 1;
+   return 0;
+ }
+ 
+@@ -1746,6 +1749,9 @@ void configure_nr_nfapi_vnf(eth_params_t params)
+   config->vnf_ipv6 = 0;
+   config->pnf_list = 0;
+   config->phy_list = 0;
++  config->timing_window = vnf->p7_vnfs[0].timing_window;
++  config->timing_info_mode = (vnf->p7_vnfs[0].aperiodic_timing_enabled << 1) | (vnf->p7_vnfs[0].periodic_timing_enabled);
++  config->timing_info_period = vnf->p7_vnfs[0].periodic_timing_period;
+ 
+   config->pnf_nr_connection_indication = &pnf_nr_connection_indication_cb;
+   config->pnf_disconnect_indication = &pnf_disconnection_indication_cb;
+diff --git a/nfapi/oai_integration/nfapi_vnf.h b/nfapi/oai_integration/nfapi_vnf.h
+index 731a9b3859..6f69e64ff3 100644
+--- a/nfapi/oai_integration/nfapi_vnf.h
++++ b/nfapi/oai_integration/nfapi_vnf.h
+@@ -121,10 +121,14 @@ typedef struct {
+   int local_port;
+   char local_addr[80];
+ 
+-  unsigned timing_window;
++  uint16_t timing_window;
+   unsigned periodic_timing_enabled;
+   unsigned aperiodic_timing_enabled;
+   unsigned periodic_timing_period;
++  uint32_t dl_tti_timing_offset;
++  uint32_t ul_tti_timing_offset;
++  uint32_t ul_dci_timing_offset;
++  uint32_t tx_data_timing_offset;
+ 
+   // This is not really the right place if we have multiple PHY,
+   // should be part of the phy struct
+diff --git a/nfapi/open-nFAPI/fapi/src/nr_fapi_p5.c b/nfapi/open-nFAPI/fapi/src/nr_fapi_p5.c
+index 90457d5c5c..96fc58f399 100644
+--- a/nfapi/open-nFAPI/fapi/src/nr_fapi_p5.c
++++ b/nfapi/open-nFAPI/fapi/src/nr_fapi_p5.c
+@@ -711,6 +711,10 @@ uint8_t unpack_nr_param_response(uint8_t **ppReadPackedMsg, uint8_t *end, void *
+       {NFAPI_NR_NFAPI_TIMING_WINDOW_TAG, &pNfapiMsg->nfapi_config.timing_window, &unpack_uint16_tlv_value},
+       {NFAPI_NR_NFAPI_TIMING_INFO_MODE_TAG, &pNfapiMsg->nfapi_config.timing_info_mode, &unpack_uint8_tlv_value},
+       {NFAPI_NR_NFAPI_TIMING_INFO_PERIOD_TAG, &pNfapiMsg->nfapi_config.timing_info_period, &unpack_uint8_tlv_value},
++      {NFAPI_NR_NFAPI_DL_TTI_TIMING_OFFSET, &(pNfapiMsg->nfapi_config.dl_tti_timing_offset), &unpack_uint32_tlv_value},
++      {NFAPI_NR_NFAPI_UL_TTI_TIMING_OFFSET, &(pNfapiMsg->nfapi_config.ul_tti_timing_offset), &unpack_uint32_tlv_value},
++      {NFAPI_NR_NFAPI_UL_DCI_TIMING_OFFSET, &(pNfapiMsg->nfapi_config.ul_dci_timing_offset), &unpack_uint32_tlv_value},
++      {NFAPI_NR_NFAPI_TX_DATA_TIMING_OFFSET, &(pNfapiMsg->nfapi_config.tx_data_timing_offset), &unpack_uint32_tlv_value},
+   };
+ 
+   return (pull8(ppReadPackedMsg, &pNfapiMsg->error_code, end) && pull8(ppReadPackedMsg, &pNfapiMsg->num_tlv, end)
+@@ -1202,6 +1206,34 @@ uint8_t pack_nr_config_request(void *msg, uint8_t **ppWritePackedMsg, uint8_t *e
+                         end,
+                         &pack_uint8_tlv_value);
+   numTLVs++;
++
++  retval &= pack_nr_tlv(NFAPI_NR_NFAPI_DL_TTI_TIMING_OFFSET,
++                        &(pNfapiMsg->nfapi_config.dl_tti_timing_offset),
++                        ppWritePackedMsg,
++                        end,
++                        &pack_uint32_tlv_value);
++  numTLVs++;
++
++  retval &= pack_nr_tlv(NFAPI_NR_NFAPI_UL_TTI_TIMING_OFFSET,
++                        &(pNfapiMsg->nfapi_config.ul_tti_timing_offset),
++                        ppWritePackedMsg,
++                        end,
++                        &pack_uint32_tlv_value);
++  numTLVs++;
++
++  retval &= pack_nr_tlv(NFAPI_NR_NFAPI_UL_DCI_TIMING_OFFSET,
++                        &(pNfapiMsg->nfapi_config.ul_dci_timing_offset),
++                        ppWritePackedMsg,
++                        end,
++                        &pack_uint32_tlv_value);
++  numTLVs++;
++
++  retval &= pack_nr_tlv(NFAPI_NR_NFAPI_TX_DATA_TIMING_OFFSET,
++                        &(pNfapiMsg->nfapi_config.tx_data_timing_offset),
++                        ppWritePackedMsg,
++                        end,
++                        &pack_uint32_tlv_value);
++  numTLVs++;
+   // END nFAPI TLVs included in CONFIG.request for IDLE and CONFIGURED states
+ 
+   if (pNfapiMsg->vendor_extension != 0 && config != 0) {
+@@ -1419,6 +1451,10 @@ uint8_t unpack_nr_config_request(uint8_t **ppReadPackedMsg, uint8_t *end, void *
+       {NFAPI_NR_NFAPI_TIMING_WINDOW_TAG, &(pNfapiMsg->nfapi_config.timing_window), &unpack_uint16_tlv_value},
+       {NFAPI_NR_NFAPI_TIMING_INFO_MODE_TAG, &(pNfapiMsg->nfapi_config.timing_info_mode), &unpack_uint8_tlv_value},
+       {NFAPI_NR_NFAPI_TIMING_INFO_PERIOD_TAG, &(pNfapiMsg->nfapi_config.timing_info_period), &unpack_uint8_tlv_value},
++      {NFAPI_NR_NFAPI_DL_TTI_TIMING_OFFSET, &(pNfapiMsg->nfapi_config.dl_tti_timing_offset), &unpack_uint32_tlv_value},
++      {NFAPI_NR_NFAPI_UL_TTI_TIMING_OFFSET, &(pNfapiMsg->nfapi_config.ul_tti_timing_offset), &unpack_uint32_tlv_value},
++      {NFAPI_NR_NFAPI_UL_DCI_TIMING_OFFSET, &(pNfapiMsg->nfapi_config.ul_dci_timing_offset), &unpack_uint32_tlv_value},
++      {NFAPI_NR_NFAPI_TX_DATA_TIMING_OFFSET, &(pNfapiMsg->nfapi_config.tx_data_timing_offset), &unpack_uint32_tlv_value},
+       {NFAPI_NR_NFAPI_P7_PNF_ADDRESS_IPV6_TAG, &(pNfapiMsg->nfapi_config.p7_pnf_address_ipv6), &unpack_ipv6_address_value},
+       {NFAPI_NR_NFAPI_P7_PNF_PORT_TAG, &(pNfapiMsg->nfapi_config.p7_pnf_port), &unpack_uint16_tlv_value}};
+ 
+diff --git a/nfapi/open-nFAPI/pnf/inc/pnf_p7.h b/nfapi/open-nFAPI/pnf/inc/pnf_p7.h
+index 3040d9de09..a434095cae 100644
+--- a/nfapi/open-nFAPI/pnf/inc/pnf_p7.h
++++ b/nfapi/open-nFAPI/pnf/inc/pnf_p7.h
+@@ -134,6 +134,13 @@ struct pnf_p7_t {
+ 	uint32_t ul_dci_jitter;
+ 	uint32_t tx_data_jitter;
+ 
++	// Timing Configuration
++	uint32_t dl_tti_timing_offset;
++	uint32_t ul_tti_timing_offset;
++	uint32_t ul_dci_timing_offset;
++	uint32_t tx_data_timing_offset;
++	uint32_t timing_window;
++
+ 	uint32_t tick;
+ 	pnf_p7_stats_t stats;
+ 	pnf_p7_nr_stats_t nr_stats;
+diff --git a/nfapi/open-nFAPI/pnf/public_inc/nfapi_pnf_interface.h b/nfapi/open-nFAPI/pnf/public_inc/nfapi_pnf_interface.h
+index 306216a1d5..19abb313b1 100644
+--- a/nfapi/open-nFAPI/pnf/public_inc/nfapi_pnf_interface.h
++++ b/nfapi/open-nFAPI/pnf/public_inc/nfapi_pnf_interface.h
+@@ -636,6 +636,11 @@ typedef struct
+ 	nfapi_nr_ul_tti_request_t  ul_tti_req;
+ 	nfapi_nr_ul_dci_request_t  ul_dci_req;
+ 	nfapi_nr_tx_data_request_t tx_data_req;
++	// Receive timestamps for timing calculation (time when packet was received)
++	uint32_t dl_tti_recv_time_hr;
++	uint32_t ul_tti_recv_time_hr;
++	uint32_t ul_dci_recv_time_hr;
++	uint32_t tx_data_recv_time_hr;
+ 
+ 	//TODO: check these two later
+ 	//nfapi_lbt_dl_config_request_t* lbt_dl_config_req;
+diff --git a/nfapi/open-nFAPI/vnf/public_inc/nfapi_vnf_interface.h b/nfapi/open-nFAPI/vnf/public_inc/nfapi_vnf_interface.h
+index 29307a0f43..c420c0bfe5 100644
+--- a/nfapi/open-nFAPI/vnf/public_inc/nfapi_vnf_interface.h
++++ b/nfapi/open-nFAPI/vnf/public_inc/nfapi_vnf_interface.h
+@@ -107,6 +107,13 @@ typedef struct nfapi_vnf_config
+ 	/*! List of configured phys */
+ 	nfapi_vnf_phy_info_t* phy_list;
+ 
++	/*! Timing window */
++	uint16_t timing_window;
++	/*! Timing info mode */
++	uint8_t timing_info_mode;
++	/*! Timing info period */
++	uint8_t timing_info_period;
++
+ 	/*! Configuration options for the p4 p5 pack unpack functions */
+ 	nfapi_p4_p5_codec_config_t codec_config;
+ 	

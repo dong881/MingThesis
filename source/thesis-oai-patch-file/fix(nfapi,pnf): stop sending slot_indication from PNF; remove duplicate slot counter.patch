@@ -1,0 +1,52 @@
+commit 45d1f264406ddb1ff14f0b5c1be68293383e8add
+Author: dong881 <minghunghsu.taiwan@gmail.com>
+Date:   Thu Mar 12 19:22:20 2026 +0800
+
+    fix(nfapi/pnf): stop sending slot_indication from PNF; remove duplicate slot counter
+    
+    Per SCF 225, the slot.indication message originates at the VNF and flows
+    down to the PNF. The PNF must not echo it back.
+    
+    - nfapi_pnf.c (handle_nr_slot_ind): comment out oai_nfapi_nr_slot_indication()
+      call; the VNF drives slot timing autonomously via its own timing thread
+    - nfapi_pnf.c (nr_start_resp_cb): set nr_start_resp_received flag so that
+      the VNF can track when the PNF has started
+    - socket_pnf.c (pnf_nr_p7_message_pump): remove the duplicate sfn/slot
+      increment inside the message pump loop; slot counting is handled by the
+      PNF processing path and must not be done twice
+
+diff --git a/nfapi/oai_integration/nfapi_pnf.c b/nfapi/oai_integration/nfapi_pnf.c
+index 8d95abb123..aa406e5747 100644
+--- a/nfapi/oai_integration/nfapi_pnf.c
++++ b/nfapi/oai_integration/nfapi_pnf.c
+@@ -2352,7 +2352,9 @@ void handle_nr_slot_ind(uint16_t sfn, uint16_t slot, NR_Sched_Rsp_t *sched_resp)
+ 
+   // printf("send slot indication for sfn/slot:%4d.%2d current:%4d.%2d\n", sfn_tx, slot_tx, sfn, slot);
+   nfapi_nr_slot_indication_scf_t ind = {.sfn = sfn_tx, .slot = slot_tx};
++#ifdef ENABLE_WLS
+   oai_nfapi_nr_slot_indication(&ind);
++#endif
+ 
+   // copy data from appropriate p7 slot buffers into channel structures for PHY processing
+   nfapi_pnf_p7_get_msgs(config,
+diff --git a/nfapi/oai_integration/socket/socket_pnf.c b/nfapi/oai_integration/socket/socket_pnf.c
+index 0be068fe22..5b8c755028 100644
+--- a/nfapi/oai_integration/socket/socket_pnf.c
++++ b/nfapi/oai_integration/socket/socket_pnf.c
+@@ -815,11 +815,12 @@ int pnf_nr_p7_message_pump(pnf_p7_t *pnf_p7)
+       // update slot start timing
+       slot_start = pnf_timespec_add(slot_start, slot_duration);
+ 
++      /* Shouldn't have duplicate slot increment at PNF side */
+       // increment sfn/slot
+-      if (++pnf_p7->slot == 20) {
+-        pnf_p7->slot = 0;
+-        pnf_p7->sfn = (pnf_p7->sfn + 1) % 1024;
+-      }
++      // if (++pnf_p7->slot == 20) {
++      //   pnf_p7->slot = 0;
++      //   pnf_p7->sfn = (pnf_p7->sfn + 1) % 1024;
++      // }
+ 
+       continue;
+     } else if (selectRetval == -1 && (errno == EINTR)) {

@@ -1,0 +1,105 @@
+commit f5ab0fa448ef96e469fa95325fdf0e5387fee2aa
+Author: dong881 <minghunghsu.taiwan@gmail.com>
+Date:   Thu Mar 12 19:17:15 2026 +0800
+
+    fix(nfapi): rename tx_data_request_* fields to tx_data_* in timing info per SCF 225
+    
+    The SCF 225 specification uses 'Tx_Data' (not 'Tx_Data.request') for the
+    timing info message fields. Rename the three affected fields to align with
+    the specification:
+    - tx_data_request_jitter        -> tx_data_jitter
+    - tx_data_request_latest_delay  -> tx_data_latest_delay
+    - tx_data_request_earliest_arrival -> tx_data_earliest_arrival
+    
+    Update the corresponding pack/unpack functions in nfapi_p7.c.
+
+diff --git a/nfapi/open-nFAPI/nfapi/public_inc/nfapi_nr_interface_scf.h b/nfapi/open-nFAPI/nfapi/public_inc/nfapi_nr_interface_scf.h
+index b466303cd8..50523fdd9e 100644
+--- a/nfapi/open-nFAPI/nfapi/public_inc/nfapi_nr_interface_scf.h
++++ b/nfapi/open-nFAPI/nfapi/public_inc/nfapi_nr_interface_scf.h
+@@ -1183,17 +1183,17 @@ typedef struct {
+   uint32_t time_since_last_timing_info;
+ 
+   uint32_t dl_tti_jitter;
+-  uint32_t tx_data_request_jitter;
++  uint32_t tx_data_jitter;
+   uint32_t ul_tti_jitter;
+   uint32_t ul_dci_jitter;
+ 
+   int32_t dl_tti_latest_delay;
+-  int32_t tx_data_request_latest_delay;
++  int32_t tx_data_latest_delay;
+   int32_t ul_tti_latest_delay;
+   int32_t ul_dci_latest_delay;
+ 
+   int32_t dl_tti_earliest_arrival;
+-  int32_t tx_data_request_earliest_arrival;
++  int32_t tx_data_earliest_arrival;
+   int32_t ul_tti_earliest_arrival;
+   int32_t ul_dci_earliest_arrival;
+   nfapi_vendor_extension_tlv_t vendor_extension;
+diff --git a/nfapi/open-nFAPI/nfapi/src/nfapi_p7.c b/nfapi/open-nFAPI/nfapi/src/nfapi_p7.c
+index e75e418500..29c1a22af6 100644
+--- a/nfapi/open-nFAPI/nfapi/src/nfapi_p7.c
++++ b/nfapi/open-nFAPI/nfapi/src/nfapi_p7.c
+@@ -2455,14 +2455,14 @@ uint8_t pack_nr_timing_info(void *msg, uint8_t **ppWritePackedMsg, uint8_t *end,
+   return (push32(pNfapiMsg->last_sfn, ppWritePackedMsg, end) && push32(pNfapiMsg->last_slot, ppWritePackedMsg, end)
+           && push32(pNfapiMsg->time_since_last_timing_info, ppWritePackedMsg, end)
+           && push32(pNfapiMsg->dl_tti_jitter, ppWritePackedMsg, end)
+-          && push32(pNfapiMsg->tx_data_request_jitter, ppWritePackedMsg, end)
++          && push32(pNfapiMsg->tx_data_jitter, ppWritePackedMsg, end)
+           && push32(pNfapiMsg->ul_tti_jitter, ppWritePackedMsg, end) && push32(pNfapiMsg->ul_dci_jitter, ppWritePackedMsg, end)
+           && pushs32(pNfapiMsg->dl_tti_latest_delay, ppWritePackedMsg, end)
+-          && pushs32(pNfapiMsg->tx_data_request_latest_delay, ppWritePackedMsg, end)
++          && pushs32(pNfapiMsg->tx_data_latest_delay, ppWritePackedMsg, end)
+           && pushs32(pNfapiMsg->ul_tti_latest_delay, ppWritePackedMsg, end)
+           && pushs32(pNfapiMsg->ul_dci_latest_delay, ppWritePackedMsg, end)
+           && pushs32(pNfapiMsg->dl_tti_earliest_arrival, ppWritePackedMsg, end)
+-          && pushs32(pNfapiMsg->tx_data_request_earliest_arrival, ppWritePackedMsg, end)
++          && pushs32(pNfapiMsg->tx_data_earliest_arrival, ppWritePackedMsg, end)
+           && pushs32(pNfapiMsg->ul_tti_earliest_arrival, ppWritePackedMsg, end)
+           && pushs32(pNfapiMsg->ul_dci_earliest_arrival, ppWritePackedMsg, end)
+           && pack_p7_vendor_extension_tlv(pNfapiMsg->vendor_extension, ppWritePackedMsg, end, config));
+@@ -5745,14 +5745,14 @@ static uint8_t unpack_nr_timing_info(uint8_t **ppReadPackedMsg, uint8_t *end, vo
+   return (pull32(ppReadPackedMsg, &pNfapiMsg->last_sfn, end) && pull32(ppReadPackedMsg, &pNfapiMsg->last_slot, end)
+           && pull32(ppReadPackedMsg, &pNfapiMsg->time_since_last_timing_info, end)
+           && pull32(ppReadPackedMsg, &pNfapiMsg->dl_tti_jitter, end)
+-          && pull32(ppReadPackedMsg, &pNfapiMsg->tx_data_request_jitter, end)
++          && pull32(ppReadPackedMsg, &pNfapiMsg->tx_data_jitter, end)
+           && pull32(ppReadPackedMsg, &pNfapiMsg->ul_tti_jitter, end) && pull32(ppReadPackedMsg, &pNfapiMsg->ul_dci_jitter, end)
+           && pulls32(ppReadPackedMsg, &pNfapiMsg->dl_tti_latest_delay, end)
+-          && pulls32(ppReadPackedMsg, &pNfapiMsg->tx_data_request_latest_delay, end)
++          && pulls32(ppReadPackedMsg, &pNfapiMsg->tx_data_latest_delay, end)
+           && pulls32(ppReadPackedMsg, &pNfapiMsg->ul_tti_latest_delay, end)
+           && pulls32(ppReadPackedMsg, &pNfapiMsg->ul_dci_latest_delay, end)
+           && pulls32(ppReadPackedMsg, &pNfapiMsg->dl_tti_earliest_arrival, end)
+-          && pulls32(ppReadPackedMsg, &pNfapiMsg->tx_data_request_earliest_arrival, end)
++          && pulls32(ppReadPackedMsg, &pNfapiMsg->tx_data_earliest_arrival, end)
+           && pulls32(ppReadPackedMsg, &pNfapiMsg->ul_tti_earliest_arrival, end)
+           && pulls32(ppReadPackedMsg, &pNfapiMsg->ul_dci_earliest_arrival, end)
+           && unpack_nr_p7_tlv_list(NULL, 0, ppReadPackedMsg, end, config, &pNfapiMsg->vendor_extension));
+diff --git a/nfapi/open-nFAPI/pnf/src/pnf_p7.c b/nfapi/open-nFAPI/pnf/src/pnf_p7.c
+index 8b684261a7..27d54df73a 100644
+--- a/nfapi/open-nFAPI/pnf/src/pnf_p7.c
++++ b/nfapi/open-nFAPI/pnf/src/pnf_p7.c
+@@ -612,17 +612,17 @@ void pnf_nr_pack_and_send_timing_info(pnf_p7_t* pnf_p7)
+ 	timing_info.time_since_last_timing_info = pnf_p7->timing_info_ms_counter;
+ 
+ 	timing_info.dl_tti_jitter = pnf_p7->dl_tti_jitter;
+-	timing_info.tx_data_request_jitter = pnf_p7->tx_data_jitter;
++	timing_info.tx_data_jitter = pnf_p7->tx_data_jitter;
+ 	timing_info.ul_tti_jitter = pnf_p7->ul_tti_jitter;
+ 	timing_info.ul_dci_jitter = pnf_p7->ul_dci_jitter;
+ 
+ 	timing_info.dl_tti_latest_delay = 0;
+-	timing_info.tx_data_request_latest_delay = 0;
++	timing_info.tx_data_latest_delay = 0;
+ 	timing_info.ul_tti_latest_delay = 0;
+ 	timing_info.ul_dci_latest_delay = 0;
+ 
+ 	timing_info.dl_tti_earliest_arrival = 0;
+-	timing_info.tx_data_request_earliest_arrival = 0;
++	timing_info.tx_data_earliest_arrival = 0;
+ 	timing_info.ul_tti_earliest_arrival = 0;
+ 	timing_info.ul_dci_earliest_arrival = 0;
+   AssertFatal(pnf_p7->_public.send_p7_msg, "The function pointer to pack and send P7 messages must be set");

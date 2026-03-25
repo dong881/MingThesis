@@ -142,17 +142,149 @@ Figure~\ref{fig:Fig1} shows the system model/architecture considered in this pap
 %   \caption{Timing diagram of the system model considered in this paper.}
 %   \label{fig:Fig1}
 % \end{figure}
+\color{blue}{
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=1\columnwidth]{figures/SystemArchitecture.png}
+  \caption{System architecture of the O‑RAN based implementation.}
+  \label{fig:system_architecture2}
+\end{figure}
+}
+
 The following assumptions were made in this paper.
+\color{blue}{\textbf{TODO: Add explanatory text for each assumption.}}
+\[
+\hat{J}_k = \alpha \hat{J}_{k-1} + (1-\alpha)\, \Delta t_k,
+\]
+where $0<\alpha<1$ is a smoothing factor. The desired offset $\delta$ that aligns the scheduler transmission with the PHY deadline is
+\[
+\delta_k = T_{\text{deadline}} - (\Delta t_k + \hat{J}_k).
+\]
+The offset is then converted to frame and slot indices:
+\[
+ f_k = \left\lfloor \frac{\delta_k}{T_{\text{frame}}} \right\rfloor,\qquad
+ s_k = \left\lfloor \frac{\delta_k - f_k T_{\text{frame}}}{T_{\text{slot}}} \right\rfloor,
+\]
+where $T_{\\text{frame}} = N_{\\text{frame}} T_{\\text{slot}}$.
+
+The scheduler applies $(f_k,s_k)$ to the scheduling request such that the transmitted data arrives at the O-DU Low exactly at the required PHY boundary.
+\color{blue}{
+\begin{figure}[htbp]
+  \centering
+  % [圖片需求]
+  % 類型：流程圖或架構圖 (Flowchart or Architecture Diagram)
+  % 內容細節：必須呈現 VNF 與 O-DU Low 之間的三階段閉環時間調整機制（Three-stage closed-loop timing adjustment）。
+  % 1. Timing Feedback Collection (傳遞 \Delta t)
+  % 2. Offset Computation (計算 f, s)
+  % 3. Scheduler Adaptation (應用 (f, s))
+  % 數據/標註：明確標示出 PNF, VNF 的邊界，以及各階段所傳遞的變數名稱與延遲。
+  \caption{Three‑stage closed‑loop timing adjustment.}
+  \label{fig:three_stage}
+\end{figure}
+}
 \begin{itemize}
 \item Assumption 1.
 \item Assumption 2. 
 \item Assumption 3. 
 \end{itemize}
+\color{blue}{
+\begin{table}[h]
+\centering
+\caption{Parameter Summary (TODO)}
+\label{tab:parameters}
+\begin{tabular}{l c}
+\toprule
+Parameter & Value \\
+\midrule
+$T_{\text{slot}}$ & 0.5\,ms \\
+$N_{\text{frame}}$ & 10 \\
+$\alpha$ & TODO \\
+\bottomrule
+\end{tabular}
+\end{table}
+}
+
 
 \section{Proposed Method}
+In this work we propose a closed‑loop timing adjustment mechanism that integrates the dynamic algorithm described in Section~II‑C with the O‑DU scheduler. The method consists of three stages:
+
+1. **Timing Feedback Collection** – O‑DU Low measures the actual transmission time of each downlink subframe and reports a timing offset $\\Delta t$ to the O‑DU High via the FAPI interface.
+2. **Offset Computation** – The dynamic algorithm at O‑DU High processes $\\Delta t$ using the EMA model above and computes the trigger timing offset $(f,s)$.
+3. **Scheduler Adaptation** – The computed offset is injected into the MAC scheduler’s timing parameters so that the next scheduling request is shifted accordingly.
+
+The algorithm operates on a per-slot basis, ensuring that the control loop latency remains below one subframe ($\leq$ 0.5\,ms). By continuously adapting to the measured jitter, the system can compensate for virtualization-induced delays and maintain tight synchronization between the VNF and the hardware-accelerated PHY.
 \section{Numerical/Simulation/Experimental Results}
-Computer simulations/Experiments were conducted to verify xxx (the effectiveness of the proposed analytical model). 
-In the following figures, each point represented the average value of $10^5$ samples. In each sample, we collect the statistics of xxx. Symbols and lines were used to show the simulation and analytical results, respectively. 
+Computer simulations/Experiments were conducted to verify the effectiveness of the proposed analytical model.
+\color{blue}{
+\begin{figure}[htbp]
+  \centering
+  % [圖片需求]
+  % 類型：實驗/驗證流程圖 (Validation workflow)
+  % 內容細節：展示如何對提出的方法進行實驗驗證，涵蓋環境架構與數據收集流程。
+  % 數據/標註：包含使用的模擬器或硬體測試平台 (O-RAN 測試台)、取得 jitter / throughput 數據的採集點 (Probes)，以及資料流向。
+  \caption{Validation workflow for the proposed method.}
+  \label{fig:validation_flow}
+\end{figure}
+}
+\color{blue}{
+% Placeholder for Result Figure 1 – Jitter reduction
+\begin{figure}[htbp]
+  \centering
+  % [圖片需求]
+  % 類型：折線圖 (Line chart) 或 散佈圖 (Scatter plot)
+  % 內容細節：展示隨著 Iteration 增加，Jitter 逐漸收斂與減少的趨勢。此為證明動態調整機制有效性的關鍵圖表。
+  % X軸：Iteration 次數 或 經過時間 (Time, ms)
+  % Y軸：Jitter 大小 (\mu s 或 ms)
+  % 數據/標註：必須包含 Proposed method 與 Baseline (如固定 offset) 的曲線比較，標示收斂時間與穩態的 Jitter 變異範圍，顯示 Proposed method 能有效降低抖動。
+  \caption{Jitter reduction over iterations (TODO: add data).}
+  \label{fig:result_jitter}
+\end{figure}
+}
+\color{blue}{
+% Placeholder for Result Figure 2 – Offset vs. Delay
+\begin{figure}[htbp]
+  \centering
+  % [圖片需求]
+  % 類型：散佈圖 (Scatter plot) 結合 階梯圖 (Step plot)
+  % 內容細節：展示觸發偏移量 (f, s) 如何根據量測到的延遲 (Measured delay) 進行動態對應。
+  % X軸：Measured delay (\Delta t)
+  % Y軸：Trigger offset (f, s) 或對應的 slot index 變化量
+  % 數據/標註：標示出系統要求的遲到門檻 (Deadline) 界線，並呈現不同 Measured delay 落在哪些 Offset 的補償區間中。
+  \caption{Trigger offset $(f,s)$ versus measured delay (TODO).}
+  \label{fig:result_offset}
+\end{figure}
+}
+\color{blue}{
+% Placeholder for Result Figure 3 – Throughput comparison
+\begin{figure}[htbp]
+  \centering
+  % [圖片需求]
+  % 類型：長條圖 (Bar chart) 或 累積分布圖 (CDF)
+  % 內容細節：比較使用 Proposed method 與 Baseline 在不同情境 (Scenarios) 下的系統吞吐量 (Throughput) 改善。
+  % X軸：不同 Scenarios (例如不同的背景流量、VNF CPU 核心數、或負載條件)
+  % Y軸：Throughput (Mbps 或 Gbps)
+  % 數據/標註：每個長條應標示出該情境下的平均吞吐量，並附上 95% Confidence Interval 的誤差棒 (Error bar) 增加可信度。
+  \caption{Throughput comparison with baseline (TODO).}
+  \label{fig:result_throughput}
+\end{figure}
+}
+\color{blue}{
+\begin{table}[h]
+  \caption{Simulation parameters for each scenario.}
+  \label{tab:sim_params}
+  \centering
+  \begin{tabular}{l c c}
+    \toprule
+    Scenario & Parameter & Value \\
+    \midrule
+    Scenario 1 & VNF CPU cores & TODO \\
+               & Feedback period & TODO \\
+    Scenario 2 & PHY latency & TODO \\
+               & EMA $\alpha$ & TODO \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+} 
 
 %很多同學無法討論的原因是因為花了很多時間畫圖，但是圖畫錯。
 %圖畫錯的原因是在畫圖前沒有先思考過，依據手邊的資料打算畫出怎麼樣的圖？這些圖是否能呈現想表達的意義？
@@ -167,21 +299,48 @@ XXX scenarios were investigated. Scenario I was designed to demonstrate/verify t
 % For each contribution, tell us
 % HOW do you design experiments to demonstrate your contribution 
 % WHY your results can support your contribution
+\color{blue}{
 \subsection{Contribution 1}
-Fig. 1.1: Purpose
-    X axis: 
-    Y axis:
+% TODO: Add description and figure for Contribution 1
+\begin{figure}[htbp]
+  \centering
+  % [圖片需求 - Contribution 1]
+  % 類型：選擇合適的性能對比圖表
+  % 內容細節：具體證明 Contribution 1 的宣告（例如：證實提出的演算法達到了比以往更低的延遲）。
+  % 數據/標註：需包含對比數據 (例如你的方法 vs 傳統方法) 或核心機制的量化強調標註，用客觀數據支持文字描述的「Why」與「How」。
+  \caption{Result for Contribution 1 (TODO).}
+  \label{fig:contrib1}
+\end{figure}
+}
+\color{blue}{
 \subsection{Contribution 2}
-Fig. 2.1: 
-    X axis: 
-    Y axis:
+% TODO: Add description and figure for Contribution 2
+\begin{figure}[htbp]
+  \centering
+  % [圖片需求 - Contribution 2]
+  % 類型：選擇合適的性能對比圖表或資源使用熱力圖
+  % 內容細節：具體視覺化 Contribution 2 (例如：演算法在資源調度上更有效率，降低了 CPU 使用率或封包遺失率)。
+  % 數據/標註：提供量化數據，並能佐證在實驗設計上的考量。
+  \caption{Result for Contribution 2 (TODO).}
+  \label{fig:contrib2}
+\end{figure}
+}
+\color{blue}{
 \subsection{Contribution 3}
-Fig. 3.1: 
-    X axis: 
-    Y axis:
+% TODO: Add description and figure for Contribution 3
+\begin{figure}[htbp]
+  \centering
+  % [圖片需求 - Contribution 3]
+  % 類型：選擇合適的圖表 (例如 CDF 或 系統效能隨負載變化的趨勢圖)
+  % 內容細節：具體視覺化 Contribution 3 (例如：在極端惡劣的網路環境或高負載情況下，系統依然能維持穩定的表現)。
+  % 數據/標註：提供量化數據或情境對比 (最佳、一般、最差情況)，以增強信服力。
+  \caption{Result for Contribution 3 (TODO).}
+  \label{fig:contrib3}
+\end{figure}
+}
 \begin{thebibliography}{00}
 \bibitem{b1} 
 \end{thebibliography}
-\end{CJK}\
+\end{CJK}
 \end{document}
 

@@ -1,0 +1,93 @@
+commit 0b4e0b6e2519058191f2edcdf80905abb151c0ce
+Author: dong881 <minghunghsu.taiwan@gmail.com>
+Date:   Thu Mar 12 19:18:43 2026 +0800
+
+    fix(nfapi): widen timing_window field from uint8 to uint16 to support full SCF 225 range
+    
+    SCF 225 specifies timing_window as values 0-30000 microseconds, which
+    overflows a uint8. Update the field type in all relevant structs and the
+    corresponding pack/unpack serialisation functions:
+    - nfapi_interface.h: nfapi_uint8_tlv_t -> nfapi_uint16_tlv_t
+    - nfapi_vnf_interface.h: uint8_t -> uint16_t in nfapi_vnf_phy_info
+    - nfapi/oai_integration/nfapi_vnf.h: both timing_window fields -> uint16_t
+    - nr_fapi_p5.c: use pack/unpack_uint16_tlv_value for TIMING_WINDOW_TAG
+
+diff --git a/nfapi/oai_integration/nfapi_vnf.h b/nfapi/oai_integration/nfapi_vnf.h
+index d71f9a2926..731a9b3859 100644
+--- a/nfapi/oai_integration/nfapi_vnf.h
++++ b/nfapi/oai_integration/nfapi_vnf.h
+@@ -59,7 +59,7 @@ typedef struct {
+   uint8_t first_subframe_ind;
+ 
+   // timing information recevied from the vnf
+-  uint8_t timing_window;
++  uint16_t timing_window;
+   uint8_t timing_info_mode;
+   uint8_t timing_info_period;
+ 
+diff --git a/nfapi/open-nFAPI/fapi/src/nr_fapi_p5.c b/nfapi/open-nFAPI/fapi/src/nr_fapi_p5.c
+index 255d7d62e3..90457d5c5c 100644
+--- a/nfapi/open-nFAPI/fapi/src/nr_fapi_p5.c
++++ b/nfapi/open-nFAPI/fapi/src/nr_fapi_p5.c
+@@ -551,7 +551,7 @@ uint8_t pack_nr_param_response(void *msg, uint8_t **ppWritePackedMsg, uint8_t *e
+                            &(pNfapiMsg->nfapi_config.timing_window),
+                            ppWritePackedMsg,
+                            end,
+-                           &pack_uint8_tlv_value)
++                           &pack_uint16_tlv_value)
+             && pack_nr_tlv(NFAPI_NR_NFAPI_TIMING_INFO_MODE_TAG,
+                            &(pNfapiMsg->nfapi_config.timing_info_mode),
+                            ppWritePackedMsg,
+@@ -708,7 +708,7 @@ uint8_t unpack_nr_param_response(uint8_t **ppReadPackedMsg, uint8_t *end, void *
+       {NFAPI_NR_NFAPI_P7_PNF_ADDRESS_IPV4_TAG, &pNfapiMsg->nfapi_config.p7_pnf_address_ipv4, &unpack_ipv4_address_value},
+       {NFAPI_NR_NFAPI_P7_PNF_ADDRESS_IPV6_TAG, &pNfapiMsg->nfapi_config.p7_pnf_address_ipv6, &unpack_ipv6_address_value},
+       {NFAPI_NR_NFAPI_P7_PNF_PORT_TAG, &pNfapiMsg->nfapi_config.p7_pnf_port, &unpack_uint16_tlv_value},
+-      {NFAPI_NR_NFAPI_TIMING_WINDOW_TAG, &pNfapiMsg->nfapi_config.timing_window, &unpack_uint8_tlv_value},
++      {NFAPI_NR_NFAPI_TIMING_WINDOW_TAG, &pNfapiMsg->nfapi_config.timing_window, &unpack_uint16_tlv_value},
+       {NFAPI_NR_NFAPI_TIMING_INFO_MODE_TAG, &pNfapiMsg->nfapi_config.timing_info_mode, &unpack_uint8_tlv_value},
+       {NFAPI_NR_NFAPI_TIMING_INFO_PERIOD_TAG, &pNfapiMsg->nfapi_config.timing_info_period, &unpack_uint8_tlv_value},
+   };
+@@ -1186,7 +1186,7 @@ uint8_t pack_nr_config_request(void *msg, uint8_t **ppWritePackedMsg, uint8_t *e
+                         &(pNfapiMsg->nfapi_config.timing_window),
+                         ppWritePackedMsg,
+                         end,
+-                        &pack_uint8_tlv_value);
++                        &pack_uint16_tlv_value);
+   numTLVs++;
+ 
+   retval &= pack_nr_tlv(NFAPI_NR_NFAPI_TIMING_INFO_MODE_TAG,
+@@ -1416,7 +1416,7 @@ uint8_t unpack_nr_config_request(uint8_t **ppReadPackedMsg, uint8_t *end, void *
+       {NFAPI_NR_NFAPI_P7_VNF_ADDRESS_IPV4_TAG, &(pNfapiMsg->nfapi_config.p7_vnf_address_ipv4), &unpack_ipv4_address_value},
+       {NFAPI_NR_NFAPI_P7_VNF_ADDRESS_IPV6_TAG, &(pNfapiMsg->nfapi_config.p7_vnf_address_ipv6), &unpack_ipv6_address_value},
+       {NFAPI_NR_NFAPI_P7_VNF_PORT_TAG, &(pNfapiMsg->nfapi_config.p7_vnf_port), &unpack_uint16_tlv_value},
+-      {NFAPI_NR_NFAPI_TIMING_WINDOW_TAG, &(pNfapiMsg->nfapi_config.timing_window), &unpack_uint8_tlv_value},
++      {NFAPI_NR_NFAPI_TIMING_WINDOW_TAG, &(pNfapiMsg->nfapi_config.timing_window), &unpack_uint16_tlv_value},
+       {NFAPI_NR_NFAPI_TIMING_INFO_MODE_TAG, &(pNfapiMsg->nfapi_config.timing_info_mode), &unpack_uint8_tlv_value},
+       {NFAPI_NR_NFAPI_TIMING_INFO_PERIOD_TAG, &(pNfapiMsg->nfapi_config.timing_info_period), &unpack_uint8_tlv_value},
+       {NFAPI_NR_NFAPI_P7_PNF_ADDRESS_IPV6_TAG, &(pNfapiMsg->nfapi_config.p7_pnf_address_ipv6), &unpack_ipv6_address_value},
+diff --git a/nfapi/open-nFAPI/nfapi/public_inc/nfapi_interface.h b/nfapi/open-nFAPI/nfapi/public_inc/nfapi_interface.h
+index 722ec5f807..bf4e198540 100644
+--- a/nfapi/open-nFAPI/nfapi/public_inc/nfapi_interface.h
++++ b/nfapi/open-nFAPI/nfapi/public_inc/nfapi_interface.h
+@@ -3710,7 +3710,7 @@ typedef struct
+   nfapi_ipv6_address_t p7_pnf_address_ipv6;
+   nfapi_uint16_tlv_t p7_pnf_port;
+ 
+-  nfapi_uint8_tlv_t timing_window; //Value: 0 → 30,000 microseconds 
++  nfapi_uint16_tlv_t timing_window; //Value: 0 → 30,000 microseconds 
+   nfapi_uint8_tlv_t timing_info_mode;
+   nfapi_uint8_tlv_t timing_info_period;
+ 
+diff --git a/nfapi/open-nFAPI/vnf/public_inc/nfapi_vnf_interface.h b/nfapi/open-nFAPI/vnf/public_inc/nfapi_vnf_interface.h
+index 3f326e841c..29307a0f43 100644
+--- a/nfapi/open-nFAPI/vnf/public_inc/nfapi_vnf_interface.h
++++ b/nfapi/open-nFAPI/vnf/public_inc/nfapi_vnf_interface.h
+@@ -44,7 +44,7 @@ typedef struct nfapi_vnf_phy_info
+ 	int phy_id; //phy_id
+ 
+ 	/*! Timing window */
+-	uint8_t timing_window;
++	uint16_t timing_window;
+ 	/*! Timing info mode */
+ 	uint8_t timing_info_mode;
+ 	/*! Timing info period */
