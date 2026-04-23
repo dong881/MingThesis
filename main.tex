@@ -13,7 +13,7 @@
 \usepackage{booktabs}  % 改善表格線條
 \usepackage{array}     % 支援欄位格式
 \usepackage{multirow}  % 如果需要合併儲存格
-\begin{document}
+\begin{document}物
 \begin{CJK}{UTF8}{bsmi}
 \title{Adaptive Advance-Time Control for nFAPI Split under Unpredictable Latency}
 \author{
@@ -51,49 +51,53 @@ Keywords: list 3–6 keywords.
 
 \section{Introduction}
 \subsection{Introduction}
-{\bf Purpose:} To explain {\bf what} the paper is about, {\bf why} the problem matters, and {\bf what} the others authors have done to address it.
+\color{blue}{
+In recent years, the Open Radio Access Network (O-RAN) architecture has become popular.
+O-RAN allows for more flexible network deployments.
+The Network Functional Application Platform Interface (nFAPI) is an important part of this architecture.
+nFAPI helps split the O-RAN Distributed Unit (O-DU) into O-DU High and O-DU Low parts.
+This functional split separates the Media Access Control (MAC) layer and the Physical (PHY) layer.
+Figure~\ref{fig:O-RAN-nFAPI} shows the O-RAN nFAPI split architecture.
 
-Typical content:
-\begin{itemize}
-\item Background and motivation
-\item Problem statement
-\item Goals of the paper
-\item Contributions (what’s new or important)
-\item High-level overview of the approach or results
-\end{itemize}
+\begin{figure}[htbp]
+  \centerline{\includegraphics[width=0.8\columnwidth]{figures/O-RAN-nFAPI.png}}
+  \caption{O-RAN nFAPI functional split architecture.}
+  \label{fig:O-RAN-nFAPI}
+\end{figure}
 
-Example phrases:
-\begin{itemize}
-\item “In recent years, …”
-\item “This paper addresses the problem of …”
-\item “Our main contributions are …”
-\end{itemize}
+We define the Virtual Network Function (VNF) to include Layer 2 and Layer 3 operations.
+The Physical Network Function (PNF) handles the Layer 1 Physical layer processing.
+Deploying the VNF and PNF on different machines causes several challenges.
+Strict slot synchronization is required between these distributed components.
+Different traffic profiles affect the latency between the VNF and PNF.
+Figure~\ref{fig:Scheduler-to-PNF-latency} shows the relationship between different traffic types and the VNF-PNF latency.
 
+\begin{figure}[htbp]
+  \centerline{\includegraphics[width=0.8\columnwidth]{figures/Scheduler-to-PNF-latency.png}}
+  \caption{Observation of latency between VNF scheduler and PNF under different traffic loads.}
+  \label{fig:Scheduler-to-PNF-latency}
+\end{figure}
 
+The system must often face non-ideal network environments.
+In these environments, the network latency is unpredictable.
+Figure~\ref{fig:Non-Ideal-Latency} shows the latency jitter in a non-ideal deployment.
+Variable latency causes timing issues for the MAC scheduler.
+Our research shows that dynamic trigger scheduler adjustment is necessary.
+Using outdated timing information reduces network performance and reliability.
+This paper proposes an adaptive control method to solve these timing problems.
+
+\begin{figure}[htbp]
+  \centerline{\includegraphics[width=0.8\columnwidth]{figures/Non-Ideal-Latency.png}}
+  \caption{Impact of unpredictable network latency in a non-ideal environment.}
+  \label{fig:Non-Ideal-Latency}
+\end{figure}
+}
 
 \subsection{Related Works}
-{\bf Purpose:} To show how your work fits into the existing body of knowledge, and how it differs from or improves upon previous work.
+% Placeholder for Related Works
+% TODO: Show how this work fits into the existing body of knowledge.
 
-Typical content:
-\begin{itemize}
-\item Summary of key prior research
-\item Strengths and limitations of existing approaches
-\item Comparison to your approach
-\item Justification for why a new approach is needed
-\end{itemize}
-
-Example phrases:
-\begin{itemize}
-\item “Several studies have explored …”
-\item “Unlike [Author], we propose …”
-\item “Prior work has not considered …”
-\end{itemize}
-
-% Background Knowledge directly related to Your Thesis Title
-
-% Related Work
-
-% Contribution: The last TWO paragraphs of your paper.
+\subsection{Contributions}
 The main contributions of this paper are summarized as follows.
 \begin{itemize}
 \item Contribution 1.
