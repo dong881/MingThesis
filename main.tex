@@ -7,7 +7,6 @@
 \usepackage{graphicx}
 \usepackage{tabularx}
 \usepackage{color}
-\usepackage{longtable}
 \usepackage[T1]{fontenc}
 \usepackage{geometry}
 \geometry{margin=1in}
@@ -18,22 +17,16 @@
 \begin{CJK}{UTF8}{bsmi}
 \title{Adaptive Advance-Time Control for nFAPI Split under Unpredictable Latency}
 \author{
-\author{\IEEEauthorblockN{
-        Ming-Hong HSU\IEEEauthorrefmark{1}, 
-        Ray-Guang Cheng\IEEEauthorrefmark{1},
-        Co-author 1\IEEEauthorrefmark{2}
-        \\
+  \IEEEauthorblockN{
+    Ming-Hong HSU\IEEEauthorrefmark{1}, 
+    Ray-Guang Cheng\IEEEauthorrefmark{1},
+    Co-author 1\IEEEauthorrefmark{2}
   }
- \IEEEauthorblockA{\IEEEauthorrefmark{1}
-Dept. of Electronic and Computer Engineering, National Taiwan University of Science and Technology, Taiwan
+  \IEEEauthorblockA{
+    \IEEEauthorrefmark{1}Dept. of Electronic and Computer Engineering, National Taiwan University of Science and Technology, Taiwan\\
+    \IEEEauthorrefmark{2}Affiliation 2\\
+    Email: crg@mail.ntust.edu.tw
   }
-  Email: crg@mail.ntust.edu.tw
-}
-
-\IEEEauthorblockA{
-Department of Electronic and Computer Engineering, National Taiwan University of Science and Technology\\
-Taipei, Taiwan, Republic of China \\
-Email: crg@mail.ntust.edu.tw}
 }
 
 \maketitle
@@ -112,26 +105,20 @@ The rest of the paper is organized as follows. Section II defines the system mod
 
 \section{System Model/Architecture}
 
-\begin{longtable}{l|l|p{4cm}}
-\caption{nFAPI Delay Management Configuration Parameters} \\
+\begin{table}[htbp]
+\caption{nFAPI Delay Management Configuration Parameters}
+\label{tab:parameters}
+\centering
+\begin{tabular}{l|l|p{4cm}}
 \toprule
 \textbf{Parameter} & \textbf{Type} & \textbf{Description} \\
 \midrule
-\endfirsthead
-
-\caption[]{nFAPI Delay Management Configuration Parameters (continued)} \\
-\toprule
-\textbf{Parameter} & \textbf{Type} & \textbf{Description} \\
-\midrule
-\endhead
-
-\bottomrule
-\endfoot
-
 timingWindow & uint16\_t & Timing window for delay management. See section 3.2.9 of [10] \\
 timingMode & uint8\_t & Timing mode for Timing Info. See section 3.2.9 of [10] \\
 timingPeriod & uint8\_t & Timing period for Timing Info. See section 3.2.9 of [10] \\
-\end{longtable}
+\bottomrule
+\end{tabular}
+\end{table}
 
 % Figure~\ref{fig:Fig1} shows the system model/architecture considered in this paper.
 % (Draw a figure showing the key components and their relationship in the system model. It may consist the I/P and O/P parameters of your system or the major components showing your contributions.) 
@@ -180,6 +167,6 @@ Fig. 3.1:
 \begin{thebibliography}{00}
 \bibitem{b1} 
 \end{thebibliography}
-\end{CJK}\
+\end{CJK}
 \end{document}
 
