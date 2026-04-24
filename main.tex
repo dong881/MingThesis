@@ -1,97 +1,92 @@
 
 \documentclass[conference]{IEEEtran}
-\usepackage[encapsulated]{CJK}
 \usepackage{cite}
 \usepackage{amsmath,amssymb,amsfonts}
 \usepackage{algorithmic}
+\usepackage{svg}
 \usepackage{graphicx}
+\usepackage{subfigure}
 \usepackage{tabularx}
 \usepackage{color}
-\usepackage[T1]{fontenc}
-\usepackage{geometry}
-\geometry{margin=1in}
-\usepackage{booktabs}  % 改善表格線條
-\usepackage{array}     % 支援欄位格式
-\usepackage{multirow}  % 如果需要合併儲存格
-\begin{document}物
+\usepackage{booktabs}
+\usepackage[encapsulated]{CJK}
+\usepackage{url}
+\usepackage{algorithm}
+% \usepackage{algpseudocode}
+
+\begin{document}
 \begin{CJK}{UTF8}{bsmi}
 \title{Adaptive Advance-Time Control for nFAPI Split under Unpredictable Latency}
 \author{
-  \IEEEauthorblockN{
-    Ming-Hong HSU\IEEEauthorrefmark{1}, 
-    Ray-Guang Cheng\IEEEauthorrefmark{1},
-    Co-author 1\IEEEauthorrefmark{2}
+\IEEEauthorblockN{
+        Ming-Hong HSU\IEEEauthorrefmark{1}, 
+        Ray-Guang Cheng\IEEEauthorrefmark{1},
+        Co-author 1\IEEEauthorrefmark{2}
+        \\
   }
-  \IEEEauthorblockA{
-    \IEEEauthorrefmark{1}Dept. of Electronic and Computer Engineering, National Taiwan University of Science and Technology, Taiwan\\
-    \IEEEauthorrefmark{2}Affiliation 2\\
-    Email: crg@mail.ntust.edu.tw
-  }
+ \IEEEauthorblockA{\IEEEauthorrefmark{1}
+Department of Electronic and Computer Engineering, National Taiwan University of Science and Technology\\
+Taipei, Taiwan, Republic of China \\
+Email: crg@mail.ntust.edu.tw}
 }
 
 \maketitle
-% 1. 請先各自複製本範本的內容，根據這裡所點出的大綱來寫，無關的內容請勿放入。自己加的內容請用「藍字」，老師改過需要確認會用「紅字」，紅字內容確認無誤的字句請自行改為黑字，有問題改成「藍色」。
-% 2. 縮寫字第一次出現前記得要先定義，原則上只有句首第一個字母大寫，請勿誤用！
-% 3. 請用國中英文直述句來寫，正確性最重要
-% 4. 本範本請先寫System Model、Propose Solution, 以及 Numercial/Experimental Results。Introduction請留到最後
-% 5. Introduction僅留下「絕對必要」資訊(沒提到後面就講不下去)即可！
-% 6. 使用任何變數前請先「定義」，寫下變數與公式前，請先想清楚，這是「問題」(I/P)、「答案」(O/P)、「推導過程」(Your Algorithm)、還是「範例」(Example)
-% 問題與答案放在System Model，
-% 推導過程放在Analytical Model，
-% 範例放在Numercial Results
 
-Abstract Section (before Introduction)
-Add a clear placeholder for an abstract:
+\begin{abstract}
+% TODO: Briefly summarize the problem, method, results, and contribution.
+\end{abstract}
 
-Purpose: Briefly summarize the problem, method, results, and contribution.
-
-Word count: typically 150–250 words.
-
-Keywords: list 3–6 keywords.
+\begin{IEEEkeywords}
+nFAPI, O-RAN, Functional Split, Adaptive Control.
+\end{IEEEkeywords}
 
 \section{Introduction}
 \subsection{Introduction}
-\color{blue}{
-In recent years, the Open Radio Access Network (O-RAN) architecture has become popular.
+
+\textcolor{blue}{In recent years, the Open Radio Access Network (O-RAN) architecture has become popular.
 O-RAN allows for more flexible network deployments.
 The Network Functional Application Platform Interface (nFAPI) is an important part of this architecture.
 nFAPI helps split the O-RAN Distributed Unit (O-DU) into O-DU High and O-DU Low parts.
 This functional split separates the Media Access Control (MAC) layer and the Physical (PHY) layer.
-Figure~\ref{fig:O-RAN-nFAPI} shows the O-RAN nFAPI split architecture.
+Figure~\ref{fig:O-RAN-nFAPI} shows the O-RAN nFAPI split architecture.}
 
 \begin{figure}[htbp]
-  \centerline{\includegraphics[width=0.8\columnwidth]{figures/O-RAN-nFAPI.png}}
+  \centering
+  \includegraphics[width=0.8\columnwidth]{figures/O-RAN-nFAPI.png}
   \caption{O-RAN nFAPI functional split architecture.}
   \label{fig:O-RAN-nFAPI}
 \end{figure}
 
-We define the Virtual Network Function (VNF) to include Layer 2 and Layer 3 operations.
+\textcolor{blue}{According to the nFAPI specification, the Virtual Network Function (VNF) includes Layer 2 and Layer 3 operations.
 The Physical Network Function (PNF) handles the Layer 1 Physical layer processing.
 Deploying the VNF and PNF on different machines causes several challenges.
 Strict slot synchronization is required between these distributed components.
 Different traffic profiles affect the latency between the VNF and PNF.
-Figure~\ref{fig:Scheduler-to-PNF-latency} shows the relationship between different traffic types and the VNF-PNF latency.
+Figure~\ref{fig:Scheduler-to-PNF-latency} shows the relationship between different traffic types and the VNF-PNF latency.}
 
 \begin{figure}[htbp]
-  \centerline{\includegraphics[width=0.8\columnwidth]{figures/Scheduler-to-PNF-latency.png}}
+  \centering
+  \includegraphics[width=0.8\columnwidth]{figures/Scheduler-to-PNF-latency.png}
   \caption{Observation of latency between VNF scheduler and PNF under different traffic loads.}
   \label{fig:Scheduler-to-PNF-latency}
 \end{figure}
 
-The system must often face non-ideal network environments.
-In these environments, the network latency is unpredictable.
+\textcolor{blue}{To lower deployment costs, operators often want to deploy Split-6 nFAPI gNBs over non-ideal networks.
+However, unpredictable network latency in these environments introduces significant challenges for MAC scheduler timing.
 Figure~\ref{fig:Non-Ideal-Latency} shows the latency jitter in a non-ideal deployment.
-Variable latency causes timing issues for the MAC scheduler.
-Our research shows that dynamic trigger scheduler adjustment is necessary.
-Using outdated timing information reduces network performance and reliability.
-This paper proposes an adaptive control method to solve these timing problems.
+Existing open-source solutions, such as OpenAirInterface (OAI), provide basic nFAPI support.
+However, they do not fully comply with the nFAPI specification for delay management.
+Therefore, they cannot handle the unpredictable latency challenges.
+To address these issues, this paper proposes a dynamic trigger scheduler adjustment algorithm.
+Our proposed algorithm fully complies with the specification.
+We verify the effectiveness and benefits of this dynamic adjustment through systematic experiments.}
 
 \begin{figure}[htbp]
-  \centerline{\includegraphics[width=0.8\columnwidth]{figures/Non-Ideal-Latency.png}}
+  \centering
+  \includegraphics[width=0.8\columnwidth]{figures/Non-Ideal-Latency.png}
   \caption{Impact of unpredictable network latency in a non-ideal environment.}
   \label{fig:Non-Ideal-Latency}
 \end{figure}
-}
 
 \subsection{Related Works}
 % Placeholder for Related Works
