@@ -18,16 +18,10 @@
 \begin{CJK}{UTF8}{bsmi}
 \title{Adaptive Advance-Time Control for nFAPI Split under Unpredictable Latency}
 \author{
-\IEEEauthorblockN{
-        Ming-Hong HSU\IEEEauthorrefmark{1}, 
-        Ray-Guang Cheng\IEEEauthorrefmark{1},
-        Co-author 1\IEEEauthorrefmark{2}
-        \\
-  }
- \IEEEauthorblockA{\IEEEauthorrefmark{1}
-Department of Electronic and Computer Engineering, National Taiwan University of Science and Technology\\
-Taipei, Taiwan, Republic of China \\
-Email: crg@mail.ntust.edu.tw}
+  \IEEEauthorblockN{Ming-Hong HSU\IEEEauthorrefmark{1}, Ray-Guang Cheng\IEEEauthorrefmark{1}, and Co-author 1\IEEEauthorrefmark{2}}
+  \IEEEauthorblockA{\IEEEauthorrefmark{1}Dept. of Electronic and Computer Engineering, National Taiwan University of Science and Technology, Taiwan}
+  \IEEEauthorblockA{\IEEEauthorrefmark{2}Affiliation 2}
+  \IEEEauthorblockA{Email: crg@mail.ntust.edu.tw}
 }
 
 \maketitle
@@ -47,8 +41,11 @@ nFAPI, O-RAN, Functional Split, Adaptive Control.
 O-RAN allows for more flexible network deployments.
 The Network Functional Application Platform Interface (nFAPI) is an important part of this architecture.
 nFAPI helps split the O-RAN Distributed Unit (O-DU) into O-DU High and O-DU Low parts.
-This functional split separates the Media Access Control (MAC) layer and the Physical (PHY) layer.
-Figure~\ref{fig:O-RAN-nFAPI} shows the O-RAN nFAPI split architecture.}
+According to the nFAPI specification \cite{nfapi_spec}, the Virtual Network Function (VNF) includes Layer 2 and Layer 3 operations.
+The Physical Network Function (PNF) handles the Layer 1 Physical layer processing.
+This functional split physically separates the Media Access Control (MAC) layer and the Physical (PHY) layer.
+Crucially, the MAC scheduler responsible for allocating radio resources resides within the VNF.
+Figure~\ref{fig:O-RAN-nFAPI} shows this O-RAN nFAPI functional split architecture and the separation of these components.}
 
 \begin{figure}[htbp]
   \centering
@@ -57,12 +54,13 @@ Figure~\ref{fig:O-RAN-nFAPI} shows the O-RAN nFAPI split architecture.}
   \label{fig:O-RAN-nFAPI}
 \end{figure}
 
-\textcolor{blue}{According to the nFAPI specification, the Virtual Network Function (VNF) includes Layer 2 and Layer 3 operations.
-The Physical Network Function (PNF) handles the Layer 1 Physical layer processing.
-Deploying the VNF and PNF on different machines causes several challenges.
-Strict slot synchronization is required between these distributed components.
-Different traffic profiles affect the latency between the VNF and PNF.
-Figure~\ref{fig:Scheduler-to-PNF-latency} shows the relationship between different traffic types and the VNF-PNF latency.}
+\textcolor{blue}{Deploying the VNF and PNF on different machines introduces significant challenges.
+Because the MAC scheduler is separated from the PHY layer, strict slot synchronization is required between these distributed components.
+However, even when deployed in the exact same network environment, different traffic loads directly impact the latency.
+Figure~\ref{fig:Scheduler-to-PNF-latency} illustrates the latency between the VNF scheduler and the PNF under varying traffic loads.
+As traffic increases, three factors heighten the overall delay: the scheduler requires more processing time, the data packing time lengthens, and the VNF-to-PNF One-Way Delay (OWD) is affected.
+Consequently, the VNF cannot reliably transmit data exactly at the slot boundary.
+Instead, it must dynamically advance its scheduling point to compensate for these varying delays and ensure packets arrive at the PNF on time.}
 
 \begin{figure}[htbp]
   \centering
@@ -72,14 +70,13 @@ Figure~\ref{fig:Scheduler-to-PNF-latency} shows the relationship between differe
 \end{figure}
 
 \textcolor{blue}{To lower deployment costs, operators often want to deploy Split-6 nFAPI gNBs over non-ideal networks.
-However, unpredictable network latency in these environments introduces significant challenges for MAC scheduler timing.
-Figure~\ref{fig:Non-Ideal-Latency} shows the latency jitter in a non-ideal deployment.
-Existing open-source solutions, such as OpenAirInterface (OAI), provide basic nFAPI support.
-However, they do not fully comply with the nFAPI specification for delay management.
-Therefore, they cannot handle the unpredictable latency challenges.
-To address these issues, this paper proposes a dynamic trigger scheduler adjustment algorithm.
-Our proposed algorithm fully complies with the specification.
-We verify the effectiveness and benefits of this dynamic adjustment through systematic experiments.}
+However, beyond traffic load variations, these non-ideal networks introduce additional, unpredictable latency.
+Figure~\ref{fig:Non-Ideal-Latency} shows the latency jitter caused by intermediate routers and switches in a non-ideal deployment.
+Existing open-source solutions, such as OpenAirInterface (OAI), provide basic nFAPI support but were not designed to fully comply with the nFAPI specification's delay management procedures \cite{nfapi_spec}.
+Therefore, they suffer from synchronization failures when encountering unpredictable latency from routers and switches.
+To address these challenges, this paper proposes a dynamic trigger scheduler adjustment algorithm that fully complies with the specification.
+Through systematic experiments, we verify the effectiveness of this dynamic adjustment and its benefits to overall network reliability.}
+
 
 \begin{figure}[htbp]
   \centering
@@ -163,9 +160,8 @@ Fig. 2.1:
 Fig. 3.1: 
     X axis: 
     Y axis:
-\begin{thebibliography}{00}
-\bibitem{b1} 
-\end{thebibliography}
+\bibliographystyle{IEEEtran}
+\bibliography{references}
 \end{CJK}
 \end{document}
 
