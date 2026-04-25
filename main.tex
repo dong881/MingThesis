@@ -35,7 +35,30 @@ nFAPI, O-RAN, Functional Split, Adaptive Control.
 \end{IEEEkeywords}
 
 \section{Introduction}
-\subsection{Introduction}
+\subsection{Background and Motivation}
+
+\textcolor{blue}{With the evolution of 5G and the Open Radio Access Network (O-RAN), architectures based on functional splits have become the key to improving network flexibility and reducing deployment costs. Currently, the most mainstream implementation promoted by the O-RAN Alliance is Split Option 7.2 (Split~7.2). Because Split~7.2 divides the Physical (PHY) layer into high and low parts and transmits continuous in-phase and quadrature (IQ) samples, it imposes extremely high requirements on the fronthaul network.}
+
+\textcolor{blue}{Compared to Split~7.2, the 3rd Generation Partnership Project (3GPP) Split Option 6 (Split~6), which separates the network at the Media Access Control (MAC) and PHY layers, offers a more flexible alternative. First, Split~7.2 relies on hardware-based synchronization protocols, such as IEEE 1588 Precision Time Protocol (PTP) and Synchronous Ethernet (SyncE), to achieve nanosecond-level phase and time synchronization. Its timing window requirement is typically strict, often needing to be less than 100~\textmu s. In contrast, the nFAPI (Network Functional Application Platform Interface) protocol, which is a prominent implementation of Split~6, employs a message-based synchronization mechanism. Through its proprietary P7 Node Sync procedure, nFAPI achieves slot-level synchronization (millisecond-level) and provides a highly flexible timing window ranging from 0 to 30,000~\textmu s. Furthermore, in terms of payload, Split~6 transports packetized MAC Protocol Data Units (PDUs) rather than continuous IQ samples. These characteristics allow Split~6 to demonstrate better adaptability in non-ideal fronthaul network environments where high jitter from operating system (OS) scheduling and network delivery is present.}
+
+\textcolor{blue}{This paper chooses Split~6 as the primary research subject due to its significant deployment benefits. As indicated by P\'{e}rez-Romero et al. \cite{10186379}, Split~6 effectively reduces the traffic burden on the fronthaul network. Compared to low-layer split schemes that transmit frequency-domain signals, its bandwidth requirement is significantly lower. In addition, Khan et al. \cite{10014970} demonstrate that for the deployment of sub-6 GHz small cell networks, Split~6 can maintain robust transmission performance over non-ideal fronthaul connections, thereby achieving an optimal cost-revenue trade-off.}
+
+
+\subsection{Related Works}
+% Placeholder for Related Works
+% TODO: Show how this work fits into the existing body of knowledge.
+
+\subsection{Contributions}
+The main contributions of this paper are summarized as follows.
+\begin{itemize}
+\item Contribution 1.
+\item Contribution 2. 
+\item Contribution 3. 
+\end{itemize}
+
+The rest of the paper is organized as follows. Section II defines the system model/architecture considered in this paper. The proposed analytical model/method is given in Section III. Section IV shows the numerical results. Concluding remarks are given in Section VI.
+
+\section{System Model/Architecture}
 
 \textcolor{blue}{In recent years, the Open Radio Access Network (O-RAN) architecture has become popular.
 O-RAN allows for more flexible network deployments.
@@ -77,29 +100,12 @@ Therefore, they suffer from synchronization failures when encountering unpredict
 To address these challenges, this paper proposes a dynamic trigger scheduler adjustment algorithm that fully complies with the specification.
 Through systematic experiments, we verify the effectiveness of this dynamic adjustment and its benefits to overall network reliability.}
 
-
 \begin{figure}[htbp]
   \centering
   \includegraphics[width=0.8\columnwidth]{figures/Non-Ideal-Latency.png}
   \caption{Impact of unpredictable network latency in a non-ideal environment.}
   \label{fig:Non-Ideal-Latency}
 \end{figure}
-
-\subsection{Related Works}
-% Placeholder for Related Works
-% TODO: Show how this work fits into the existing body of knowledge.
-
-\subsection{Contributions}
-The main contributions of this paper are summarized as follows.
-\begin{itemize}
-\item Contribution 1.
-\item Contribution 2. 
-\item Contribution 3. 
-\end{itemize}
-
-The rest of the paper is organized as follows. Section II defines the system model/architecture considered in this paper. The proposed analytical model/method is given in Section III. Section IV shows the numerical results. Concluding remarks are given in Section VI.
-
-\section{System Model/Architecture}
 
 \begin{table}[htbp]
 \caption{nFAPI Delay Management Configuration Parameters}
