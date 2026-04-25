@@ -43,6 +43,7 @@ nFAPI, O-RAN, Functional Split, Adaptive Control.
 
 \textcolor{blue}{This paper chooses Split~6 as the primary research subject due to its significant deployment benefits. As indicated by P\'{e}rez-Romero et al. \cite{10186379}, Split~6 effectively reduces the traffic burden on the fronthaul network. Compared to low-layer split schemes that transmit frequency-domain signals, its bandwidth requirement is significantly lower. In addition, Khan et al. \cite{10014970} demonstrate that for the deployment of sub-6 GHz small cell networks, Split~6 can maintain robust transmission performance over non-ideal fronthaul connections, thereby achieving an optimal cost-revenue trade-off.}
 
+\textcolor{blue}{Deploying the VNF and PNF on different machines introduces significant challenges. Because the MAC scheduler is separated from the PHY layer, strict slot synchronization is required between these distributed components. However, different traffic loads and non-ideal network deployments introduce unpredictable, non-deterministic latency. Consequently, the VNF cannot reliably transmit data exactly at the slot boundary, and existing open-source solutions suffer from synchronization failures when encountering unpredictable latency from routers and switches. This paper defines these latency and synchronization problems under non-ideal fronthaul networks and proposes a dynamic trigger scheduler adjustment algorithm. A detailed analysis of this non-deterministic latency and the corresponding verification of these problems will be presented in Scenario I of the numerical results section.}
 
 \subsection{Related Works}
 % Placeholder for Related Works
@@ -60,52 +61,47 @@ The rest of the paper is organized as follows. Section II defines the system mod
 
 \section{System Model/Architecture}
 
-\textcolor{blue}{In recent years, the Open Radio Access Network (O-RAN) architecture has become popular.
-O-RAN allows for more flexible network deployments.
-The Network Functional Application Platform Interface (nFAPI) is an important part of this architecture.
-nFAPI helps split the O-RAN Distributed Unit (O-DU) into O-DU High and O-DU Low parts.
-According to the nFAPI specification \cite{nfapi_spec}, the Virtual Network Function (VNF) includes Layer 2 and Layer 3 operations.
-The Physical Network Function (PNF) handles the Layer 1 Physical layer processing.
-This functional split physically separates the Media Access Control (MAC) layer and the Physical (PHY) layer.
-Crucially, the MAC scheduler responsible for allocating radio resources resides within the VNF.
-Figure~\ref{fig:O-RAN-nFAPI} shows this O-RAN nFAPI functional split architecture and the separation of these components.}
+\textcolor{blue}{Before diving into the system details, this study establishes a prerequisite assumption: since there is currently a lack of O-RAN Radio Units (O-RUs) in the market that natively support Split~6 nFAPI, the system adopts a two-stage split architecture. First, it communicates via the Split~6 interface, and then translates to the Split~7.2x standard to connect to the remote radio unit.}
+
+\subsection{End-to-End Architecture}
+\textcolor{blue}{This system establishes a complete 5G end-to-end communication link, extending from the core network down to the user equipment:
+\begin{itemize}
+\item \textbf{Core Network (CN):} Responsible for routing and authenticating user data.
+\item \textbf{O-RAN Central Unit (O-CU):} Handles higher-layer protocol stacks (such as RRC and PDCP) and connects with distributed units via the F1 interface.
+\item \textbf{O-RAN Distributed Unit (O-DU):} To optimize performance, the system splits the O-DU into an O-DU High (running on a Virtualized Network Function, VNF machine) and an O-DU Low (running on a Physical Network Function, PNF machine).
+\item \textbf{Switch:} A switch is located between the VNF and PNF. This connection uses the nFAPI (Network Functional Application Platform Interface) protocol, but due to the network environment, non-deterministic latency is generated.
+\item \textbf{O-RAN Radio Unit (O-RU):} Responsible for low-level physical layer (Low PHY) processing and RF transmission.
+\item \textbf{COTS UE:} Commercial Off-The-Shelf User Equipment.
+\end{itemize}}
 
 \begin{figure}[htbp]
   \centering
-  \includegraphics[width=0.8\columnwidth]{figures/O-RAN-nFAPI.png}
-  \caption{O-RAN nFAPI functional split architecture.}
-  \label{fig:O-RAN-nFAPI}
+  \includegraphics[width=1\columnwidth]{figures/System Architecture.png}
+  \caption{System architecture and delay management mechanism.}
+  \label{fig:System-Architecture}
 \end{figure}
 
-\textcolor{blue}{Deploying the VNF and PNF on different machines introduces significant challenges.
-Because the MAC scheduler is separated from the PHY layer, strict slot synchronization is required between these distributed components.
-However, even when deployed in the exact same network environment, different traffic loads directly impact the latency.
-Figure~\ref{fig:Scheduler-to-PNF-latency} illustrates the latency between the VNF scheduler and the PNF under varying traffic loads.
-As traffic increases, three factors heighten the overall delay: the scheduler requires more processing time, the data packing time lengthens, and the VNF-to-PNF One-Way Delay (OWD) is affected.
-Consequently, the VNF cannot reliably transmit data exactly at the slot boundary.
-Instead, it must dynamically advance its scheduling point to compensate for these varying delays and ensure packets arrive at the PNF on time.}
+\subsection{O-DU High: MAC and Delay Manager}
+\textcolor{blue}{Within the Media Access Control (MAC) layer of the O-DU High, the core components include the Scheduler and the nFAPI Delay Manager:
+\begin{itemize}
+\item \textbf{Scheduler:} Responsible for allocating radio resources (such as time-frequency resource blocks) and determining the priority of data transmission.
+\item \textbf{nFAPI Delay Manager:} This is the crucial control unit of this architecture. Because unstable latency exists in the switch between the VNF and PNF, the Delay Manager receives feedback information from the lower physical layer and dynamically triggers the scheduler based on the current network jitter. This ensures that the scheduling instructions (\texttt{Sched data}) are generated in a timely manner.
+\end{itemize}}
 
-\begin{figure}[htbp]
-  \centering
-  \includegraphics[width=0.8\columnwidth]{figures/Scheduler-to-PNF-latency.png}
-  \caption{Observation of latency between VNF scheduler and PNF under different traffic loads.}
-  \label{fig:Scheduler-to-PNF-latency}
-\end{figure}
+\subsection{O-DU Low: High PHY and Timing Window}
+\textcolor{blue}{The O-DU Low contains the higher-level processing of the physical layer (High PHY). At this level, the most critical mechanism is the nFAPI PNF Timing Window:
+\begin{itemize}
+\item \textbf{Timing Window:} This is a predefined time range. When the scheduling message (\texttt{DL\_TTI.request}) sent by the O-DU High arrives, it must accurately fall within this window for the High PHY to process the subframe data correctly.
+\item \textbf{Timing Info:} The High PHY continuously monitors the arrival time of the messages and sends this timing information back to the Delay Manager in the MAC layer. This forms a closed-loop feedback control system, which compensates for the transmission latency between the VNF and PNF machines.
+\end{itemize}}
 
-\textcolor{blue}{To lower deployment costs, operators often want to deploy Split-6 nFAPI gNBs over non-ideal networks.
-However, beyond traffic load variations, these non-ideal networks introduce additional, unpredictable latency.
-Figure~\ref{fig:Non-Ideal-Latency} shows the latency jitter caused by intermediate routers and switches in a non-ideal deployment.
-Existing open-source solutions, such as OpenAirInterface (OAI), provide basic nFAPI support but were not designed to fully comply with the nFAPI specification's delay management procedures \cite{nfapi_spec}.
-Therefore, they suffer from synchronization failures when encountering unpredictable latency from routers and switches.
-To address these challenges, this paper proposes a dynamic trigger scheduler adjustment algorithm that fully complies with the specification.
-Through systematic experiments, we verify the effectiveness of this dynamic adjustment and its benefits to overall network reliability.}
-
-\begin{figure}[htbp]
-  \centering
-  \includegraphics[width=0.8\columnwidth]{figures/Non-Ideal-Latency.png}
-  \caption{Impact of unpredictable network latency in a non-ideal environment.}
-  \label{fig:Non-Ideal-Latency}
-\end{figure}
+\subsection{Key Validation Metrics}
+\textcolor{blue}{To evaluate the stability and real-time performance of the system, this study defines the following three key validation metrics, where RTT stands for Round-Trip Time:
+\begin{itemize}
+\item \textbf{Ping RTT ($T_7 - T_1$):} Measures the end-to-end round-trip latency at the application layer, representing the complete time from when data is sent from the core network to when the return acknowledgment is received.
+\item \textbf{HARQ RTT ($T_6 - T_2$):} Measures the Hybrid Automatic Repeat Request (HARQ) loop delay at the MAC layer, reflecting the feedback efficiency of the link layer.
+\item \textbf{VNF-PNF Downlink Latency ($T_3 - T_2$):} Specifically measures the one-way downlink latency from the virtualized machine to the physical machine, used to analyze the delay impact caused by the switch.
+\end{itemize}}
 
 \begin{table}[htbp]
 \caption{nFAPI Delay Management Configuration Parameters}
@@ -137,9 +133,9 @@ The following assumptions were made in this paper.
 \end{itemize}
 
 \section{Proposed Method}
-\section{Numerical/Simulation/Experimental Results}
-Computer simulations/Experiments were conducted to verify xxx (the effectiveness of the proposed analytical model). 
-In the following figures, each point represented the average value of $10^5$ samples. In each sample, we collect the statistics of xxx. Symbols and lines were used to show the simulation and analytical results, respectively. 
+\section{Experimental Results}
+% Computer simulations/Experiments were conducted to verify xxx (the effectiveness of the proposed analytical model). 
+% In the following figures, each point represented the average value of $10^5$ samples. In each sample, we collect the statistics of xxx. Symbols and lines were used to show the simulation and analytical results, respectively. 
 
 %很多同學無法討論的原因是因為花了很多時間畫圖，但是圖畫錯。
 %圖畫錯的原因是在畫圖前沒有先思考過，依據手邊的資料打算畫出怎麼樣的圖？這些圖是否能呈現想表達的意義？
@@ -149,15 +145,41 @@ In the following figures, each point represented the average value of $10^5$ sam
 %想觀察什麼現象？
 %這些現象從什麼的圖可看出？
 %如何畫出這樣的圖？需要哪些資料？
-XXX scenarios were investigated. Scenario I was designed to demonstrate/verify the accuracy/effectiveness of Contribution 1.
-
+% XXX scenarios were investigated. Scenario I was designed to demonstrate/verify the accuracy/effectiveness of Contribution 1.
 % For each contribution, tell us
 % HOW do you design experiments to demonstrate your contribution 
 % WHY your results can support your contribution
-\subsection{Contribution 1}
-Fig. 1.1: Purpose
-    X axis: 
-    Y axis:
+\subsection{Scenario I: Analysis of Non-Deterministic Latency}
+
+\textcolor{blue}{Deploying the VNF and PNF on different machines introduces significant challenges.
+Because the MAC scheduler is separated from the PHY layer, strict slot synchronization is required between these distributed components.
+However, even when deployed in the exact same network environment, different traffic loads directly impact the latency.
+Figure~\ref{fig:Scheduler-to-PNF-latency} illustrates the latency between the VNF scheduler and the PNF under varying traffic loads.
+As traffic increases, three factors heighten the overall delay: the scheduler requires more processing time, the data packing time lengthens, and the VNF-to-PNF One-Way Delay (OWD) is affected.
+Consequently, the VNF cannot reliably transmit data exactly at the slot boundary.
+Instead, it must dynamically advance its scheduling point to compensate for these varying delays and ensure packets arrive at the PNF on time.}
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=0.8\columnwidth]{figures/Scheduler-to-PNF-latency.png}
+  \caption{Observation of latency between VNF scheduler and PNF under different traffic loads.}
+  \label{fig:Scheduler-to-PNF-latency}
+\end{figure}
+
+\textcolor{blue}{To lower deployment costs, operators often want to deploy Split-6 nFAPI gNBs over non-ideal networks.
+However, beyond traffic load variations, these non-ideal networks introduce additional, unpredictable latency.
+Figure~\ref{fig:Non-Ideal-Latency} shows the latency jitter caused by intermediate routers and switches in a non-ideal deployment.
+Existing open-source solutions, such as OpenAirInterface (OAI), provide basic nFAPI support but were not designed to fully comply with the nFAPI specification's delay management procedures \cite{nfapi_spec}.
+Therefore, they suffer from synchronization failures when encountering unpredictable latency from routers and switches.
+To address these challenges, this paper proposes a dynamic trigger scheduler adjustment algorithm that fully complies with the specification.
+Through systematic experiments, we verify the effectiveness of this dynamic adjustment and its benefits to overall network reliability.}
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=0.8\columnwidth]{figures/Non-Ideal-Latency.png}
+  \caption{Impact of unpredictable network latency in a non-ideal environment.}
+  \label{fig:Non-Ideal-Latency}
+\end{figure}
 \subsection{Contribution 2}
 Fig. 2.1: 
     X axis: 
