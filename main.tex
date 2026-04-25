@@ -136,33 +136,35 @@ The following assumptions were made in this paper.
 \textcolor{blue}{The testbed environment connects a series of high-performance servers, radio units, and a commercial smartphone. The detailed software and hardware configurations for the end-to-end network deployment are outlined below.}
 
 \begin{table}[!t]
-\caption{Software Configuration}
-\label{tab:software_config}
+\caption{Testbed Node Configuration}
+\label{tab:node_config}
 \centering
-\begin{tabular}{l|p{5.5cm}}
+\begin{tabular}{l|l}
 \toprule
-\textbf{Component} & \textbf{Specification} \\
+\textbf{Unit} & \textbf{Specification} \\
 \midrule
 Core Network (CN) & Open5GS \\
-nFAPI VNF (O-DU High) & OpenAirInterface (branch: \texttt{2026.w13}), 30kHz SCS, TDD 3D1S1U, 4-layer MIMO \\
-nFAPI PNF (O-DU Low) & OpenAirInterface (branch: \texttt{2026.w13}), 4T4R \\
-Fronthaul Version & O-RAN F release specifications \\
-O-RU & Pegatron RU \\
+SW Stack / Branch & OpenAirInterface (\texttt{2026.w13}) \\
+VNF Server & Intel\textsuperscript{\tiny\textregistered} Xeon\textsuperscript{\tiny\textregistered} Gold 6226R \\
+PNF Server & Intel\textsuperscript{\tiny\textregistered} Xeon\textsuperscript{\tiny\textregistered} Gold 6433N \\
+O-RU & Pegatron RU (P5G-Indoor O-RU-PR1450) \\
 COTS UE & Samsung Galaxy S20 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
 \begin{table}[!t]
-\caption{Hardware Configuration}
-\label{tab:hardware_config}
+\caption{Wireless System Parameters}
+\label{tab:wireless_params}
 \centering
-\begin{tabular}{l|p{5.5cm}}
+\begin{tabular}{l|l}
 \toprule
-\textbf{Component} & \textbf{Specification} \\
+\textbf{Parameter} & \textbf{Setting} \\
 \midrule
-VNF Server (O-DU High Host) & Intel\textsuperscript{\tiny\textregistered} Xeon\textsuperscript{\tiny\textregistered} Gold 6226R Processor \\
-PNF Server (O-DU Low Host) & Intel\textsuperscript{\tiny\textregistered} Xeon\textsuperscript{\tiny\textregistered} Gold 6433N Processor \\
+Subcarrier Spacing & 30 kHz \\
+TDD Pattern & 3D1S1U \\
+MIMO / Ports & 4-layer / 4T4R \\
+Fronthaul & O-RAN F release \\
 \bottomrule
 \end{tabular}
 \end{table}
