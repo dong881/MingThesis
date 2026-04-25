@@ -76,7 +76,7 @@ The rest of the paper is organized as follows. Section II defines the system mod
 \item \textbf{Commercial Off-The-Shelf User Equipment (COTS UE):} Standard commercial smartphones or modems that act as the terminal receivers in the network.
 \end{itemize}}
 
-\begin{figure}[htbp]
+\begin{figure}[!t]
   \centering
   \includegraphics[width=1\columnwidth]{figures/System Architecture.png}
   \caption{System architecture and delay management mechanism.}
@@ -108,20 +108,7 @@ The rest of the paper is organized as follows. Section II defines the system mod
 \item \textbf{VNF-PNF Downlink Latency ($T_3 - T_2$):} Measures the one-way downlink latency accumulated from the virtualized machine to the physical machine. This metric is used to directly quantify and analyze the delay jitter impact injected by the intermediate Ethernet switch.
 \end{itemize}}
 
-\begin{table}[htbp]
-\caption{nFAPI Delay Management Configuration Parameters}
-\label{tab:parameters}
-\centering
-\begin{tabular}{l|l|p{4cm}}
-\toprule
-\textbf{Parameter} & \textbf{Type} & \textbf{Description} \\
-\midrule
-timingWindow & uint16\_t & Timing window for delay management. See section 3.2.9 of [10] \\
-timingMode & uint8\_t & Timing mode for Timing Info. See section 3.2.9 of [10] \\
-timingPeriod & uint8\_t & Timing period for Timing Info. See section 3.2.9 of [10] \\
-\bottomrule
-\end{tabular}
-\end{table}
+
 
 % Figure~\ref{fig:Fig1} shows the system model/architecture considered in this paper.
 % (Draw a figure showing the key components and their relationship in the system model. It may consist the I/P and O/P parameters of your system or the major components showing your contributions.) 
@@ -177,7 +164,7 @@ As traffic increases, three factors heighten the overall delay: the scheduler re
 Consequently, the VNF cannot reliably transmit data exactly at the slot boundary.
 Instead, it must dynamically advance its scheduling point to compensate for these varying delays and ensure packets arrive at the PNF on time.}
 
-\begin{figure}[htbp]
+\begin{figure}[!t]
   \centering
   \includegraphics[width=0.8\columnwidth]{figures/Scheduler-to-PNF-latency.png}
   \caption{Observation of latency between VNF scheduler and PNF under different traffic loads.}
@@ -192,7 +179,7 @@ Therefore, they suffer from synchronization failures when encountering unpredict
 To address these challenges, this paper proposes a dynamic trigger scheduler adjustment algorithm that fully complies with the specification.
 Through systematic experiments, we verify the effectiveness of this dynamic adjustment and its benefits to overall network reliability.}
 
-\begin{figure}[htbp]
+\begin{figure}[!t]
   \centering
   \includegraphics[width=0.8\columnwidth]{figures/Non-Ideal-Latency.png}
   \caption{Impact of unpredictable network latency in a non-ideal environment.}
