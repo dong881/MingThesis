@@ -30,6 +30,7 @@ These guidelines are extracted directly from the advisor's comments in the LaTeX
         *   **Answer (O/P)** -> Goes in **System Model**
         *   **Derivation (Algorithm)** -> Goes in **Analytical Model**
         *   **Example** -> Goes in **Numerical Results**
+7.  **Auto-numbering**: Do not manually type section letters (like A. B. C. or 1. 2.) in `\section` or `\subsection` titles because LaTeX handles numbering automatically.
 
 ---
 

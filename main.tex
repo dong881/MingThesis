@@ -64,7 +64,7 @@ The rest of the paper is organized as follows. Section II defines the system mod
 
 \textcolor{blue}{Before diving into the system details, this study establishes a fundamental assumption: currently, there is a lack of Open Radio Access Network (O-RAN) Radio Units (O-RUs) in the market that natively support the Network Functional Application Platform Interface (nFAPI) via Split~6. As a result, the proposed system adopts a resilient two-stage split architecture. The network first connects via the Split~6 nFAPI interface between the network functions, and then translates to the standard O-RAN Split~7.2x interface to connect to the remote O-RU. Figure~\ref{fig:System-Architecture} illustrates this proposed system architecture and its delay management mechanism.}
 
-\subsection{A. End-to-End Architecture}
+\subsection{End-to-End Architecture}
 \label{subsec:A_end_to_end}
 \textcolor{blue}{The system establishes a complete 5G end-to-end communication link, extending from the core to the user equipment:
 \begin{itemize}
@@ -83,7 +83,7 @@ The rest of the paper is organized as follows. Section II defines the system mod
   \label{fig:System-Architecture}
 \end{figure}
 
-\subsection{B. O-DU High: MAC and Delay Manager}
+\subsection{O-DU High: MAC and Delay Manager}
 \label{subsec:B_odu_high}
 \textcolor{blue}{Within the Media Access Control (MAC) layer of the O-DU High, the core components handling timing mechanisms include the Scheduler and the nFAPI Delay Manager:
 \begin{itemize}
@@ -91,7 +91,7 @@ The rest of the paper is organized as follows. Section II defines the system mod
 \item \textbf{nFAPI Delay Manager:} This resides as the crucial control unit of this delay-aware architecture. Because unpredictable, unstable latency exists in the switch between the VNF and PNF, the Delay Manager continuously receives timing feedback from the lower physical layer. It uses this to dynamically calculate network jitter and proactively trigger the scheduler. This calculation guarantees that the scheduling instructions (\texttt{Sched data}) are generated ahead of time to account for network delays.
 \end{itemize}}
 
-\subsection{C. O-DU Low: High PHY and Timing Window}
+\subsection{O-DU Low: High PHY and Timing Window}
 \label{subsec:C_odu_low}
 \textcolor{blue}{The O-DU Low manages the higher-level baseband processing of the physical layer (High PHY). At this level, the most critical synchronization mechanism is the nFAPI PNF Timing Window:
 \begin{itemize}
@@ -99,7 +99,7 @@ The rest of the paper is organized as follows. Section II defines the system mod
 \item \textbf{Timing Info:} The PNF continuously monitors the exact arrival timestamp of these control messages and periodically sends this ``Timing Info'' back to the Delay Manager in the MAC layer. This establishes a closed-loop feedback control system, compensating for the unpredictable transmission latency variations between the VNF and PNF machines.
 \end{itemize}}
 
-\subsection{D. Key Validation Metrics}
+\subsection{Key Validation Metrics}
 \label{subsec:D_metrics}
 \textcolor{blue}{To evaluate the stability, synchronization accuracy, and real-time performance of the proposed algorithm under non-ideal environments, this study defines the following three Key Validation Metrics, where RTT denotes the Round-Trip Time:
 \begin{itemize}
@@ -130,30 +130,44 @@ The following assumptions were made in this paper.
 
 \textcolor{blue}{To validate the hypothesis and the effectiveness of the proposed dynamic trigger scheduler algorithm, we systematically designed multiple experimental scenarios. Section~\ref{subsec:experimental_scenario} outlines the general software and hardware environment used across all tests. Subsequent sections present specific scenarios: Scenario I (\ref{subsec:scenario_1}) isolates and verifies the problems caused by non-deterministic latency under standard OpenAirInterface implementations, while Scenario II (\ref{subsec:scenario_2}) and subsequent experiments evaluate the robustness of our proposed time-advance control under varying levels of congestion.}
 
-\subsection{A. Experimental Scenario}
+\subsection{Experimental Scenario}
 \label{subsec:experimental_scenario}
 
 \textcolor{blue}{The testbed environment connects a series of high-performance servers, radio units, and a commercial smartphone. The detailed software and hardware configurations for the end-to-end network deployment are outlined below.}
 
-\textcolor{blue}{\textbf{Software Configuration:}}
-\begin{itemize}
-    \color{blue}
-    \item \textbf{Core Network (CN):} Open5GS.
-    \item \textbf{nFAPI VNF (O-DU High):} OpenAirInterface (branch: \texttt{2026.w13}), configured with 30kHz subcarrier spacing (SCS), Time Division Duplex (TDD) pattern 3D1S1U, and 4-layer Multiple-Input Multiple-Output (MIMO).
-    \item \textbf{nFAPI PNF (O-DU Low):} OpenAirInterface (branch: \texttt{2026.w13}), utilizing a 4T4R (4 Transmitters, 4 Receivers) configuration.
-    \item \textbf{Fronthaul Version:} O-RAN F release specifications.
-    \item \textbf{O-RU:} Pegatron RU.
-    \item \textbf{COTS UE:} Samsung Galaxy S20.
-\end{itemize}
+\begin{table}[!t]
+\caption{Software Configuration}
+\label{tab:software_config}
+\centering
+\begin{tabular}{l|p{5.5cm}}
+\toprule
+\textbf{Component} & \textbf{Specification} \\
+\midrule
+Core Network (CN) & Open5GS \\
+nFAPI VNF (O-DU High) & OpenAirInterface (branch: \texttt{2026.w13}), 30kHz SCS, TDD 3D1S1U, 4-layer MIMO \\
+nFAPI PNF (O-DU Low) & OpenAirInterface (branch: \texttt{2026.w13}), 4T4R \\
+Fronthaul Version & O-RAN F release specifications \\
+O-RU & Pegatron RU \\
+COTS UE & Samsung Galaxy S20 \\
+\bottomrule
+\end{tabular}
+\end{table}
 
-\textcolor{blue}{\textbf{Hardware Configuration:}}
-\begin{itemize}
-    \color{blue}
-    \item \textbf{VNF Server (O-DU High Host):} Intel\textsuperscript{\tiny\textregistered} Xeon\textsuperscript{\tiny\textregistered} Gold 6226R Processor.
-    \item \textbf{PNF Server (O-DU Low Host):} Intel\textsuperscript{\tiny\textregistered} Xeon\textsuperscript{\tiny\textregistered} Gold 6433N Processor.
-\end{itemize}
+\begin{table}[!t]
+\caption{Hardware Configuration}
+\label{tab:hardware_config}
+\centering
+\begin{tabular}{l|p{5.5cm}}
+\toprule
+\textbf{Component} & \textbf{Specification} \\
+\midrule
+VNF Server (O-DU High Host) & Intel\textsuperscript{\tiny\textregistered} Xeon\textsuperscript{\tiny\textregistered} Gold 6226R Processor \\
+PNF Server (O-DU Low Host) & Intel\textsuperscript{\tiny\textregistered} Xeon\textsuperscript{\tiny\textregistered} Gold 6433N Processor \\
+\bottomrule
+\end{tabular}
+\end{table}
 
-\subsection{B. Scenario I: Analysis of Non-Deterministic Latency}
+\subsection{Scenario I: Analysis of Non-Deterministic Latency}
 \label{subsec:scenario_1}
 
 \textcolor{blue}{Deploying the VNF and PNF on different machines introduces significant challenges.
@@ -171,22 +185,9 @@ Instead, it must dynamically advance its scheduling point to compensate for thes
   \label{fig:Scheduler-to-PNF-latency}
 \end{figure}
 
-\textcolor{blue}{To lower deployment costs, operators often want to deploy Split-6 nFAPI gNBs over non-ideal networks.
-However, beyond traffic load variations, these non-ideal networks introduce additional, unpredictable latency.
-Figure~\ref{fig:Non-Ideal-Latency} shows the latency jitter caused by intermediate routers and switches in a non-ideal deployment.
-Existing open-source solutions, such as OpenAirInterface (OAI), provide basic nFAPI support but were not designed to fully comply with the nFAPI specification's delay management procedures \cite{nfapi_spec}.
-Therefore, they suffer from synchronization failures when encountering unpredictable latency from routers and switches.
-To address these challenges, this paper proposes a dynamic trigger scheduler adjustment algorithm that fully complies with the specification.
-Through systematic experiments, we verify the effectiveness of this dynamic adjustment and its benefits to overall network reliability.}
 
-\begin{figure}[!t]
-  \centering
-  \includegraphics[width=0.8\columnwidth]{figures/Non-Ideal-Latency.png}
-  \caption{Impact of unpredictable network latency in a non-ideal environment.}
-  \label{fig:Non-Ideal-Latency}
-\end{figure}
 
-\subsection{C. Scenario II: [Placeholder for Future Experiment]}
+\subsection{Scenario II: [Placeholder for Future Experiment]}
 \label{subsec:scenario_2}
 %     X axis: 
 %     Y axis:
