@@ -46,15 +46,18 @@ nFAPI, O-RAN, Functional Split, Adaptive Control.
 \textcolor{blue}{Deploying the VNF and PNF on different machines introduces significant challenges. Because the MAC scheduler is separated from the PHY layer, strict slot synchronization is required between these distributed components. However, different traffic loads and non-ideal network deployments introduce unpredictable, non-deterministic latency. Consequently, the VNF cannot reliably transmit data exactly at the slot boundary, and existing open-source solutions suffer from synchronization failures when encountering unpredictable latency from routers and switches. This paper defines these latency and synchronization problems under non-ideal fronthaul networks and proposes a dynamic trigger scheduler adjustment algorithm. A detailed analysis of this non-deterministic latency and the corresponding verification of these problems will be presented in Section~\ref{sec:experiments}, specifically isolating these issues in Scenario I (\ref{subsec:scenario_1}).}
 
 \subsection{Related Works}
-% Placeholder for Related Works
-% TODO: Show how this work fits into the existing body of knowledge.
+\textcolor{blue}{The evolution of Radio Access Network (RAN) architectures from Distributed RAN (D-RAN) to Open RAN (O-RAN) requires a thorough study of functional splits \cite{Larsen2019, PerezRomero2023, Alam2026}. The MAC-PHY split (Option 6), standardized by the Small Cell Forum (SCF) as nFAPI \cite{SCF225, SCF222}, is suitable for small cell deployments. It allows the MAC layer to be virtualized on commercial servers while the PHY layer remains on dedicated hardware.}
+
+\textcolor{blue}{The performance of the nFAPI split depends on the transport network. Practical deployments often use non-ideal fronthaul, such as Shared Ethernet or DOCSIS. Mehran and MacKenzie \cite{Mehran2020} demonstrated that uplink throughput drops to zero with a small increase in fronthaul delay. Furthermore, server processing delay is unpredictable. Khalaf \textit{et al.} \cite{Khalaf2024} indicated that server delay increases under high CPU utilization, causing the MAC scheduler to miss its timing window.}
+
+\textcolor{blue}{To address fronthaul latency, Huang and Zhang \cite{Huang2026} proposed a distributed MAC scheduling scheme. While this scheme reduces the impact of delayed grants, it introduces a ``split-brain'' issue with multiple schedulers. Akgun \textit{et al.} \cite{Akgun2024} utilized intelligent scheduling to adapt modulation based on interference, but did not solve the sub-millisecond timing of message delivery itself. Existing OpenAirInterface (OAI) reference models typically rely on static timing windows, leading to frequent ``missing subframe'' errors when network jitter exceeds configured limits. This paper bridges this gap by proposing a centralized Adaptive Advance-Time Control algorithm to dynamically manage scheduling timing.}
 
 \subsection{Contributions}
 The main contributions of this paper are summarized as follows.
 \begin{itemize}
-\item Contribution 1.
-\item Contribution 2. 
-\item Contribution 3. 
+\item \textcolor{blue}{\textbf{Delay Modeling in nFAPI Split 6:} We analyze and quantify the non-deterministic latency factors, including network jitter and server processing time, that lead to synchronization failures in disaggregated RAN deployments.}
+\item \textcolor{blue}{\textbf{Adaptive Advance-Time Control Algorithm:} We propose a dynamic timing adjustment algorithm using a dual-loop architecture. The Convergence Optimization Loop estimates end-to-end jitter, while the VNF Timing Actuator adjusts scheduling lead times to ensure punctual delivery of P7 messages.}
+\item \textcolor{blue}{\textbf{Experimental Validation:} We prototype the proposed mechanism on the OAI platform. Experimental results show that our algorithm eliminates ``missing subframe'' errors and maintains stable throughput under non-ideal fronthaul environments.}
 \end{itemize}
 
 The rest of the paper is organized as follows. Section II defines the system model/architecture considered in this paper. The proposed analytical model/method is given in Section III. Section IV shows the numerical results. Concluding remarks are given in Section VI.
