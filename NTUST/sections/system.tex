@@ -1,0 +1,23 @@
+\chapter{System Architecture}
+\label{sec:system}
+
+\begin{figure}
+    \centering
+    \includegraphics[width=1\linewidth]{figures/System Architecture.png}
+    \caption{System Architecture}
+    \label{fig:Sys_arch}
+\end{figure}
+
+\setlength{\parindent}{2em}
+
+Figure~\ref{fig:Sys_arch} illustrates the end-to-end (E2E) architecture adopted in this thesis. The system consists of several key components, including a CU/DU node, a core network, a commercial O-RU, and a 5G User Equipment (UE). These components collaboratively establish the 5G communication chain from the core to the radio interface.
+
+To support configuration automation and test result visualization, a custom integration rApp~\cite{O-RAN.rapp} is deployed on the SMO. Test cases are fed into the system through a RESTful API as inputs. The rApp interprets these test cases, dynamically triggers DU/RU configuration via the configuration service, and initiates end-to-end testing. Once the UE successfully attaches and traffic is generated, throughput results are collected and published to Grafana dashboards\cite{grafana} as output. This automation pipeline enables streamlined and repeatable E2E integration testing.
+
+In this work, the core network implementations tested include free5GC \cite{free5GC} and Open5GS \cite{Open5GS}. However, the architecture is designed to support any core network solution capable of interfacing with mobile devices via standard NG signaling.
+
+On the CU/DU side, the system is compatible with any implementation that utilizes a configuration file-driven setup. The OAI gNB has been used as the primary test platform, but the system is not limited to it.
+
+For the RU, it is required to support M-plane management interfaces to allow remote configuration and monitoring. In this study, the JURA RU\cite{JURA} has been used for validation.
+
+Regarding the UE, devices must support control via Android Debug Bridge (adb) commands~\cite{ADB}, enabling automated access procedures and performance testing. Here we use MTK UE~\cite{MTKUE}.

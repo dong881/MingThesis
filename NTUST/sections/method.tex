@@ -1,0 +1,426 @@
+\chapter{Proposed Method}
+\label{sec:method}
+
+\begin{figure}
+    \centering
+    \includegraphics[width=1\linewidth]{figures/Proposed architecture.png}
+    \caption{Proposed architecture}
+    \label{fig:Proposed:architecture}
+\end{figure}
+
+\setlength{\parindent}{2em} 
+In this chapter, we present the proposed integration automation framework designed to streamline and accelerate the end-to-end (E2E) testing process of O-RAN-based systems. Building upon the challenges identified in the previous chapter—such as the need to manually configure each network component, verify synchronization status, and confirm UE connectivity—we propose a solution that automates the configuration, deployment, monitoring, and validation steps across all relevant nodes, including the 5GC, gNB, RU, and UE.
+
+The goal of this framework is to reduce the manual effort required during integration testing, minimize human errors caused by inconsistent configurations, and improve the repeatability and efficiency of system validation. The proposed method leverages remote command execution, configuration file generation, traffic and log analysis, and structured test orchestration logic to create a unified, end-to-end automated testing workflow. As illustrated in Fig.~\ref{fig:system_working_flow}, the overall system working flow integrates configuration, deployment, monitoring, and validation into a unified automated process.
+
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=0.9\linewidth]{figures/System working flow.png}
+    \caption{Working flow of integration automation}
+    \label{fig:system_working_flow}
+\end{figure}
+
+\section{System Input Parameters for rApp Execution}
+\label{sec:input_params}
+In this system, users are required to provide three categories of input parameters as prerequisites for executing the rApp: \textbf{gNB Configuration}, \textbf{Test Configuration}, and \textbf{Host Information}. These parameters are parsed by the automation testing platform and used for remote device configuration, core network initialization, gNB launching, downlink/uplink traffic testing, synchronization monitoring, and more. Accurate and consistent parameter settings are essential to ensure interoperability between DU and RU and the correctness of automated testing procedures.
+
+As shown in the system working flow in Figure~\ref{fig:msc:editconfig}, the first step of the rApp is to wait for and receive configuration input from the user. The configuration is provided in JSON format and must include all required fields described in the following tables. Once received, the rApp parses the configuration file and proceeds with sequential automation steps such as DU/RU configuration, gNB and core network startup, and performance or synchronization verification.
+
+\begin{table}[htbp]
+\caption{gNB Configuration Parameters}
+\label{sec.gnbconfig}
+\small
+\begin{tabular}{ | m{8cm} | m{8cm} | }
+\hline \textbf{Parameter} & \textbf{Description} \\
+\hline core\_id & Core Network Identifier \\
+\hline du\_id & Distributed Unit Identifier \\
+\hline ru\_id & Radio Unit Identifier \\
+\hline dpdk\_devices\_interface & Network interface used by DPDK \\
+\hline vlan-id & VLAN ID for fronthaul connection \\
+\hline o-du-mac-address & MAC address of DU interface \\
+\hline l2-mtu & Layer 2 Maximum Transmission Unit \\
+\hline Antenna config & eAxC ID list and phisical antenna setting \\
+\hline iq-bitwidth & Bit width of IQ samples \\
+\hline compression-type & Compression type for IQ data (e.g., STATIC) \\
+\hline compression-method & Compression algorithm (e.g., BLOCK\_FLOATING\_POINT) \\
+\hline gain & Transmission gain \\
+\hline arfcn & Absolute Radio Frequency Channel Number \\
+\hline bSChannelBw & Channel bandwidth in MHz \\
+\hline subCarrierSpacing & Subcarrier spacing in kHz \\
+\hline maxMIMO\_layers & Max number of MIMO transmission layers \\
+\hline mcc & Mobile Country Code \\
+\hline mnc & Mobile Network Code \\
+\hline amf\_ip\_address & AMF (Core Network) IP address \\
+\hline GNB\_IPV4\_ADDRESS\_FOR\_NG\_AMF & gNB IP address for N2/N3 interface \\
+\hline
+\end{tabular}
+\label{tab.gnbconfig}
+\end{table}
+
+\label{sec.testconfig}
+\begin{table}[htbp]
+\caption{Test Configuration Parameters}
+\small
+\begin{tabular}{ | m{5cm} | m{8cm} | }
+\hline \textbf{Parameter} & \textbf{Description} \\
+\hline STOP\_GNB & Whether to stop gNB before starting the test (yes/no) \\
+\hline ENABLE\_DL & Enable downlink testing \\
+\hline ENABLE\_UL & Enable uplink testing \\
+\hline TEST\_DURATION & Duration of the test in seconds \\
+\hline DL\_START & Time to start DL traffic in ms \\
+\hline UL\_START & Time to start UL traffic in ms \\
+\hline TEST\_SERVER\_IP & IP address of the test server \\
+\hline ADB\_DEVICE & Android ADB device ID \\
+\hline PTP4L\_SERVICE & PTP synchronization service name \\
+\hline PHC2SYS\_SERVICE & PHC to system time sync service \\
+\hline GNB\_BASE\_PATH & File system path to gNB source directory \\
+\hline O1\_BASE\_PATH & File system path to O1 adapter \\
+\hline CN\_BASE\_PATH & File system path to Core Network source \\
+\hline CN\_RUN\_COMMAND & Script to run the Core Network \\
+\hline CN\_STOP\_COMMAND & Script to stop the Core Network \\
+\hline
+\end{tabular}
+\label{tab.testconfig}
+\end{table}
+
+\label{sec.host_info}
+\begin{table}[htbp]
+\caption{Host Information Parameters}
+\small
+\begin{tabular}{ | m{5cm} | m{8cm} | }
+\hline \textbf{Parameter} & \textbf{Definition} \\
+\hline CN\_SERVER\_USER & Username to log in to core network server \\
+\hline CN\_SERVER\_HOST & IP address of core network server \\
+\hline CN\_SERVER\_PASSWORD & Password for CN server access \\
+\hline GNB\_SERVER\_USER & Username to log in to gNB server \\
+\hline GNB\_SERVER\_HOST & IP address of gNB server \\
+\hline GNB\_SERVER\_PASSWORD & Password for gNB server access \\
+\hline FHG\_SERVER\_USER & Username for fronthaul gateway server \\
+\hline FHG\_SERVER\_HOST & IP address of fronthaul gateway server \\
+\hline FHG\_SERVER\_PASSWORD & Password for fronthaul gateway access \\
+\hline CONTROL\_PC\_USER & Username for control PC \\
+\hline CONTROL\_PC\_HOST & IP address of control PC \\
+\hline CONTROL\_PC\_PASSWORD & Password for control PC access \\
+\hline
+\end{tabular}
+\label{table:host_info}
+\end{table}
+
+\section{Automatic Configuration mapping of gNB and RU}
+\label{sec:gnb_ru_config}
+
+\begin{figure}
+    \centering
+    \includegraphics[width=1\linewidth]{figures/MSC for edit config of DU and RU.png}
+    \caption{MSC for edit config of DU and RU}
+    \label{fig:msc:editconfig}
+\end{figure}
+
+As shown in Figure~\ref{fig:msc:editconfig}, the system executes the following automatic configuration mapping steps across the CU/DU and RU:
+\begin{itemize}
+    \item Read gNB setup parameters from the user JSON input.
+    \item Adjust the gNB configuration file based on those parameters.
+    \item Transfer the configuration to the gNB host using SFTP.
+    \item Align the RU configuration to match the gNB setup.
+    \item Update RU settings in Grafana.
+\end{itemize}
+
+\subsection{Repeatable parameters in DU/RU}
+As shown in Table~\ref{sec.gnbconfig}, several configuration parameters—such as \texttt{l2\_mtu}, \texttt{iq-bitwidth}, \texttt{compression-type}, and \texttt{compression-method}—are required to be consistently applied to both the DU and the RU.
+
+Instead of manually duplicating these settings, we defined them once in a unified test case input. The integration rApp automatically parses this input and propagates the configuration values to both the DU and RU sides accordingly.
+
+This repeatable configuration mechanism significantly reduces the manual effort and ensures consistency across layers, effectively cutting the configuration time in half for parameters that would otherwise require double input.
+
+\subsection{DU/RU MAC and VLAN Adjustment}
+\label{sec:mac_vlan_adjust}
+
+In traditional manual setups, retrieving and configuring the MAC address of the RU requires manually logging into the terminal, executing network commands, and then writing the value into the configuration file. In our system, this process is automated. The ru id specified in Table~\ref{sec.gnbconfig} is used to automatically retrieve the RU MAC address and populate it into the configuration file via the rApp.
+
+For the DU side, the manual process involves four main steps, as illustrated in Figure~\ref{fig:OAI_VF}:
+
+\begin{enumerate}
+    \item Identify the correct NIC (Network Interface Card) from which packets should be transmitted.
+    \item Create a VF (Virtual Function)\cite{linux_vf_doc} on the NIC and assign it a specific MAC address and VLAN tag.
+    \item Retrieve the VF's bus information and bind it to the DPDK (Data Plane Development Kit)\cite{dpdk}.
+    \item Fill in the VF's bus information in the OAI gNB configuration file.
+\end{enumerate}
+
+\begin{figure}
+    \centering
+    \includegraphics[width=0.5\linewidth]{figures/OAI_VF.png}
+    \caption{Manual configuration workflow for OAI gNB VF setup (MAC, VLAN, and binding).}
+    \label{fig:OAI_VF}
+\end{figure}
+
+In our automated solution, all of the above steps are handled by the integration rApp. Users only need to provide the NIC interface name\cite{nic_interface}, as specified in the dpdk devices interface field of Table~\ref{sec.gnbconfig}. The rApp will:
+
+\begin{itemize}
+\item Detect if a VF exists; if not, create it.
+\item Ensure the VF’s MAC and VLAN match the test case.
+\item Bind the VF to DPDK using the correct PCI bus info.
+\item Automatically populate the OAI gNB config with this information.
+\end{itemize}
+
+This automation eliminates repetitive manual work and ensures consistency between the test case and system setup, as illustrated in Figure~\ref{fig:Auto_VF}.
+
+\begin{figure}
+    \centering
+    \includegraphics[width=0.75\linewidth]{figures/Auto_VF.png}
+    \caption{Flowchart for automatic create VF}
+    \label{fig:Auto_VF}
+\end{figure}
+
+\subsection{MIMO Adjustment}
+To support flexible downlink transmission configurations, the integration rApp automates the adjustment of MIMO (Multiple Input Multiple Output) settings according to the test case. As shown in Figure~\ref{fig:MIMO_config}, the process begins by retrieving the antenna configuration and desired number of MIMO layers from the test case specification. These values determine how many transmission layers should be active.
+
+The rApp then generates the corresponding eAxC IDs to be filled into the OAI gNB configuration. If the specified number of MIMO layers exceeds the RU's antenna capability, the rApp automatically limits the layer count to the antenna’s maximum capacity. Otherwise, it directly applies the test case value.
+
+After finalizing the MIMO layer setting, the rApp maps each eAxC ID to the corresponding RU antenna and determines which antennas to activate or deactivate based on the mapping result. This ensures that the configuration aligns with both the test specification and the hardware’s physical capabilities, enabling consistent and repeatable MIMO testing without requiring manual adjustment.
+
+\begin{figure}
+    \centering
+    \includegraphics[width=0.75\linewidth]{figures/MIMO_config.png}
+    \caption{Flowchart for auto MIMO config}
+    \label{fig:MIMO_config}
+\end{figure}
+
+\subsection{Frequency Adjustment}
+To ensure correct communication between DU and RU, several key parameters must be transformed or derived automatically from test input, as illustrated in Figures~\ref{fig:freq_config} and~\ref{fig:DURU_parameters_freq}. The frequency configuration involves five major steps:
+
+\begin{enumerate}
+\item \textbf{SubCarrierSpacing (SCS) Conversion}:
+The input \texttt{subCarrierSpacing} (in kHz) is converted into a corresponding numerology value and an SCS identifier string (\texttt{scs}) for DU and RU configuration. This mapping follows the 3GPP standard numerology \cite{3GPP.TS.38.211}.
+
+\begin{table}[h!]
+\centering
+\caption{SubCarrierSpacing Mapping}
+\begin{tabular}{|c|c|c|}
+    \hline
+    subCarrierSpacing (kHz) & Numerology & scs \\
+    \hline
+    15 & 0 & \texttt{15\_kHz} \\
+    30 & 1 & \texttt{30\_kHz} \\
+    60 & 2 & \texttt{60\_kHz} \\
+    120 & 3 & \texttt{120\_kHz} \\
+    \hline
+\end{tabular}
+\end{table}
+
+\item \textbf{Bandwidth (BW) Conversion}:  
+The test input provides the bandwidth (\texttt{bSChannelBw}) in MHz. This value is converted to the number of resource blocks (RBs) based on the selected subcarrier spacing (SCS), using the NRB mapping table defined in 3GPP TS 38.101-1 \cite{3GPP.TS.38.101}.  
+The resulting RB count is used to configure the DU’s \texttt{carrierBandwidth}, as well as the RU’s \texttt{number-of-prb} and \texttt{channel-bandwidth} parameters.  
+Figure~\ref{fig:bw_rb_mapping} shows the automatic conversion and mapping of the bandwidth setting to corresponding DU and RU parameters.
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=1\linewidth]{figures/BW and RB transfer.png}
+    \caption{Mapping between Bandwidth and Resource Block (RB) configuration for DU and RU}
+    \label{fig:bw_rb_mapping}
+\end{figure}
+
+
+\item \textbf{SSB Frequency Selection}:  
+The \texttt{ssbFrequency} in DU configuration is derived from the input \texttt{arfcn} using the following logic:
+\begin{itemize}
+    \item First, the absolute frequency (in Hz) corresponding to the input ARFCN is calculated.
+    \item Then, the center of the channel bandwidth is determined using the equation:
+    \[
+    f_{center} = f_{pointA} + \left(\frac{BW_{RB}}{2} \times SCS \times 12\right)
+    \]
+    \item Based on this center frequency, the SSB frequency is selected by finding the closest point on the 3GPP-defined synchronization raster:
+    \[
+    f_{SSB} = 3000~\text{MHz} + N \times 1.44~\text{MHz}
+    \]
+    where \(N = \left\lfloor\frac{f_{center} - 3000~\text{MHz}}{1.44~\text{MHz}}\right\rfloor\)
+    \item The corresponding $\mathtt{ssb\_arfcn}$ is then computed and applied in DU
+\end{itemize}
+This aligns with the raster alignment rules defined in \cite{3GPP.TS.38.104} for NR operating bands.
+
+\item \textbf{RU Center Frequency Calculation}:  
+The RU does not use ARFCN directly. Instead, its center frequency is computed using the number of PRBs (\texttt{number-of-prb}) and the same formula for center frequency:
+\[
+f_{center}^{RU} = f_{pointA} + \left(\frac{PRB_{RU}}{2} \times SCS \times 12\right)
+\]
+This frequency is used for setting \texttt{center-of-channel-bandwidth} and \texttt{offset-to-absolute-frequency-center} parameters in the RU's M-plane configuration \cite{O-RAN.WG4.M}.
+
+\item \textbf{BWP (Bandwidth Part) Location and Size}:  
+DU configuration requires a compact encoding of the initial BWP location and size. This is done via RIV (Resource Indication Value) encoding:
+\[
+RIV = 
+\begin{cases}
+N_{RB} \cdot (L - 1) + R, & L \leq \frac{N_{RB}}{2} \\
+N_{RB} \cdot (N_{RB} - L + 1) + (N_{RB} - 1 - R), & \text{otherwise}
+\end{cases}
+\]
+where \(L\) is the BWP length (equal to BW in RB), \(R\) is the start RB index (set to 0), and \(N_{RB} = 275\) is the maximum supported RB count. The encoded RIV is applied to both \texttt{initialDLBWPlocationAndBandwidth} and \texttt{initialULBWPlocationAndBandwidth} fields.
+\end{enumerate}
+
+\begin{figure}
+    \centering
+    \includegraphics[width=0.5\linewidth]{figures/freq_config.png}
+    \caption{Flowchart for auto frequency config}
+    \label{fig:freq_config}
+\end{figure}
+
+\begin{figure}
+    \centering
+    \includegraphics[width=1\linewidth]{figures/DURU_parameters_freq.png}
+    \caption{Frequenncy parameters in DU/RU config}
+    \label{fig:DURU_parameters_freq}
+\end{figure}
+
+\section{Start End-to-end component}
+\label{sec:start_e2e}
+This section outlines the automated process for starting end-to-end (E2E) components in an O-RAN system, from DU/RU synchronization to gNB and Core Network (CN) activation and NG setup validation. Each step is monitored and verified by the Integration Automation rApp.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.25\linewidth]{figures/MCS of Start End-to-end component.png}
+\caption{Flowchart of the end-to-end component start sequence}
+\label{fig:start-e2e}
+\end{figure}
+
+The flow begins with checking the synchronization state between DU and RU, as precise timing is required for proper fronthaul operation. Once synchronization is confirmed, the CN is started, followed by gNB activation.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=1\linewidth]{figures/MSC for checking ptp status.png}
+\caption{Message Sequence Chart for DU/RU PTP Synchronization Checking}
+\label{fig:check-ptp}
+\end{figure}
+
+Figure~\ref{fig:check-ptp} shows the PTP synchronization verification process. The automation rApp continuously checks the synchronization state of the DU and RU by querying the gNB and M-plane interfaces. The retrieved status is stored in the test execution interface and evaluated to ensure readiness before proceeding to the next steps.  
+To determine if the DU is properly synchronized, the `ptp4l` logs are parsed to monitor key metrics such as \texttt{offset}, \texttt{delay}, and \texttt{frequency}. According to the guideline from the Time Sensitive Networking documentation \cite{tsn-timesync}, consistent and small offset/delay values (e.g., within ±1μs) indicate successful synchronization.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=1\linewidth]{figures/MSC for NG setup checking.png}
+\caption{Message Sequence Chart and Flow for NG Setup Status Verification}
+\label{fig:ng-setup-msc}
+\end{figure}
+
+After the CN and gNB are started, the Integration Automation rApp verifies whether the NG interface between the gNB and CN has been successfully established. As shown in Figure~\ref{fig:ng-setup-msc}, this verification is performed by capturing and analyzing NGAP messages exchanged over the NG interface.
+
+The automation tool captures the packet data using \texttt{tcpdump}~\cite{tcpdump} and analyzes the resulting PCAP files with \texttt{pyshark}~\cite{pyshark}, a Python wrapper for \texttt{tshark}. It specifically checks for the presence of an \texttt{NGSetupResponse} following an \texttt{NGSetupRequest} to confirm successful setup of the NG interface.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.75\linewidth]{figures/ng_failed.png}
+\caption{NG Setup Failure Packet Example: Cause = Unknown PLMN or SNPN}
+\label{fig:ng-setup-failure}
+\end{figure}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=1\linewidth]{figures/ng_success.png}
+\caption{NG Setup Success Packet Example: NGSetupRequest followed by NGSetupResponse}
+\label{fig:ng-setup-success}
+\end{figure}
+
+Figures~\ref{fig:ng-setup-failure} and~\ref{fig:ng-setup-success} provide concrete examples of NG setup failure and success, respectively. These diagnostic tools provide immediate feedback on configuration correctness and enable rapid identification of interoperability issues, thereby improving the reliability and repeatability of E2E integration testing.
+
+
+\section{Checking Fronthaul Packet Status and Timing Window Adjustment}
+\label{sec:timing_window_adjustment}
+
+To ensure reliable and timely transmission between the gNB and RU over the Open Fronthaul (FH) interface, the system must continuously monitor packet arrival patterns and make timing window adjustments accordingly. The integration rApp collects and analyzes packet status from the RU, focusing on whether C/U-plane packets fall within the configured timing window.
+
+Figure~\ref{fig:fh-pktsta} presents the overall procedure. Once the gNB is started, the rApp retrieves the RU's packet reception statistics from the configuration service and checks if packet timestamps fall within the expected window. If they do, the UE is instructed to proceed with attachment. Otherwise, the system automatically adjusts timing window parameters (T1a\_cp and T1a\_up) and restarts the gNB.
+
+The logic for adjusting the timing window is illustrated in Figure~\ref{fig:timing-adjust-flow}. It checks for increasing trends in early or late packet counts (RX\_EARLY or RX\_LATE) and updates the corresponding T1a value to recenter packet timing into the target window.
+
+Figures~\ref{fig:timing-late} and \ref{fig:timing-early} show the visualization of how packets are categorized based on arrival time and how these statistics guide the adjustment process. Packets are classified as early, on-time, or late, and their trends determine whether the timing window should be widened or shifted.
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=0.75\linewidth]{figures/Checking Fronthual packet status.png}
+    \caption{System architecture and flowchart for checking RU's C/U-plane packet timing status}
+    \label{fig:fh-pktsta}
+\end{figure}
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=1\linewidth]{figures/Flowchart for edit timing window.png}
+    \caption{Flowchart for timing window adjustment based on RX\_EARLY and RX\_LATE statistics}
+    \label{fig:timing-adjust-flow}
+\end{figure}
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=1\linewidth]{figures/Late case for adjust timing window.png}
+    \caption{Timing window adjustment when RX\_LATE increases, requiring an increase of T1a\_cp or T1a\_up}
+    \label{fig:timing-late}
+\end{figure}
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=1\linewidth]{figures/Early case for adjust timing window.png.png}
+    \caption{Timing window adjustment when RX\_EARLY increases, requiring a decrease of T1a\_cp or T1a\_up}
+    \label{fig:timing-early}
+\end{figure}
+
+\vspace{1em}
+\noindent
+The above procedure represents the method currently adopted in our laboratory, since the available NICs do not support advanced time-sensitive features. 
+If high-end NICs were available, an alternative approach could be applied using \textbf{Time-Aware Shaper (TAS, IEEE~802.1Qbv)} \cite{ieee8021Qbv}, \textbf{global time synchronization (gPTP / PTP, IEEE~802.1AS)} \cite{ieee8021AS}, and the Linux \texttt{taprio} qdisc. 
+These technologies enable deterministic packet scheduling and sub-microsecond synchronization, ensuring that fronthaul packets are automatically transmitted within the intended time slice. 
+In fact, Al-Hares et al.\ demonstrated through modeling and simulation that TAS effectively eliminates frame delay variation in Ethernet fronthaul compared to traditional strict-priority scheduling, thereby validating the feasibility of this approach in meeting stringent timing requirements \cite{alhares2017modeling, alhares2021ups}.
+
+Such an approach would simplify the workflow by reducing manual operations across different stages:
+\begin{itemize}
+    \item \textbf{Planning stage:} No need for repeated estimation of transmission timing to satisfy T1a, because advanced NICs with TAS can directly schedule packet transmission at the specified time slice.  
+    \item \textbf{Testing stage:} Fewer iterative tests to verify timing parameters, because deterministic scheduling ensures that once configured, packets consistently meet the timing requirement without repeated tuning.  
+    \item \textbf{Verification stage:} Reduced manual verification of packet timestamps due to hardware timestamping and deterministic scheduling, which guarantee precise measurement and compliance with the configured timing window.  
+\end{itemize}
+
+\section{UE Auto Attach and iperf}
+\label{sec:ue_attach}
+
+This section describes the automated procedure for connecting the User Equipment (UE) to the gNB and performing throughput testing using \texttt{iperf3}. The entire process is fully automated using \texttt{adb} commands and backend integration, enabling the system to determine when the UE is attached and ready for performance testing.
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=0.45\linewidth]{figures/Flowchart of UE attach gNB.png}
+    \caption{Automated UE attachment and iperf3 testing workflow.}
+    \label{fig:ue_attach_flow}
+\end{figure}
+
+Figure~\ref{fig:ue_attach_flow} shows the automated workflow: (1) turn off UE's airplane mode, (2) obtain the UE IP address, (3) start the \texttt{iperf3} server on the core network (CN), (4) run the \texttt{iperf3} client on the UE, and (5) collect and visualize throughput results.
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=0.75\linewidth]{figures/iperf3 setting.png}
+    \caption{iperf3 client-server configuration.}
+    \label{fig:iperf_config}
+\end{figure}
+
+Figure~\ref{fig:iperf_config} illustrates the \texttt{iperf3} setup~\cite{iperf3}. The UE acts as the client, sending data toward the CN. Parameters such as target bitrate and test duration can be configured, enabling reproducible throughput measurements.
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=1\linewidth]{figures/Command for airplane mode.png}
+    \caption{ADB commands to toggle UE airplane mode.}
+    \label{fig:airplane_mode_cmd}
+\end{figure}
+
+Figure~\ref{fig:airplane_mode_cmd} shows how airplane mode on Android UE is controlled via ADB. The automation system toggles this to reset radio connectivity before attachment.
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=1\linewidth]{figures/Difference between UE attach and no attach.png}
+    \caption{IP configuration differences before and after UE attachment.}
+    \label{fig:ue_ip_check}
+\end{figure}
+
+Figure~\ref{fig:ue_ip_check} compares the UE’s IP address states. When unattached, only the loopback interface is present. After attachment to the gNB, a new interface (e.g., \texttt{ccmni0}) appears with an assigned IP address.
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=1\linewidth]{figures/Throughput result in Grafana .png}
+    \caption{Grafana visualization of THPUT results extracted from OAI PM logs.}
+    \label{fig:grafana_throughput}
+\end{figure}
+
+Once the iperf test is completed, the OAI gNB generates a performance management (PM) file\cite{3GPP.TS.28.552} that includes the throughput (THPUT) results. As shown in Figure~\ref{fig:grafana_throughput}, these results are parsed and displayed on Grafana in near real-time, enabling intuitive performance monitoring.

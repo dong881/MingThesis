@@ -1,0 +1,293 @@
+\chapter{Introduction}
+\label{sec:intro}
+
+\section{O-RAN End-to-end Systems}
+\label{sec:e2e:architecture}
+One of the core principles of O-RAN~\cite{O-RAN.Off.Web} is multi-vendor interoperability. In the Radio Access Network (RAN), the architecture has been disaggregated into the Central Unit (CU), Distributed Unit (DU), and Radio Unit (RU), allowing each component to be supplied by different vendors, as long as communication between them follows the standardized O-RAN specifications.
+
+This marks a significant departure from traditional RAN systems, which were typically built entirely by a single vendor. In such systems, internal communication protocols were proprietary and defined solely by the vendor, with no requirement for interoperability. In contrast, the O-RAN architecture necessitates interoperability testing to verify that each vendor's components can successfully integrate with those from other manufacturers—a critical step for gaining market acceptance and credibility.
+
+However, since each vendor interprets and implements the specifications differently, variations in component behavior are inevitable. For example, a single specification may be understood in multiple ways or modified for cost-related considerations, leading to inconsistencies in message exchange. Some components are expected to adjust their behavior dynamically based on messages received from peer components, but may instead be designed with fixed logic, resulting in integration failures.
+
+Furthermore, the O-RAN specifications~\cite{O-RAN.spec} do not provide detailed guidelines for configuration file design, leaving each vendor to develop its own configuration methods and formats. These differences extend not only to the configuration process but also to parameter naming conventions. For users and integrators, this means investing substantial time to learn how to operate each vendor's equipment and to identify the required configuration parameters, significantly increasing the complexity of deployment and testing.
+
+The importance of O-RAN end-to-end system integration testing was discussed in the previous section. This section introduces the architecture of the O-RAN end-to-end system, which primarily consists of the Core Network (CN), Central Unit (CU), Distributed Unit (DU), Radio Unit (RU), and User Equipment (UE).
+
+As previously mentioned, the O-RAN architecture supports multi-vendor deployments. As illustrated in Figure~\ref{fig:e2e.system}, within the Radio Access Network (RAN), CU/DU components provided by one vendor can interoperate with RU components from another vendor. Likewise, the CU and DU themselves can also be sourced from different vendors. However, since this study does not focus on the interoperability between CU and DU from different vendors, we assume that the CU and DU used in this work are provided by the same vendor.
+
+
+\begin{figure}
+    \centering
+    \includegraphics[width=1\linewidth]{figures/O-RAN End-to-end Systems.png}
+    \caption{O-RAN End-to-end Systems}
+    \label{fig:e2e.system}
+\end{figure}
+
+\subsection{NG Interface}
+\label{sec:ng}
+
+Communication between the Central Unit (CU) and the Core Network (CN) is conducted via the NG interface, using the NG Application Protocol (NGAP) as specified in~\cite{3GPP.TS.38.413}. When the CU first attempts to connect to the CN, it must undergo the NG setup procedure.
+
+As shown in Figure~\ref{fig:ng.setup}, the CU initiates an NG Setup Request using its own IP address as the source and sends the request to the CN's IP address. Upon receiving the request, the CN verifies whether the information in the NG Setup Request matches its internal configuration. If the information is valid, the CN responds with an NG Setup Response to establish the connection. Otherwise, it returns an NG Setup Failure message to terminate the process, as illustrated in Figure~\ref{fig:ng.setup.failure}.
+
+One of the key pieces of information in the NG Setup procedure is the PLMN ID, which serves as the identifier for the public mobile network. The PLMN (Public Land Mobile Network) consists of the MCC (Mobile Country Code) and MNC (Mobile Network Code), where the MCC represents the country code and the MNC identifies the mobile network operator within that country.
+
+\begin{figure}
+    \centering
+    \includegraphics[width=0.5\linewidth]{figures/ng setup.png}
+    \caption[NG setup]{NG setup~\cite{3GPP.TS.38.413}}
+    \label{fig:ng.setup}
+\end{figure}
+
+\begin{figure}
+    \centering
+    \includegraphics[width=0.5\linewidth]{figures/ng setup failure.png}
+    \caption[NG setup failure]{NG setup failure~\cite{3GPP.TS.38.413}}
+    \label{fig:ng.setup.failure}
+\end{figure}
+
+\subsection{Fronthaul C/U/S/M-Plane}
+\label{sec:fh:cus}
+
+In the O-RAN architecture~\cite{O-RAN.arch}, communication between the Distributed Unit (DU) and the Radio Unit (RU) is achieved through the Fronthaul interface, which is divided into four planes: the Synchronization Plane (S-Plane), the Control Plane (C-Plane), the User Plane (U-Plane), and the Management Plane (M-Plane), as illustrated in Figure~\ref{fig:FH.dataflow}. The Fronthaul interface uses the eCPRI protocol~\cite{eCPRI.v2.0} for transmission. The specifications of the C/U/S planes and the M-plane are defined by O-RAN Working Group 4 in~\cite{O-RAN.WG4.CUS, O-RAN.WG4.M}.
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=1\linewidth]{figures/fronthaul data flows.png}
+    \caption[Fronthaul data flow of C/U/S-Plane]{Fronthaul data flow of C/U/S-Plane~\cite{O-RAN.WG4.CUS}}
+    \label{fig:FH.dataflow}
+\end{figure}
+
+\begin{itemize}
+    \item \textbf{S-Plane (Synchronization Plane):} Responsible for providing time and frequency synchronization between the DU and RU, which is critical for maintaining signal accuracy and overall system performance. O-RAN typically employs IEEE 1588 Precision Time Protocol (PTP) and Synchronous Ethernet (SyncE) to achieve high-precision synchronization.
+
+    \item \textbf{C-Plane (Control Plane):} Primarily used to deliver control messages that instruct the RU when and where to transmit or receive user data on specific time-frequency resources.
+
+    \item \textbf{U-Plane (User Plane):} Carries actual user data. In addition to regular user data, the U-Plane also transports PRACH (Physical Random Access Channel) signals, which are used by UEs for initial access and random access procedures. 
+
+    \item \textbf{M-Plane (Management Plane):} Handles configuration, fault management, performance monitoring, and software management of the RU. Communication over the M-Plane typically follows standardized NETCONF/YANG protocols over SSH, enabling the DU or SMO (Service Management and Orchestration) to remotely manage and monitor the RU's operational parameters.
+\end{itemize}
+
+\section{Timing Window}
+\label{sec:fh:timingwindow}
+
+The intra-PHY lower layer fronthaul split imposes strict requirements on both bandwidth and latency. Therefore, it is necessary to configure specific timing window parameters for transmission between the DU and RU. These parameters may vary depending on factors such as network topology, deployment environment, and specific use cases. On the RU side, a fixed set of timing parameters is defined based on the hardware design, and these values differ across vendors. To ensure successful communication and interoperability, the DU is responsible for adjusting its parameters accordingly to match the RU's configuration.
+
+As mention in~\cite{O-RAN.WG4.CUS}. The timing reference points are defined in the eCPRI specification~\cite{eCPRI.v2.0}, as illustrated in Figure~\ref{fig:timingwindow:reference-points}. On the O-DU side, two reference points are defined: R1 represents the receive interface, and R4 represents the transmit interface. On the O-RU side, three reference points are defined: R2 is the receive interface, R3 is the transmit interface, and RA refers to the antenna interface.
+
+In addition, eCPRI specifies timing parameters for both uplink and downlink transmission delays. T12 represents the uplink transmission delay from the O-RU to the O-DU, while T34 represents the downlink transmission delay from the O-DU to the O-RU. These delays are not fixed values, as they can be influenced by factors such as switching equipment latency and physical transmission distance. As a result, both T12 and T34 are defined using minimum and maximum bounds.
+
+Due to these variations, the total delay from R1 to RA (downlink) and from RA to R4 (uplink) must also be bounded by corresponding minimum and maximum values. The detailed definitions of these timing parameters are provided in Table~\ref{fig:timingwindow:latency-parameters}.
+
+These timing parameters are interrelated and must satisfy the constraints defined in Table~\ref{tab:odu:txrx:timing} to ensure that the O-DU and O-RU can correctly receive each other's packets within the expected transmission windows.
+
+\begin{figure}
+    \centering
+    \includegraphics[width=1\linewidth]{figures/Definition of reference points.png}
+\caption[Definition of reference points for delay management]{Definition of reference points for delay management~\cite{O-RAN.WG4.CUS}}
+    \label{fig:timingwindow:reference-points}
+\end{figure}
+
+\begin{table}[htbp]
+\centering
+\caption[eCPRI O-DU/O-RU delay model latency parameters]{eCPRI O-DU/O-RU delay model latency parameters~\cite{O-RAN.WG4.CUS}}
+\label{fig:timingwindow:latency-parameters}
+\begin{tabularx}{\textwidth}{|c|c|X|c|c|}
+    \hline
+    \textbf{Device} & \textbf{Latency ID} & \textbf{Latency Description} & \textbf{Min} & \textbf{Max} \\
+    \hline
+    O-DU & T1a  & Measured from output at O-DU (R1) to transmission over the air. & T1amin & T1amax \\
+    \hline
+    O-RU & T2a  & Measured from reception at O-RU (R2) to transmission over the air. & T2amin & T2amax \\
+    \hline
+    O-DU & Ta4  & Measured from reception at O-RU antenna to reception at O-DU port (R4). & Ta4min & Ta4max \\
+    \hline
+    O-RU & Ta3  & Measured from reception at O-RU antenna to output at O-RU port (R3). & Ta3min & Ta3max \\
+    \hline
+    O-DU/O-RU  & T12  & Transmission delay between O-RU (R2) and O-DU (R1) in uplink direction. & T12min & T12max \\
+    \hline
+    O-DU/O-RU  & T34  & Transmission delay between O-DU (R4) and O-RU (R3) in downlink direction. & T34min & T34max \\
+    \hline
+\end{tabularx}
+\end{table}
+
+\begin{table}[htbp]
+\centering
+\caption[O-DU transmission/reception window position (in time)]{O-DU transmission/reception window position (in time)~\cite{O-RAN.WG4.CUS}}
+\label{tab:odu:txrx:timing}
+\begin{tabularx}{\textwidth}{|c|c|c|X|}
+    \hline
+    \textbf{O-DU Timing} & \textbf{Condition} & \textbf{Parameter} & \textbf{O-DU Timing Relationship} \\
+    \hline
+    \multirow{\makecell{Downlink\\(Transmit)}} 
+        & No earlier than & T1amax & $T1amax \leq T2amax + T12min$ \\
+        \cline{2-4}
+        & No later than   & T1amin & $T1amin \geq T2amin + T12max$ \\
+    \hline
+    \multirow{\makecell{Uplink\\(Receive)}} 
+        & No earlier than & Ta4min & $Ta4min \leq Ta3min + T34min$ \\
+        \cline{2-4}
+        & No later than   & Ta4max & $Ta4max \geq Ta3max + T34max$ \\
+    \hline
+\end{tabularx}
+\end{table}
+
+This section integrates the time axis with reference points to illustrate their relationships, as shown in Figure~\ref{fig:timing-window}. In the downlink (DL) direction, there are three types of packets involved: DL C-Plane, UL C-Plane, and DL U-Plane. All of these packet types must comply with the timing constraints defined for downlink transmission.
+
+The O-DU transmission window is defined by the range between $T1a_{max}$ and $T1a_{min}$. These parameters can be configured by the user in the DU's configuration file. On the other hand, the O-RU reception window is determined by $T2a_{max}$ and $T2a_{min}$, whose values depend on the hardware capabilities of the RU and are therefore fixed and not configurable.
+
+In the timeline, the point $t = 0$ is defined as the moment when the RU transmits the wireless signal. This point serves as the reference time and remains constant regardless of configuration. To ensure that the signal is transmitted at the correct moment, the RU must receive the corresponding packet within its reception window.
+
+Depending on the actual arrival time of the packet, the RU classifies it into one of the following three statuses:
+\begin{itemize}
+    \item \textbf{Early}: The packet arrives too early;
+    \item \textbf{Late}: The packet arrives too late;
+    \item \textbf{On-time}: The packet arrives within the expected window.
+\end{itemize}
+
+The RU maintains separate counters to record these statuses based on the packet type (C-Plane or U-Plane). For example, if a C-Plane packet arrives early, the counter \texttt{RX\_EARLY\_C} is incremented. Similarly, if a U-Plane packet arrives early, the counter \texttt{RX\_EARLY} is incremented.
+
+The meaning of the equations listed in Table~\ref{tab:odu:txrx:timing} is explained as follows:
+
+\begin{itemize}
+    \item \textbf{First Equation:} $T1a_{max} \leq T2a_{max} + T12_{min}$  
+    This equation indicates that the value of $T1a_{max}$ affects whether a packet is classified as \textit{Early}. If $T1a_{max}$ is set too large, and the value of $T2a_{max} + T12_{min}$ is fixed, the packet will fall into the Early region, as illustrated in Figure~\ref{fig:timing-window:early}.
+
+    \item \textbf{Second Equation:} $T1a_{min} \geq T2a_{min} + T12_{max}$  
+    This equation shows that the value of $T1a_{min}$ affects whether a packet is classified as \textit{Late}. If $T1a_{min}$ is set too small while $T2a_{min} + T12_{max}$ remains fixed, the packet will fall into the Late region, as shown in Figure~\ref{fig:timing-window:late}.
+
+    \item \textbf{Third Equation:} $Ta4_{min} \leq Ta3_{min} + T34_{min}$  
+    This equation describes the uplink receive window. If $Ta4_{min}$ is set too large, and $Ta3_{min} + T34_{min}$ is fixed, the packet will fall outside the receive window, resulting in a reception failure, as shown in Figure~\ref{fig:timing-window:UL:early}.
+
+    \item \textbf{Fourth Equation:} $Ta4_{max} \geq Ta3_{max} + T34_{max}$  
+    This equation indicates that if $Ta4_{max}$ is set too small while $Ta3_{max} + T34_{max}$ is fixed, the packet will again fall outside the receive window, leading to a failed reception, as illustrated in Figure~\ref{fig:timing-window:UL:late}.
+\end{itemize}
+
+
+\begin{figure}
+    \centering
+    \includegraphics[width=1\linewidth]{figures/timing window.png}
+    \caption[timing window value relationship]{timing window value relationship~\cite{O-RAN.WG4.CUS}}
+    \label{fig:timing-window}
+\end{figure}
+
+\begin{figure}
+    \centering
+    \includegraphics[width=1\linewidth]{figures/timing window early.png}
+    \caption{DL early}
+    \label{fig:timing-window:early}
+\end{figure}
+
+\begin{figure}
+    \centering
+    \includegraphics[width=1\linewidth]{figures/timing window late.png}
+    \caption{DL late}
+    \label{fig:timing-window:late}
+\end{figure}
+
+\begin{figure}
+    \centering
+    \includegraphics[width=1\linewidth]{figures/timing window UL early.png}
+    \caption{UL early}
+    \label{fig:timing-window:UL:early}
+\end{figure}
+
+\begin{figure}
+    \centering
+    \includegraphics[width=1\linewidth]{figures/timing window UL late.png}
+    \caption{UL late}
+    \label{fig:timing-window:UL:late}
+\end{figure}
+
+\section{End-to-end testing flow}
+\label{sec:e2e:testing}
+After introducing the end-to-end (E2E) architecture, the next question is how to actually set up and test an E2E system. As illustrated in Figure~\ref{fig:e2e:test:flow}, before bringing up the components, it is necessary to configure the CU, DU, and RU to ensure that each component starts with the correct settings. Since this study focuses on the RAN side, the configuration of the Core Network (CN) is excluded.
+
+For the RU, due to its design, a restart is required after configuration changes in order for the new values to take effect. After the configuration phase, it is essential to verify synchronization on the S-plane (i.e., the PTP timing) between the DU and RU. If PTP synchronization fails, the timing recognition of packet transmission between DU and RU may be affected. Moreover, every time the RU is restarted, PTP synchronization must be re-established.
+
+Once synchronization is confirmed, the component bring-up can begin, starting with the 5GC, followed by the CU and DU. The first step is to check whether the NG setup between the CU and CN has been successfully completed. If the setup fails, the CU configuration must be corrected and both CU and DU must be restarted.
+
+If the NG setup is successful, the next step is to observe the RU's reception status of packets from the DU—specifically whether any packets are marked as \textit{Early} or \textit{Late}. If such conditions occur, the DU's timing window parameters need to be adjusted, and the CU/DU restarted.
+
+Once the RU confirms that packets are received \textit{On-time}, the User Equipment (UE) can be used to detect the gNB signal. After the UE successfully connects to the gNB and completes registration with the CN, performance testing can be conducted. The most representative test is throughput measurement, for which iperf is used in this study.
+\begin{figure}
+    \centering
+    \includegraphics[width=0.8\linewidth]{figures/End-to-end testing flow.png}
+    \caption{End-to-end testing flow}
+    \label{fig:e2e:test:flow}
+\end{figure}
+
+\section{DU/RU configuration parameters}
+\label{sec:duru:configuration}
+The DU and RU must be configured with consistent frequency and fronthaul parameters to ensure successful end-to-end operation. This section introduces the key configuration elements required on both sides.
+
+\subsection{Fronthaul-related Parameters}
+
+Fronthaul configuration involves several key parameters on both DU and RU to enable proper CUS-plane communication over the Open Fronthaul interface. As illustrated in Figure~\ref{fig:du_ru_fronthaul}, this includes:
+
+These parameters must be matched precisely between DU and RU, and any mismatch may result in failed link establishment or IQ decoding errors. The automation framework described in this work ensures that these values are mapped and verified consistently before system bring-up.
+
+The DU and RU communicate over Ethernet, which requires configuration of the MAC addresses and VLAN IDs to ensure correct packet routing between nodes. These identifiers are embedded within the Ethernet frame headers and are essential for directing fronthaul packets to the appropriate destination. Furthermore, the Maximum Transmission Unit (MTU) must be configured to define the largest packet size that can be transmitted without fragmentation. An MTU setting that is too small will result in packet segmentation, which can introduce additional overhead and latency in the fronthaul link \cite{O-RAN.WG4.CUS}. 
+
+Additionally, the fronthaul packets carry IQ samples that represent the digitized wireless signal. Therefore, it is necessary to configure the compression method (e.g., static, dynamic block floating point) and specify the bit-width for IQ data compression. These settings directly impact the payload efficiency and overall bandwidth usage on the fronthaul interface.
+
+\begin{figure}
+    \centering
+    \includegraphics[width=1\linewidth]{figures/du_ru_fronthaulage.png}
+    \caption{DU/RU fronthaul configuration parameters}
+    \label{fig:du_ru_fronthaul}
+\end{figure}
+
+\subsection{Frequency-related Parameters}
+
+As shown in Figure~\ref{fig:du_ru_frequency}, both DU and RU require precise frequency domain configurations to ensure proper signal transmission and reception. These parameters include:
+
+\begin{itemize}
+    \item \textbf{Carrier Bandwidth (carrierBandwidth)}: Defines the overall bandwidth allocated for the channel, determining the frequency span occupied by the carrier \cite{3GPP.TS.38.211}.
+    \item \textbf{Absolute Frequency Point A (absoluteFrequencyPointA)}: Indicates the absolute frequency at the lower edge of the carrier bandwidth, serving as the reference point for subcarrier indexing \cite{3GPP.TS.38.211}.
+    \item \textbf{Center of Channel Bandwidth (centerOfChannelBandwidth)}: Specifies the center frequency of the carrier bandwidth, ensuring alignment of the RU's RF tuning \cite{O-RAN-SC.UPLANE-CONF}.
+    \item \textbf{Absolute Frequency SSB (absoluteFrequencySSB)}: Defines the location of the Synchronization Signal Block (SSB) within the carrier bandwidth. The SSB must reside within the allocated bandwidth to allow initial synchronization \cite{3GPP.TS.38.104}.
+    \item \textbf{Subcarrier Spacing (subCarrierSpacing)}: Determines the spacing between adjacent subcarriers, impacting the number of available subcarriers within the given bandwidth \cite{3GPP.TS.38.211.SCS}.
+    \item \textbf{Initial Bandwidth Part (initialBWP)}: Configured on the DU side, it defines the resource block (RB) range used for Random Access (RA). The initialBWP is composed of a starting RB index (startRB) and the number of RBs (numberRB), which must be within the limits of the carrier bandwidth \cite{3GPP.TS.38.211.BWP}.
+\end{itemize}
+
+These frequency domain parameters must be aligned between DU and RU to ensure synchronization during initial access and maintain signal integrity throughout communication.
+
+\begin{figure}
+    \centering
+    \includegraphics[width=1\linewidth]{figures/du_ru_frequency.png}
+    \caption{DU/RU frequency configuration parameters}
+    \label{fig:du_ru_frequency}
+\end{figure}
+
+\section{OAI split 7.2 gNB}
+\label{sec:oai}
+OpenAirInterface (OAI)~\cite{OAI} is an open-source Software Defined Radio (SDR) platform maintained and developed by the OpenAirInterface Software Alliance (OSA) at EURECOM. OAI provides a complete suite of software modules, including the core network, base station (gNB), and user equipment (UE).
+
+Using the OAI open-source gNB is relatively straightforward. A standard computer is sufficient to run it—users can simply download the source code, compile it into a binary, and begin testing. Since the source code is fully open, researchers can modify and extend the implementation to suit their experimental needs, making OAI a highly valuable platform for academic research.
+
+In this thesis, we adopt the OAI implementation of the gNB based on the Split 7.2 architecture. Split 7.2 is one of the functional split options between the Distributed Unit (DU) and Radio Unit (RU) defined by the O-RAN architecture~\cite{O-RAN.arch}. To support this architecture, in addition to the native OAI codebase, it is also necessary to integrate the Fronthaul Library developed by the O-RAN Software Community (OSC)~\cite{OSC.Gerrit.Web}. During the build process of the OAI gNB, the OSC Fronthaul Library must be compiled together with OAI to enable proper fronthaul communication with the O-RU.
+
+\section{Related work}
+
+In terms of automation, most existing research focuses on the design of automated deployment pipelines, such as using GitOps, Kubernetes, or OpenShift to achieve containerized deployment of gNBs or core network components. However, these automated deployments typically do not utilize standard configuration interfaces such as the O1 interface or the M-plane (e.g., NETCONF/YANG); instead, they often rely on static configuration files or scripts executed locally within containers.
+
+In~\cite{bonati2024automated}, the authors propose the 5G-CT architecture, which utilizes Argo CD to enable automated building and configuration of the gNB. The system also integrates Tekton to manage a complete CI/CD/CT pipeline. It is capable of compiling the OAI gNB based on Git tags, deploying it to low-latency edge nodes, assigning a USRP X410 as the radio frontend, and simulating the UE using an Intel NUC equipped with a Sierra Wireless EM9191 5G modem to perform over-the-air testing. Test parameters such as frequency band, TDD configuration, and transmission rate can also be controlled through the automated pipeline.
+
+In~\cite{nguyen2024consistent}, the authors demonstrate a consistent and repeatable conformance testing framework for a commercial mMIMO O-RU across two OTIC labs (Japan and Singapore). The testing framework involves the use of Keysight TSA (DU emulator), Keysight signal generators/analyzers, and NETCONF/YANG-based M-plane interactions. The work emphasizes test automation for conformance purposes and the importance of synchronization calibration, highlighting multi-lab repeatability and the challenges in beamforming validation.
+
+In~\cite{zhang2024autoran}, the AutoRAN framework extends automation by implementing a zero-touch deployment and testing system through Helm charts and a dynamic orchestration layer. It leverages open APIs and vendor-agnostic modules to manage O-RAN components, enabling plug-and-play configurations and real-time testing workflows. However, while AutoRAN achieves high flexibility in cloud-native management, it does not directly integrate standardized M-plane configuration or physical device-level UE control.
+
+This study presents several key differences and practical advancements in automated testing:
+
+\begin{itemize}
+    \item \textbf{RU side:} Instead of using SDR-based RU or simulated devices, this work adopts a commercial RU compliant with O-RAN 7.2x specifications. Configuration and activation are performed through the O-RAN-defined M-plane interface (NETCONF/YANG), supporting realistic deployment parameters such as frequency band, bandwidth, and synchronization mode—more closely reflecting a production environment.
+
+    \item \textbf{UE side:} Rather than relying on PCIe-attached modems or lab-controlled SDRs, this work uses standard Android smartphones (COTS UEs). Automated control is achieved via ADB (Android Debug Bridge), enabling remote operations such as toggling airplane mode, re-registering to the network, and triggering iPerf-based throughput tests. This approach improves accessibility and reduces dependency on specialized hardware.
+
+    \item \textbf{Deployment control:} Unlike other automation pipelines that rely on pre-defined scripts or static files, this work emphasizes device-level configuration using standardized O-RAN interfaces such as M-plane and O1. This enhances interoperability and aligns with the vision of scalable, multi-vendor orchestration.
+\end{itemize}
+
+By combining these aspects, the proposed testing framework not only supports end-to-end validation of the O-RAN architecture, but also enables fully automated testing in a near-commercial environment. This is particularly advantageous for multi-vendor interoperability verification and large-scale test coverage.
+
+In contrast to the lab-oriented design in~\cite{bonati2024automated}, this study extends automation into M-plane device control as specified by O-RAN and introduces a practical ADB-based control mechanism on the UE side. While~\cite{nguyen2024consistent} validates consistency in conformance testing across OTIC labs, and~\cite{zhang2024autoran} focuses on control plane orchestration, this work bridges the gap by integrating both real-world RU/UE operations and standardized automation interfaces—contributing a highly realistic, repeatable, and vendor-agnostic automated testing framework.
