@@ -7,3 +7,7 @@
 *.blg
 .vscode/settings.json
 indent.log
+*.xdv
+*.lof
+*.lot
+*.toc
