@@ -36,6 +36,7 @@
 \usepackage{pdfpages}
 \usepackage{longtable}
 %\usepackage{bold-extra}
+\usepackage{subfiles}
 
 \begin{document}
 	\input{chinese_trans} %在此檔案處定義文章中的中文名詞
@@ -68,12 +69,12 @@
 	% 在撰寫各章草稿時，可以把其他章節關掉 (行首加百分號)
 	%\input{example/example_body.tex}  % 所附的範例
 
-	\input{sections/introduction.tex}
-	%\input{sections/background.tex}
-	\input{sections/system.tex}
-	\input{sections/method.tex}
-	\input{sections/experiment.tex}
-	\input{sections/conclusion.tex}
+	\subfile{sections/introduction.tex}
+	%\subfile{sections/background.tex}
+	\subfile{sections/system.tex}
+	\subfile{sections/method.tex}
+	\subfile{sections/experiment.tex}
+	\subfile{sections/conclusion.tex}
 	%----------------------------------------------------------------------------------------------------------------------------------------------------------
 	% back pages 後頁
 	% 包括參考文獻、附錄、自傳

@@ -1,3 +1,5 @@
+\documentclass[../my_ntust_thesis.tex]{subfiles}
+\begin{document}
 \chapter{Introduction}
 \label{sec:intro}
 
@@ -21,29 +23,6 @@ As previously mentioned, the O-RAN architecture supports multi-vendor deployment
     \includegraphics[width=1\linewidth]{figures/O-RAN End-to-end Systems.png}
     \caption{O-RAN End-to-end Systems}
     \label{fig:e2e.system}
-\end{figure}
-
-\subsection{NG Interface}
-\label{sec:ng}
-
-Communication between the Central Unit (CU) and the Core Network (CN) is conducted via the NG interface, using the NG Application Protocol (NGAP) as specified in~\cite{3GPP.TS.38.413}. When the CU first attempts to connect to the CN, it must undergo the NG setup procedure.
-
-As shown in Figure~\ref{fig:ng.setup}, the CU initiates an NG Setup Request using its own IP address as the source and sends the request to the CN's IP address. Upon receiving the request, the CN verifies whether the information in the NG Setup Request matches its internal configuration. If the information is valid, the CN responds with an NG Setup Response to establish the connection. Otherwise, it returns an NG Setup Failure message to terminate the process, as illustrated in Figure~\ref{fig:ng.setup.failure}.
-
-One of the key pieces of information in the NG Setup procedure is the PLMN ID, which serves as the identifier for the public mobile network. The PLMN (Public Land Mobile Network) consists of the MCC (Mobile Country Code) and MNC (Mobile Network Code), where the MCC represents the country code and the MNC identifies the mobile network operator within that country.
-
-\begin{figure}
-    \centering
-    \includegraphics[width=0.5\linewidth]{figures/ng setup.png}
-    \caption[NG setup]{NG setup~\cite{3GPP.TS.38.413}}
-    \label{fig:ng.setup}
-\end{figure}
-
-\begin{figure}
-    \centering
-    \includegraphics[width=0.5\linewidth]{figures/ng setup failure.png}
-    \caption[NG setup failure]{NG setup failure~\cite{3GPP.TS.38.413}}
-    \label{fig:ng.setup.failure}
 \end{figure}
 
 \subsection{Fronthaul C/U/S/M-Plane}
@@ -119,12 +98,12 @@ These timing parameters are interrelated and must satisfy the constraints define
     \hline
     \textbf{O-DU Timing} & \textbf{Condition} & \textbf{Parameter} & \textbf{O-DU Timing Relationship} \\
     \hline
-    \multirow{\makecell{Downlink\\(Transmit)}} 
+    \multirow{2}{*}{\makecell{Downlink\\(Transmit)}} 
         & No earlier than & T1amax & $T1amax \leq T2amax + T12min$ \\
         \cline{2-4}
         & No later than   & T1amin & $T1amin \geq T2amin + T12max$ \\
     \hline
-    \multirow{\makecell{Uplink\\(Receive)}} 
+    \multirow{2}{*}{\makecell{Uplink\\(Receive)}} 
         & No earlier than & Ta4min & $Ta4min \leq Ta3min + T34min$ \\
         \cline{2-4}
         & No later than   & Ta4max & $Ta4max \geq Ta3max + T34max$ \\
@@ -217,49 +196,6 @@ Once the RU confirms that packets are received \textit{On-time}, the User Equipm
     \label{fig:e2e:test:flow}
 \end{figure}
 
-\section{DU/RU configuration parameters}
-\label{sec:duru:configuration}
-The DU and RU must be configured with consistent frequency and fronthaul parameters to ensure successful end-to-end operation. This section introduces the key configuration elements required on both sides.
-
-\subsection{Fronthaul-related Parameters}
-
-Fronthaul configuration involves several key parameters on both DU and RU to enable proper CUS-plane communication over the Open Fronthaul interface. As illustrated in Figure~\ref{fig:du_ru_fronthaul}, this includes:
-
-These parameters must be matched precisely between DU and RU, and any mismatch may result in failed link establishment or IQ decoding errors. The automation framework described in this work ensures that these values are mapped and verified consistently before system bring-up.
-
-The DU and RU communicate over Ethernet, which requires configuration of the MAC addresses and VLAN IDs to ensure correct packet routing between nodes. These identifiers are embedded within the Ethernet frame headers and are essential for directing fronthaul packets to the appropriate destination. Furthermore, the Maximum Transmission Unit (MTU) must be configured to define the largest packet size that can be transmitted without fragmentation. An MTU setting that is too small will result in packet segmentation, which can introduce additional overhead and latency in the fronthaul link \cite{O-RAN.WG4.CUS}. 
-
-Additionally, the fronthaul packets carry IQ samples that represent the digitized wireless signal. Therefore, it is necessary to configure the compression method (e.g., static, dynamic block floating point) and specify the bit-width for IQ data compression. These settings directly impact the payload efficiency and overall bandwidth usage on the fronthaul interface.
-
-\begin{figure}
-    \centering
-    \includegraphics[width=1\linewidth]{figures/du_ru_fronthaulage.png}
-    \caption{DU/RU fronthaul configuration parameters}
-    \label{fig:du_ru_fronthaul}
-\end{figure}
-
-\subsection{Frequency-related Parameters}
-
-As shown in Figure~\ref{fig:du_ru_frequency}, both DU and RU require precise frequency domain configurations to ensure proper signal transmission and reception. These parameters include:
-
-\begin{itemize}
-    \item \textbf{Carrier Bandwidth (carrierBandwidth)}: Defines the overall bandwidth allocated for the channel, determining the frequency span occupied by the carrier \cite{3GPP.TS.38.211}.
-    \item \textbf{Absolute Frequency Point A (absoluteFrequencyPointA)}: Indicates the absolute frequency at the lower edge of the carrier bandwidth, serving as the reference point for subcarrier indexing \cite{3GPP.TS.38.211}.
-    \item \textbf{Center of Channel Bandwidth (centerOfChannelBandwidth)}: Specifies the center frequency of the carrier bandwidth, ensuring alignment of the RU's RF tuning \cite{O-RAN-SC.UPLANE-CONF}.
-    \item \textbf{Absolute Frequency SSB (absoluteFrequencySSB)}: Defines the location of the Synchronization Signal Block (SSB) within the carrier bandwidth. The SSB must reside within the allocated bandwidth to allow initial synchronization \cite{3GPP.TS.38.104}.
-    \item \textbf{Subcarrier Spacing (subCarrierSpacing)}: Determines the spacing between adjacent subcarriers, impacting the number of available subcarriers within the given bandwidth \cite{3GPP.TS.38.211.SCS}.
-    \item \textbf{Initial Bandwidth Part (initialBWP)}: Configured on the DU side, it defines the resource block (RB) range used for Random Access (RA). The initialBWP is composed of a starting RB index (startRB) and the number of RBs (numberRB), which must be within the limits of the carrier bandwidth \cite{3GPP.TS.38.211.BWP}.
-\end{itemize}
-
-These frequency domain parameters must be aligned between DU and RU to ensure synchronization during initial access and maintain signal integrity throughout communication.
-
-\begin{figure}
-    \centering
-    \includegraphics[width=1\linewidth]{figures/du_ru_frequency.png}
-    \caption{DU/RU frequency configuration parameters}
-    \label{fig:du_ru_frequency}
-\end{figure}
-
 \section{OAI split 7.2 gNB}
 \label{sec:oai}
 OpenAirInterface (OAI)~\cite{OAI} is an open-source Software Defined Radio (SDR) platform maintained and developed by the OpenAirInterface Software Alliance (OSA) at EURECOM. OAI provides a complete suite of software modules, including the core network, base station (gNB), and user equipment (UE).
@@ -270,24 +206,4 @@ In this thesis, we adopt the OAI implementation of the gNB based on the Split 7.
 
 \section{Related work}
 
-In terms of automation, most existing research focuses on the design of automated deployment pipelines, such as using GitOps, Kubernetes, or OpenShift to achieve containerized deployment of gNBs or core network components. However, these automated deployments typically do not utilize standard configuration interfaces such as the O1 interface or the M-plane (e.g., NETCONF/YANG); instead, they often rely on static configuration files or scripts executed locally within containers.
-
-In~\cite{bonati2024automated}, the authors propose the 5G-CT architecture, which utilizes Argo CD to enable automated building and configuration of the gNB. The system also integrates Tekton to manage a complete CI/CD/CT pipeline. It is capable of compiling the OAI gNB based on Git tags, deploying it to low-latency edge nodes, assigning a USRP X410 as the radio frontend, and simulating the UE using an Intel NUC equipped with a Sierra Wireless EM9191 5G modem to perform over-the-air testing. Test parameters such as frequency band, TDD configuration, and transmission rate can also be controlled through the automated pipeline.
-
-In~\cite{nguyen2024consistent}, the authors demonstrate a consistent and repeatable conformance testing framework for a commercial mMIMO O-RU across two OTIC labs (Japan and Singapore). The testing framework involves the use of Keysight TSA (DU emulator), Keysight signal generators/analyzers, and NETCONF/YANG-based M-plane interactions. The work emphasizes test automation for conformance purposes and the importance of synchronization calibration, highlighting multi-lab repeatability and the challenges in beamforming validation.
-
-In~\cite{zhang2024autoran}, the AutoRAN framework extends automation by implementing a zero-touch deployment and testing system through Helm charts and a dynamic orchestration layer. It leverages open APIs and vendor-agnostic modules to manage O-RAN components, enabling plug-and-play configurations and real-time testing workflows. However, while AutoRAN achieves high flexibility in cloud-native management, it does not directly integrate standardized M-plane configuration or physical device-level UE control.
-
-This study presents several key differences and practical advancements in automated testing:
-
-\begin{itemize}
-    \item \textbf{RU side:} Instead of using SDR-based RU or simulated devices, this work adopts a commercial RU compliant with O-RAN 7.2x specifications. Configuration and activation are performed through the O-RAN-defined M-plane interface (NETCONF/YANG), supporting realistic deployment parameters such as frequency band, bandwidth, and synchronization mode—more closely reflecting a production environment.
-
-    \item \textbf{UE side:} Rather than relying on PCIe-attached modems or lab-controlled SDRs, this work uses standard Android smartphones (COTS UEs). Automated control is achieved via ADB (Android Debug Bridge), enabling remote operations such as toggling airplane mode, re-registering to the network, and triggering iPerf-based throughput tests. This approach improves accessibility and reduces dependency on specialized hardware.
-
-    \item \textbf{Deployment control:} Unlike other automation pipelines that rely on pre-defined scripts or static files, this work emphasizes device-level configuration using standardized O-RAN interfaces such as M-plane and O1. This enhances interoperability and aligns with the vision of scalable, multi-vendor orchestration.
-\end{itemize}
-
-By combining these aspects, the proposed testing framework not only supports end-to-end validation of the O-RAN architecture, but also enables fully automated testing in a near-commercial environment. This is particularly advantageous for multi-vendor interoperability verification and large-scale test coverage.
-
-In contrast to the lab-oriented design in~\cite{bonati2024automated}, this study extends automation into M-plane device control as specified by O-RAN and introduces a practical ADB-based control mechanism on the UE side. While~\cite{nguyen2024consistent} validates consistency in conformance testing across OTIC labs, and~\cite{zhang2024autoran} focuses on control plane orchestration, this work bridges the gap by integrating both real-world RU/UE operations and standardized automation interfaces—contributing a highly realistic, repeatable, and vendor-agnostic automated testing framework.
+\end{document}
