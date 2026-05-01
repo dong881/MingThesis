@@ -3,11 +3,4 @@
 \chapter{Conclusions}
 \label{sec:conclusions}
 
-\setlength{\parindent}{2em} 
-In this thesis, we developed an end-to-end integration automation testing tool tailored for the O-RAN architecture. The proposed tool deploys the designed rApp on the SMO, reads user-defined test configurations, and automatically completes the setup and activation of all end-to-end components. The system then verifies the operational status of each component, ensures correct message transmission and connectivity between them, and finally performs performance testing of the overall system. With this tool, users only need to issue a single command to complete the entire complex testing process, significantly reducing manual effort and testing time. Moreover, the tool is applicable to multivendor integration scenarios.
-
-This study not only simplifies the process of multivendor integration testing, but also provides a repeatable testing framework that lays a solid foundation for future automation efforts in O-RAN environments.
-
-\section{Future work}
-In this thesis, due to implementation challenges on the DU side, configuration changes were achieved by directly modifying configuration files. As a result, supporting DUs from other vendors would require additional implementation adjustments based on the specific format of each vendor's configuration files. In the future, if standardized interfaces such as O1 or O2 can be adopted for DU configuration and deployment, the automation testing rApp developed in this study would gain greater adaptability and portability. This would enable broader applicability across multivendor environments, rather than being limited to OAI-branded DUs.
 \end{document}
