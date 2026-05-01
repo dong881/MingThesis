@@ -3,4 +3,68 @@
 \chapter{Experimental Results}
 \label{sec:experiment}
 
+\textcolor{blue}{To validate the hypothesis and the effectiveness of the proposed dynamic trigger scheduler algorithm, we systematically designed multiple experimental scenarios. Section~\ref{subsec:experimental_scenario} outlines the general software and hardware environment used across all tests. Subsequent sections present specific scenarios: Scenario I (\ref{subsec:scenario_1}) isolates and verifies the problems caused by non-deterministic latency under standard OpenAirInterface implementations, while Scenario II (\ref{subsec:scenario_2}) and subsequent experiments evaluate the robustness of our proposed time-advance control under varying levels of congestion.}
+
+\section{Experimental Scenario}
+\label{subsec:experimental_scenario}
+
+\textcolor{blue}{The testbed environment connects a series of high-performance servers, radio units, and a commercial smartphone. The detailed software and hardware configurations for the end-to-end network deployment are outlined below.}
+
+\begin{table}[!t]
+\caption{Testbed Node Configuration}
+\label{tab:node_config}
+\centering
+\begin{tabular}{l|l}
+\toprule
+\textbf{Unit} & \textbf{Specification} \\
+\midrule
+Core Network (CN) & Open5GS \\
+SW Stack / Branch & OpenAirInterface (\texttt{2026.w13}) \\
+VNF Server & Intel\textsuperscript{\tiny\textregistered} Xeon\textsuperscript{\tiny\textregistered} Gold 6226R \\
+PNF Server & Intel\textsuperscript{\tiny\textregistered} Xeon\textsuperscript{\tiny\textregistered} Gold 6433N \\
+O-RU & Pegatron RU (P5G-Indoor O-RU-PR1450) \\
+COTS UE & Samsung Galaxy S20 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[!t]
+\caption{Wireless System Parameters}
+\label{tab:wireless_params}
+\centering
+\begin{tabular}{l|l}
+\toprule
+\textbf{Parameter} & \textbf{Setting} \\
+\midrule
+Subcarrier Spacing & 30 kHz \\
+TDD Pattern & 3D1S1U \\
+MIMO / Ports & 4-layer / 4T4R \\
+Fronthaul & O-RAN F release \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Scenario I: Analysis of Non-Deterministic Latency}
+\label{subsec:scenario_1}
+
+\textcolor{blue}{Deploying the VNF and PNF on different machines introduces significant challenges.
+Because the MAC scheduler is separated from the PHY layer, strict slot synchronization is required between these distributed components.
+However, even when deployed in the exact same network environment, different traffic loads directly impact the latency.
+Figure~\ref{fig:Scheduler-to-PNF-latency} illustrates the latency between the VNF scheduler and the PNF under varying traffic loads.
+As traffic increases, three factors heighten the overall delay: the scheduler requires more processing time, the data packing time lengthens, and the VNF-to-PNF One-Way Delay (OWD) is affected.
+Consequently, the VNF cannot reliably transmit data exactly at the slot boundary.
+Instead, it must dynamically advance its scheduling point to compensate for these varying delays and ensure packets arrive at the PNF on time.}
+
+\begin{figure}[!t]
+  \centering
+  \includegraphics[width=0.8\columnwidth]{figures/Scheduler-to-PNF-latency.png}
+  \caption{Observation of latency between VNF scheduler and PNF under different traffic loads.}
+  \label{fig:Scheduler-to-PNF-latency}
+\end{figure}
+
+\section{Scenario II: [Placeholder for Future Experiment]}
+\label{subsec:scenario_2}
+%     X axis: 
+%     Y axis:
+
 \end{document}

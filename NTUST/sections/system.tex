@@ -3,4 +3,57 @@
 \chapter{System Architecture}
 \label{sec:system}
 
+\textcolor{blue}{Before diving into the system details, this study establishes a fundamental assumption: currently, there is a lack of Open Radio Access Network (O-RAN) Radio Units (O-RUs) in the market that natively support the Network Functional Application Platform Interface (nFAPI) via Split~6. As a result, the proposed system adopts a resilient two-stage split architecture. The network first connects via the Split~6 nFAPI interface between the network functions, and then translates to the standard O-RAN Split~7.2x interface to connect to the remote O-RU. Figure~\ref{fig:System-Architecture} illustrates this proposed system architecture and its delay management mechanism.}
+
+\section{End-to-End Architecture}
+\label{subsec:A_end_to_end}
+\textcolor{blue}{The system establishes a complete 5G end-to-end communication link, extending from the core to the user equipment:
+\begin{itemize}
+\item \textbf{Core Network (CN):} The central element responsible for routing, session management, and authenticating user data.
+\item \textbf{O-RAN Central Unit (O-CU):} A logical node that handles higher-layer protocol stacks, such as the Radio Resource Control (RRC) and Packet Data Convergence Protocol (PDCP). It connects with distributed units via the F1 interface.
+\item \textbf{O-RAN Distributed Unit (O-DU):} To optimize computational performance and deployment flexibility, the system separates the O-DU into an O-DU High and an O-DU Low. The O-DU High is executed as a Virtualized Network Function (VNF) on a virtualized machine, whereas the O-DU Low is deployed as a Physical Network Function (PNF) on dedicated hardware.
+\item \textbf{Switch:} A commercial network switch is located between the VNF and PNF. This mid-layer connection utilizes the nFAPI protocol. However, traversing this packet-switched network inevitably generates non-deterministic latency.
+\item \textbf{O-RAN Radio Unit (O-RU):} A specialized hardware unit responsible for low-level physical layer (Low PHY) processing, digital beamforming, and Radio Frequency (RF) transmission.
+\item \textbf{Commercial Off-The-Shelf User Equipment (COTS UE):} Standard commercial smartphones or modems that act as the terminal receivers in the network.
+\end{itemize}}
+
+\begin{figure}[!t]
+  \centering
+  \includegraphics[width=1\columnwidth]{figures/System Architecture.png}
+  \caption{System architecture and delay management mechanism.}
+  \label{fig:System-Architecture}
+\end{figure}
+
+\section{O-DU High: MAC and Delay Manager}
+\label{subsec:B_odu_high}
+\textcolor{blue}{Within the Media Access Control (MAC) layer of the O-DU High, the core components handling timing mechanisms include the Scheduler and the nFAPI Delay Manager:
+\begin{itemize}
+\item \textbf{Scheduler:} Critical for allocating the available radio resources (such as time-frequency resource blocks) and determining the exact priority and timing of downlink/uplink data transmissions.
+\item \textbf{nFAPI Delay Manager:} This resides as the crucial control unit of this delay-aware architecture. Because unpredictable, unstable latency exists in the switch between the VNF and PNF, the Delay Manager continuously receives timing feedback from the lower physical layer. It uses this to dynamically calculate network jitter and proactively trigger the scheduler. This calculation guarantees that the scheduling instructions (\texttt{Sched data}) are generated ahead of time to account for network delays.
+\end{itemize}}
+
+\section{O-DU Low: High PHY and Timing Window}
+\label{subsec:C_odu_low}
+\textcolor{blue}{The O-DU Low manages the higher-level baseband processing of the physical layer (High PHY). At this level, the most critical synchronization mechanism is the nFAPI PNF Timing Window:
+\begin{itemize}
+\item \textbf{Timing Window:} A predefined, strict time duration. When the scheduling message (specifically the \texttt{DL\_TTI.request}) sent by the O-DU High propagates across the network, it must accurately arrive and fall exactly within this Window. Otherwise, the High PHY will reject the message and fail to process the subframe data.
+\item \textbf{Timing Info:} The PNF continuously monitors the exact arrival timestamp of these control messages and periodically sends this ``Timing Info'' back to the Delay Manager in the MAC layer. This establishes a closed-loop feedback control system, compensating for the unpredictable transmission latency variations between the VNF and PNF machines.
+\end{itemize}}
+
+\section{Key Validation Metrics}
+\label{subsec:D_metrics}
+\textcolor{blue}{To evaluate the stability, synchronization accuracy, and real-time performance of the proposed algorithm under non-ideal environments, this study defines the following three Key Validation Metrics, where RTT denotes the Round-Trip Time:
+\begin{itemize}
+\item \textbf{Ping RTT ($T_7 - T_1$):} Measures the end-to-end round-trip latency at the application layer. This metric captures the complete duration from when a packet is sent from the CN to when its return acknowledgment is received by the sender.
+\item \textbf{HARQ RTT ($T_6 - T_2$):} Measures the Hybrid Automatic Repeat Request (HARQ) loop delay specifically at the MAC layer. HARQ RTT accurately reflects the feedback efficiency and operational health of the link layer.
+\item \textbf{VNF-PNF Downlink Latency ($T_3 - T_2$):} Measures the one-way downlink latency accumulated from the virtualized machine to the physical machine. This metric is used to directly quantify and analyze the delay jitter impact injected by the intermediate Ethernet switch.
+\end{itemize}}
+
+The following assumptions were made in this thesis.
+\begin{itemize}
+\item Assumption 1.
+\item Assumption 2. 
+\item Assumption 3. 
+\end{itemize}
+
 \end{document}
