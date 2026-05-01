@@ -125,21 +125,12 @@ The rest of the paper is organized as follows. Section~\ref{sec:system_architect
 \item \textbf{VNF-PNF Downlink Latency ($T_3 - T_2$):} Measures the one-way downlink latency accumulated from the virtualized machine to the physical machine. This metric is used to directly quantify and analyze the delay jitter impact injected by the intermediate Ethernet switch.
 \end{itemize}}
 
-
-
-% Figure~\ref{fig:Fig1} shows the system model/architecture considered in this paper.
-% (Draw a figure showing the key components and their relationship in the system model. It may consist the I/P and O/P parameters of your system or the major components showing your contributions.) 
-% \begin{figure}[h]
-%   \centerline{\includegraphics[width=1\columnwidth]{root/fig1_v5.png}}
-%   \caption{Timing diagram of the system model considered in this paper.}
-%   \label{fig:Fig1}
-% \end{figure}
-The following assumptions were made in this paper.
+\textcolor{blue}{To validate the proposed performance optimization within a realistic network environment, the following assumptions and system design constraints are established:
 \begin{itemize}
-\item Assumption 1.
-\item Assumption 2. 
-\item Assumption 3. 
-\end{itemize}
+\item \textbf{Predominance of O-RAN Split 7.2 in Commercial Infrastructure:} While the Small Cell Forum (SCF) has standardized the nFAPI for the MAC-PHY split (Option 6) \cite{douros2018nfapi}, current commercial-grade O-RUs primarily support Split 7.2x. This creates a barrier for direct nFAPI deployment in commercial ecosystems.
+\item \textbf{Research Prototypes and FPGA-based nFAPI Implementations:} Current literature on nFAPI-compliant RUs is largely restricted to experimental prototypes or FPGA-based development boards \cite{lohith2021design, BROWN2025100408}. Open-source stacks like OpenAirInterface have incorporated 5G NR nFAPI support \cite{wang2022opensource}, yet require specialized hardware adapters to interface with mainstream RUs.
+\item \textbf{Hybrid System Architecture for E2E Validation:} Given the lack of native Option 6 support in commercial O-RUs, this paper adopts a hybrid architecture (Split Option 6 + Split Option 7.2). This facilitates an interworking layer that enables the nFAPI-driven MAC/High-PHY to interact with commercial O-RUs, allowing end-to-end verification using Commercial Off-The-Shelf (COTS) UEs.
+\end{itemize}}
 
 \section{Proposed Method}
 \label{sec:proposed_method}

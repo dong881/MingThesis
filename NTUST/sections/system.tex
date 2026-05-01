@@ -49,11 +49,14 @@
 \item \textbf{VNF-PNF Downlink Latency ($T_3 - T_2$):} Measures the one-way downlink latency accumulated from the virtualized machine to the physical machine. This metric is used to directly quantify and analyze the delay jitter impact injected by the intermediate Ethernet switch.
 \end{itemize}}
 
-The following assumptions were made in this thesis.
+\textcolor{blue}{To validate the proposed performance optimization within a realistic network environment, the following assumptions and system design constraints are established:
 \begin{itemize}
-\item Assumption 1.
-\item Assumption 2. 
-\item Assumption 3. 
-\end{itemize}
+\item \textbf{Assumption 1: Predominance of O-RAN Split 7.2 in Commercial Infrastructure.} \\
+      While the Small Cell Forum (SCF) has standardized the \textbf{nFAPI (Network Functional Application Platform Interface)} for the MAC-PHY split (Option 6) \cite{douros2018nfapi}, current commercial-grade Open Radio Units (O-RUs) primarily support the O-RAN Split Option 7.2x. This creates a technical barrier for the direct deployment of nFAPI-based solutions in existing end-to-end commercial hardware ecosystems.
+\item \textbf{Assumption 2: Research Prototypes and FPGA-based nFAPI Implementations.} \\
+      Current literature focusing on nFAPI-compliant RUs is largely restricted to experimental prototypes or FPGA-based development boards \cite{lohith2021design, BROWN2025100408}. These implementations often focus on functional logic verification rather than full-scale commercial interoperability. Comprehensive open-source software stacks (e.g., OpenAirInterface) have begun incorporating 5G NR nFAPI support \cite{wang2022opensource}, yet they still require specialized hardware adapters to interface with mainstream RU equipment.
+\item \textbf{Assumption 3: Hybrid System Architecture for E2E Validation.} \\
+      Given the lack of native Option 6 support in commercial O-RUs, this thesis adopts a \textbf{hybrid architecture} (Split Option 6 + Split Option 7.2). In this model, the system facilitates a translation/interworking layer that enables the nFAPI-driven MAC/High-PHY to interact with commercial O-RUs. This setup allows for the verification of nFAPI performance using \textbf{Commercial Off-The-Shelf (COTS)} UEs in a real-world end-to-end environment.
+\end{itemize}}
 
 \end{document}
