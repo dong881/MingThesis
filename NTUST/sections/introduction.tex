@@ -3,39 +3,41 @@
 \chapter{Introduction}
 \label{sec:intro}
 
-\section{Background and Motivation}
+\section{Background and Functional Split Evolution}
 
-\textcolor{blue}{With the evolution of 5G and the Open Radio Access Network (O-RAN), architectures based on functional splits have become the key to improving network flexibility and reducing deployment costs. Currently, the most mainstream implementation promoted by the O-RAN Alliance is Split Option 7.2 (Split~7.2). Because Split~7.2 divides the Physical (PHY) layer into high and low parts and transmits continuous in-phase and quadrature (IQ) samples, it imposes extremely high requirements on the fronthaul network.}
+\textcolor{blue}{In the era of 5G and the Open Radio Access Network (O-RAN), the functional split of network architecture has become the key to balancing transport bandwidth requirements and deployment flexibility. Currently, the industry recognizes three mainstream functional split options: \textbf{Option 2 (F1)}, \textbf{Option 6 (nFAPI)}, and \textbf{Option 7.2x (Open Fronthaul)} \cite{larsen2019comparison}. Although these three options all aim to achieve hardware disaggregation, their underlying synchronization requirements and timing window maintenance logic differ significantly:}
 
-\begin{table*}[t]
+\begin{itemize}
+\item \textcolor{blue}{\textbf{Split Option 2 (3GPP F1):} The split point is located between the PDCP and RLC layers \cite{3gpp_ts_38_401}. Because it primarily processes non-real-time messages, its synchronization requirement is at the \textbf{millisecond (ms) level}. The synchronization mechanism mainly relies on the \textbf{Timing Synchronisation Status (TSS)} procedure defined by 3GPP for status reporting. Its timing maintenance is relatively relaxed; when packet delays occur, it primarily relies on buffer management and Radio Resource Control (RRC) re-establishment mechanisms, rarely involving precise physical-layer timing alignment.}
+\item \textcolor{blue}{\textbf{Split Option 6 (SCF nFAPI):} The split point is located between the MAC and PHY layers \cite{scf_222}. Its synchronization requirement is at the \textbf{slot-level (sub-ms)}, primarily calculated through the \textbf{nFAPI P7 Node Sync} message exchange (based on $t_1$ to $t_4$ timestamps) to determine the round-trip delay (RTD). When packets exceed the timing window (Out-of-Window), nFAPI allows the Virtualized Network Function (VNF) to actively adjust the \textbf{Slot Offset} of the physical node, adapting to network jitter by ``moving the window,'' which provides strong resilience.}
+\item \textcolor{blue}{\textbf{Split Option 7.2x (O-RAN WG4):} The split point is located within the physical layer (High-PHY/Low-PHY) \cite{oran_wg4_cus}. This demands \textbf{nanosecond (ns) level} precise phase synchronization and must rely on hardware-level \textbf{IEEE 1588 PTP} and \textbf{SyncE} \cite{ieee_1588_2019}. Its timing windows (e.g., $T_{2a}$ and $T_{a4}$) are extremely strict. If a packet experiences even slight displacement or delay, the Radio Unit (RU) typically \textbf{drops} the packet directly, which immediately degrades the Error Vector Magnitude (EVM) and signal quality.}
+\end{itemize}
+
+\section{Comparative Analysis of Timing Maintenance}
+
+\textcolor{blue}{Table~\ref{tab:split_comparison} summarizes the technical characteristics of the three split architectures regarding synchronization maintenance.}
+
+\begin{table}[h]
 \centering
-\caption{Throughput Performance Comparison}
-\label{tab:throughput_comparison}
-\setlength{\tabcolsep}{5pt}
-\begin{tabular}{l cccccccccc c}
+\caption{Comparison of Functional Splits and Timing Maintenance}
+\label{tab:split_comparison}
+\begin{tabular}{@{}lllll@{}}
 \toprule
-& \multicolumn{10}{c}{Baseline Configurations (Index 1--10)} & \\
-\cmidrule(lr){2-11}
-\textbf{TX Load} & 1 & 2 & 3 & 4 & 5 & 6 & 7 & 8 & 9 & 10 & \textbf{Proposed} \\
-\midrule
-100\,Mbps & -- & 100 & 100 & 100 & 100 & 100 & 100 & 100 & 100 & 100 & 100 \\
-1000\,Mbps & -- & -- & 761 & 882 & 891 & 901 & 923 & 908 & 885 & 846 & 932 \\
-\bottomrule
-\addlinespace[1ex]
-\multicolumn{12}{l}{\footnotesize \textit{Note:} '--' indicates UE disconnection.} \\
+\textbf{Split Option} & \textbf{Core Interface} & \textbf{Sync Level} & \textbf{Sync Mechanism} & \textbf{Out-of-Window Behavior} \\ \midrule
+\textbf{Option 2} & F1-C/U & Millisecond & Message-based (TSS/GTP-U) & Buffer management, RRC drop \\
+\textbf{Option 6} & nFAPI & Slot-level & Message-based (P7 Node Sync) & \textbf{Algorithmic:} Slot Offset adjustment \\
+\textbf{Option 7.2x} & O-FH & Nanosecond & Hardware-based (PTP/SyncE) & \textbf{Direct Drop:} Causes TX holes \\ \bottomrule
 \end{tabular}
-\end{table*}
+\end{table}
 
-\textcolor{blue}{Compared to Split~7.2, the 3rd Generation Partnership Project (3GPP) Split Option 6 (Split~6), which separates the network at the Media Access Control (MAC) and PHY layers, offers a more flexible alternative. The Network Functional Application Platform Interface (nFAPI), standardized by the Small Cell Forum (SCF), is a prominent implementation of Split~6. It essentially extends the internal System-on-Chip (SoC) MAC--PHY interface into a network-based split interface, enabling the disaggregation of the Media Access Control (MAC) and Physical (PHY) layers. This architecture aligns with the O-RAN vision of hardware decoupling and multi-vendor interoperability \cite{11124199}, allowing small cell Central Units/Distributed Units (CU/DUs) to connect seamlessly with independently deployed Radio Units (RUs).}
+\textcolor{blue}{This architectural difference means that when facing non-ideal fronthaul networks, Option 6 exhibits a better delay tolerance compared to Option 7.2x, while providing more granular physical-layer control compared to Option 2.}
 
-\textcolor{blue}{Furthermore, Split~7.2 relies on hardware-based synchronization protocols, such as IEEE 1588 Precision Time Protocol (PTP) and Synchronous Ethernet (SyncE), to achieve nanosecond-level phase and time synchronization. Its timing window requirement is typically strict, often needing to be less than 100~\textmu s. In contrast, nFAPI employs a message-based synchronization mechanism. Through its proprietary P7 Node Sync procedure, nFAPI achieves slot-level synchronization (millisecond-level) and provides a highly flexible timing window ranging from 0 to 30,000~\textmu s. In terms of payload, Split~6 transports packetized MAC Protocol Data Units (PDUs) rather than continuous IQ samples. These characteristics allow Split~6 to demonstrate better adaptability in non-ideal fronthaul network environments where high jitter from operating system (OS) scheduling and network delivery is present.}
+\section{Motivation and Problem Statement}
 
-\textcolor{blue}{This paper chooses Split~6 as the primary research subject due to its significant deployment benefits. As indicated by P\'{e}rez-Romero et al. \cite{10186379}, Split~6 effectively reduces the traffic burden on the fronthaul network. Compared to low-layer split schemes that transmit frequency-domain signals, its bandwidth requirement is significantly lower. In addition, Khan et al. \cite{10014970} demonstrate that for the deployment of sub-6 GHz small cell networks, Split~6 can maintain robust transmission performance over non-ideal fronthaul connections, thereby achieving an optimal cost-revenue trade-off. Furthermore, while O-RAN's official Open Fronthaul is based on Split 7.2x, FAPI/nFAPI remains a critical implementation foundation for MAC--PHY interaction in various open-source platforms and testbeds \cite{11124199}.}
-
-\textcolor{blue}{Deploying the VNF and PNF on different machines introduces significant challenges. Because the MAC scheduler is separated from the PHY layer, strict slot synchronization is required between these distributed components. However, different traffic loads and non-ideal network deployments introduce unpredictable, non-deterministic latency. Consequently, the VNF cannot reliably transmit data exactly at the slot boundary, and existing open-source solutions suffer from synchronization failures when encountering unpredictable latency from routers and switches. This paper defines these latency and synchronization problems under non-ideal fronthaul networks and proposes a dynamic trigger scheduler adjustment algorithm. A detailed analysis of this non-deterministic latency and the corresponding verification of these problems will be presented in Chapter~\ref{sec:experiment}, specifically isolating these issues in Scenario I (\ref{subsec:scenario_1}).}
+\textcolor{blue}{Although Option 6 possesses flexible timing adjustment capabilities, its dynamic adjustment algorithms remain immature in existing open-source implementations, such as OpenAirInterface (OAI). Consequently, when confronted with non-deterministic operating system scheduling and network congestion, the system frequently encounters ``Missing Subframe'' errors. This thesis selects Split 6 as the primary research subject, aiming to optimize the dynamic trigger scheduling algorithm of its P7 interface. Specifically, we address the inability of the MAC scheduler to adapt its transmission timing to dynamic end-to-end latency variations, proposing a dual-loop timing control architecture to overcome these synchronization failures. A detailed analysis of this non-deterministic latency and the corresponding verification of these problems will be presented in Chapter~\ref{sec:experiment}, specifically isolating these issues in Scenario I (\ref{subsec:scenario_1}).}
 
 \section{Related Works}
-\textcolor{blue}{The evolution of Radio Access Network (RAN) architectures from Distributed RAN (D-RAN) to Open RAN (O-RAN) requires a thorough study of functional splits \cite{Larsen2019, PerezRomero2023, 11124199}. The MAC-PHY split (Option 6), standardized by the Small Cell Forum (SCF) as nFAPI \cite{SCF225, SCF222}, is suitable for small cell deployments. It allows the MAC layer to be virtualized on commercial servers while the PHY layer remains on dedicated hardware.}
+\textcolor{blue}{The evolution of Radio Access Network (RAN) architectures from Distributed RAN (D-RAN) to Open RAN (O-RAN) requires a thorough study of functional splits \cite{larsen2019comparison, PerezRomero2023, 11124199}. The MAC-PHY split (Option 6), standardized by the Small Cell Forum (SCF) as nFAPI \cite{SCF225, scf_222}, is suitable for small cell deployments. It allows the MAC layer to be virtualized on commercial servers while the PHY layer remains on dedicated hardware.}
 
 \textcolor{blue}{The performance of the nFAPI split depends on the transport network. Practical deployments often use non-ideal fronthaul, such as Shared Ethernet or DOCSIS. Mehran and MacKenzie \cite{Mehran2020} demonstrated that uplink throughput drops to zero with a small increase in fronthaul delay. Furthermore, server processing delay is unpredictable. Khalaf \textit{et al.} \cite{Khalaf2024} indicated that server delay increases under high CPU utilization, causing the MAC scheduler to miss its timing window.}
 
