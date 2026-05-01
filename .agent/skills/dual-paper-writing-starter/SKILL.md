@@ -52,6 +52,12 @@ When you provide a new concept to this skill, the Agent will execute the followi
 - Insert the appropriate citations from Step 2.
 - **Strictly adhere to:** @[/IEEE Academic Paper Template] and @[/Technical Writing Checklist] (focusing on Clarity, Conciseness, and Objectivity).
 
+### Step 5: Verification & Iterative Correction (驗證與迭代修復)
+- Run `latexmk -xelatex -output-directory=build my_ntust_thesis.tex` and `latexmk -pdf main.tex` to verify the build of both documents.
+- Analyze the build log for any syntax errors (e.g., missing `$`, `{`, `}`), undefined citations, or missing references.
+- Proactively fix all identified issues in the respective `.tex` or `.bib` files.
+- Repeat the build and correction cycle until both documents compile successfully without critical errors or undefined references.
+
 ## 🚀 How to Use (使用方式)
 When you have a new inspiration, simply prompt the Agent like this:
 
