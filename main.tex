@@ -118,12 +118,12 @@ nFAPI, O-RAN, Functional Split, Adaptive Control.
 
 \subsection{Key Validation Metrics}
 \label{subsec:D_metrics}
-\textcolor{blue}{To evaluate the stability, synchronization accuracy, and real-time performance of the proposed algorithm under non-ideal environments, this study defines the following three Key Validation Metrics, where RTT denotes the Round-Trip Time:
+\textcolor{blue}{To evaluate the stability, synchronization accuracy, and real-time performance of the proposed algorithm under non-ideal environments, this study defines the following Key Validation Metrics:
 \begin{itemize}
-\item \textbf{Ping RTT ($T_7 - T_1$):} Measures the end-to-end round-trip latency at the application layer. This metric captures the complete duration from when a packet is sent from the CN to when its return acknowledgment is received by the sender.
-\item \textbf{HARQ RTT ($T_6 - T_2$):} Measures the Hybrid Automatic Repeat Request (HARQ) loop delay specifically at the MAC layer. HARQ RTT accurately reflects the feedback efficiency and operational health of the link layer.
-\item \textbf{VNF-PNF Downlink Latency ($T_3 - T_2$):} Measures the one-way downlink latency accumulated from the virtualized machine to the physical machine. This metric is used to directly quantify and analyze the delay jitter impact injected by the intermediate Ethernet switch.
-\end{itemize}}
+\item \textbf{MAC Layer HARQ RTT ($T_5 - T_1$):} Measures the Hybrid Automatic Repeat Request (HARQ) loop delay specifically at the MAC layer. This metric accurately reflects the feedback efficiency and operational health of the link layer.
+\item \textbf{VNF-PNF DL Latency ($T_2 - T_1$):} Measures the one-way downlink latency accumulated from the virtualized machine (VNF) to the physical machine (PNF). This metric is used to directly quantify and analyze the delay jitter impact injected by the intermediate Ethernet switch.
+\end{itemize}
+Note that RTT denotes the Round-Trip Time. To validate the split-architecture stability under non-ideal fronthaul conditions, network latency simulation is conducted at the uplink ($T_5 - T_4$) and downlink ($T_2 - T_1$) segments via Linux Traffic Control (TC).}
 
 \textcolor{blue}{To validate the proposed performance optimization within a realistic network environment, the system design leverages a commercial-grade deployment framework:
 \begin{itemize}
