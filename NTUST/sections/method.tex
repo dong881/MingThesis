@@ -27,57 +27,95 @@ T_{\text{next}}^{(k)} = T_{\text{next}}^{(k-1)} + T_{\text{slot}} + \Delta_{\tex
 \end{equation}
 Before receiving the initial timing anchor from the PNF, the actuator thread blocks execution via a condition variable. Once active, the thread operates within a mutex-locked environment and triggers sleep according to the absolute monotonic clock calculated in \eqref{eq:tnext}, mitigating long-term error accumulation. By adjusting the absolute wake-up time, it translates the upper-layer policy target ($S_{\text{next}}$) and low-layer microsecond phase deviations into actual timing advancement.}
 
-\section{Convergence Optimization Policy}
-\label{subsec:convergence_optimization}
-
-\textcolor{blue}{To counteract fluctuating network latency and maintain scheduling robustness, this paper proposes a dynamic convergence optimization policy. Upon receiving the timing statistics reported by the PNF, the system incorporates an Exponentially Weighted Moving Average (EWMA) model to estimate the mean latency $mean$ and jitter variance $var$. Given the worst-case late arrival $t_{late}$ in the current observation period, the iterative update formulas are:
-\begin{align}
-\label{eq:ewma_mean}
-mean^{(k)} ={}& mean^{(k-1)} + \frac{t_{late} - mean^{(k-1)}}{8} \\
-\label{eq:ewma_var}
-var^{(k)} ={}& var^{(k-1)} + \frac{|t_{late} - mean^{(k-1)}| - var^{(k-1)}}{4}
-\end{align}}
-
-\textcolor{blue}{Before making tracking adjustments, a dynamic safety margin $Safe\_Boundary$ is established to cover the networking jitter. Furthermore, the algorithm designs multiple \textbf{Panic Criteria} triggers. A statistical anomaly is detected if the absolute delay deviation $|t_{late} - mean|$ exceeds $3 \times var$, indicating a sudden latency spike. A strict violation occurs if $t_{late} \ge T_{\text{slot}}$, meaning the packet is late beyond the slot boundary. Either condition triggers a \textbf{Panic Mode}.}
-
-\textcolor{blue}{To prevent unexpected oscillation during target transitions, a \textbf{Leaky Bucket Counter} mechanism acts as an anti-bounce filter. It filters out pseudo-stable low-latency states to prevent prematurely lowering the slots ahead. When panic events are detected, the algorithm initiates a \textbf{Fast up} mode, radically increasing $S_{\text{next}}$ by $N_{jump}$ to ensure connection continuity and resetting the penalty threshold. Conversely, when redundant phase advance exists continuously and the latency is well below the safety boundary ($t_{late} \le -Safe\_Boundary$), the leaky bucket counter decays. Once it reaches zero, a \textbf{Proactive Slow Decay} backoff is triggered to minimize the round-trip time without sacrificing stability. The unified dynamic adjustment is condensed in Algorithm~\ref{alg:delay_manager_ewma}.}
+\section{Adaptive Node Synchronization}
+\label{subsec:node_sync}
+\textcolor{blue}{To achieve microsecond-level phase alignment, the system utilizes an IEEE 1588 (PTP) style timestamp exchange. When the VNF receives the \textit{UL\_node\_sync} message, it calculates the network delay and instantaneous timing offset based on four timestamps ($t_1$ to $t_4$). To avoid transient spikes, the offset and jitter are smoothed using an Exponentially Weighted Moving Average (EWMA) model. If the offset exceeds a dynamic threshold derived from the estimated jitter, the system breaks the offset down into a slot adjustment ($S_{\text{adj}}$) and a microsecond-level adjustment ($\mu s_{\text{adj}}$). These parameters are subsequently consumed by the VNF Timing Actuator to precisely align the local clock. The process is summarized in Algorithm~\ref{alg:node_sync_simplified}.}
 
 \begin{algorithm}[H]
-\caption{Delay Manager: Statistical Variance-Based Control}
-\label{alg:delay_manager_ewma}
+\caption{Adaptive Node Synchronization}
+\label{alg:node_sync_simplified}
 \begin{algorithmic}[1]
-\Require 
-    \Statex $t_{late}$: The latest arriving timing offset from PNF
-    \Statex $S_{curr}$: Current slots ahead (trigger timing)
-\Ensure 
-    \Statex $S_{next}$: Proposed slots ahead for the next MAC scheduler
+\Require $t_1, t_2, t_3$ (Timestamps from PNF \textit{UL\_node\_sync}), $t_4$ (VNF local receive timestamp)
+\Ensure $S_{adj}$ (Slot adjustment), $\mu s_{adj}$ (Microsecond adjustment)
 
-\Statex \textbf{/* Phase 1: EWMA Estimation */}
-\State $Delay\_Deviation \gets t_{late} - mean$
-\State $mean \gets mean + (Delay\_Deviation / 8)$
-\State $var \gets var + (|Delay\_Deviation| - var) / 4$
+\Statex \textbf{Notation:} 
+\Statex $offset$ (Instantaneous timing offset), $\mu_{offset}$ (EWMA mean offset)
+\Statex $dev_{offset}$ (EWMA mean absolute deviation / Jitter)
+\Statex $Threshold$ (Dynamic synchronization threshold)
+\Statex $\alpha, \beta$ (Smoothing factors, where $\alpha=1/8, \beta=1/4$)
 
-\Statex \textbf{/* Phase 2: Detect "Near out of Window" */}
-\State $Statistical\_Anomaly \gets |Delay\_Deviation| > (3 \times var)$
-\State $Panic\_Mode \gets Statistical\_Anomaly \textbf{ or } (t_{late} \ge T_{slot})$
+\Statex \textbf{Phase I: Timestamp Processing and Wrap-around Protection}
+\State $d_1 \gets t_2 - t_1$
+\State $d_2 \gets t_4 - t_3$
 
-\Statex \textbf{/* Phase 3: Fast up \& Proactive Slow Decay */}
-\If{$Panic\_Mode$}
-    \State $S_{next} \gets S_{curr} + N_{jump}$ \Comment{\textbf{Fast up:} Jump slots to ensure survival}
-    \State $Leaky\_Bucket\_Counter \gets Penalty\_Threshold$ \Comment{Reset decay counter}
-\ElsIf{$t_{late} \le -Safe\_Boundary$}
-    \If{$Leaky\_Bucket\_Counter > 0$}
-        \State $Leaky\_Bucket\_Counter \gets Leaky\_Bucket\_Counter - 1$ \Comment{Stable period decay}
-        \State $S_{next} \gets S_{curr}$ \Comment{Prevent ping-pong effect}
+\Statex \textbf{Phase II: Offset and Dynamic Jitter Estimation}
+\State $offset \gets (d_1 - d_2) / 2$
+\State $error \gets offset - \mu_{offset}$
+\State $\mu_{offset} \gets \mu_{offset} + \alpha \cdot error$
+\State $dev_{offset} \gets dev_{offset} + \beta(|error| - dev_{offset})$
+\State $Threshold \gets dev_{offset}$
+
+\Statex \textbf{Phase III: Phase Alignment}
+\If{$|offset| > Threshold$}
+    \State $S_{adj} \gets \lfloor offset / \text{slot\_duration} \rfloor$
+    \State $\mu s_{adj} \gets offset \pmod{\text{slot\_duration}}$
+    \State Apply $S_{adj}$ and $\mu s_{adj}$ to adjust local clock
+\Else
+    \State State $\gets$ \textbf{Synchronized}
+    \State $S_{adj} \gets 0$, $\mu s_{adj} \gets 0$
+\EndIf
+\State \Return $S_{adj}, \mu s_{adj}$
+\end{algorithmic}
+\end{algorithm}
+
+\section{Trigger Timing Control (Convergence Optimization)}
+\label{subsec:convergence_optimization}
+
+\textcolor{blue}{To counteract fluctuating network latency and maintain scheduling robustness, this paper proposes a dynamic trigger timing control policy. Upon receiving timing statistics (e.g., the worst-case late arrival $t_{arrive}$) reported by the PNF, the system incorporates an EWMA model inspired by the Jacobson/Karels TCP RTT algorithm to estimate the mean latency $\mu_{delay}$ and jitter deviation $dev_{delay}$.}
+
+\textcolor{blue}{Before making tracking adjustments, the algorithm establishes multiple \textbf{Panic Criteria}. A statistical anomaly is detected if the absolute error $|error|$ exceeds $3 \cdot dev_{delay}$, indicating a sudden latency spike. A strict violation occurs if $t_{arrive} \ge T_{\text{slot}}$, meaning the packet is late beyond the slot boundary. Either condition triggers a \textbf{Fast Attack Panic Mode}, radically jumping the slot-ahead value $S_{next}$ by at least 2 slots to ensure connection continuity and mitigate catastrophic deadline violations.}
+
+\textcolor{blue}{Conversely, to maximize low-latency operation in safe zones, a \textbf{Proactive Latency Reduction} mechanism is used. When the latency operates safely below an absolute boundary ($t_{arrive} \le \text{Safe\_Margin}$), a stability counter $count_{stable}$ increments. Once this counter exceeds a dynamically scaled threshold (incorporating a leaky bucket penalty that slowly decays over time), the system cautiously drops $S_{next}$ by 1 slot. This asymmetric response (fast expansion, slow decay) prevents ping-pong oscillation while minimizing round-trip time. The adjustment strategy is condensed in Algorithm~\ref{alg:delay_manager_simplified}.}
+
+\begin{algorithm}[H]
+\caption{Trigger Timing Control}
+\label{alg:delay_manager_simplified}
+\begin{algorithmic}[1]
+\Require $t_{arrive}$ (Timing info from PNF)
+\Ensure $S_{next}$ (Trigger timing for the next MAC scheduling)
+
+\Statex \textbf{Notation:} 
+\Statex $S_{curr}$ (Current trigger timing), $\mu_{delay}$ (EWMA mean delay)
+\Statex $dev_{delay}$ (EWMA mean deviation)
+\Statex $count_{stable}$ (Consecutive stable arrivals counter)
+\Statex $N_{stable}$ (Adaptive stability threshold, dynamically scaled by $dev_{delay}$)
+\Statex $\alpha, \beta$ (Smoothing factors, where $\alpha=1/8, \beta=1/4$)
+
+\Statex \textbf{Phase I: Delay Statistics Update}
+\State $error \gets t_{arrive} - \mu_{delay}$
+\State $\mu_{delay} \gets \mu_{delay} + \alpha \cdot error$
+\State $dev_{delay} \gets dev_{delay} + \beta(|error| - dev_{delay})$
+
+\Statex \textbf{Phase II: Anomaly Detection}
+\State $IsAnomaly \gets (|error| > 3 \cdot dev_{delay}) \lor (t_{arrive} > \text{slot\_duration})$
+
+\Statex \textbf{Phase III: Timing Adjustment}
+\If{$IsAnomaly$}
+    \State $S_{next} \gets S_{curr} + 1$
+    \State $count_{stable} \gets 0$
+\ElsIf{$t_{arrive} \le \text{Safe\_Margin}$}
+    \State $count_{stable} \gets count_{stable} + 1$
+    \If{$count_{stable} \ge N_{stable}$}
+        \State $S_{next} \gets S_{curr} - 1$
+        \State $count_{stable} \gets 0$
     \Else
-        \State $S_{next} \gets S_{curr} - 1$ \Comment{\textbf{Proactive Slow Decay:} Minimize RTT}
-        \State $Leaky\_Bucket\_Counter \gets Normal\_Threshold$
+        \State $S_{next} \gets S_{curr}$
     \EndIf
 \Else
-    \State $S_{next} \gets S_{curr}$ \Comment{Maintain current timing}
+    \State $S_{next} \gets S_{curr}$
+    \State $count_{stable} \gets 0$
 \EndIf
-
-\State $S_{next} \gets \max(1, \min(S_{next}, Max\_Slots))$ \Comment{Enforce system bounds}
+\State Limit $S_{next}$ within the allowable nFAPI timing window
 \State \Return $S_{next}$
 \end{algorithmic}
 \end{algorithm}
