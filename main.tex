@@ -49,6 +49,8 @@ nFAPI, O-RAN, Functional Split, Adaptive Control.
 
 \textcolor{blue}{These distinct synchronization paradigms also lead to fundamentally different timing window behaviors. In Option 7.2x, timing windows are rigid and enforced at the physical layer, where out-of-window packets are dropped to ensure real-time signal processing. In Option 2, timing misalignment is largely absorbed by higher-layer retransmission and buffering mechanisms, with minimal strict enforcement. Option 6, however, occupies a unique intermediate position: it requires strict slot-level timing alignment but operates over non-deterministic transport networks without hardware-enforced synchronization. Consequently, timing violations often manifest as scheduling failures (e.g., missing subframes), and existing implementations typically rely on static timing configurations that are insufficient under dynamic network conditions.}
 
+\textcolor{blue}{The rationale for deploying the MAC layer in a cloud environment is primarily driven by resource pooling. Research demonstrates that while physical layer processing load is largely determined by bandwidth and antenna configurations, Layer 2 processing complexity—particularly the MAC scheduler—scales linearly or quadratically with the number of active User Equipments (UEs) \cite{Foukas2021_ICC, ComplexityPFS2019_WCNC}. By migrating the MAC layer to a VNF, operators can dynamically allocate computational resources to accommodate fluctuating UE densities \cite{GPP_CSCN2018}. However, this flexibility introduces endogenous latency: as UE count increases, the MAC processing time inevitably lengthens, compressing the available margin for fronthaul transmission delay. Furthermore, operating in non-ideal transport environments with elevated latency disrupts traditional Hybrid ARQ (HARQ) timelines, an issue highlighted in the O-RAN specifications \cite{oran_wg4_cus_v02}. While Option 6 inherently tolerates higher latency by separating the MAC and PHY layers—making it suitable for low-mobility small cell deployments without requiring expensive precise synchronization hardware—it still demands adaptive synchronization to manage the variable processing and transport delays.}
+
 \textcolor{blue}{This gap highlights a fundamental limitation in current disaggregated RAN designs: while synchronization mechanisms exist at both extremes (message-level and hardware-level), there is a lack of adaptive timing control mechanisms for intermediate-layer splits operating under non-ideal transport environments.}
 
 \subsection{Related Works}
@@ -73,8 +75,6 @@ nFAPI, O-RAN, Functional Split, Adaptive Control.
 \item \textcolor{blue}{\textbf{Adaptive Advance-Time Control Algorithm:} We propose a dynamic timing adjustment mechanism that continuously aligns scheduling decisions with varying transport delays, effectively mitigating timing violations.}
 \item \textcolor{blue}{\textbf{Experimental Validation on OAI Platform:} We implement the proposed framework in a real-world testbed and demonstrate that it eliminates missing subframe errors and significantly improves throughput stability under non-ideal fronthaul conditions.}
 \end{itemize}
-
-The rest of the paper is organized as follows. Section~\ref{sec:system_architecture} presents the system model and architecture. Section~\ref{sec:proposed_method} describes the proposed adaptive timing control mechanism. Section~\ref{sec:experiments} evaluates the performance through experiments. Finally, Section VI concludes the paper.
 
 \section{System Model}
 \label{sec:system_architecture}
@@ -149,155 +149,52 @@ The rest of the paper is organized as follows. Section~\ref{sec:system_architect
 \subsection{VNF Timing Actuator}
 \label{subsec:vnf_timing_actuator}
 
-\textcolor{blue}{The core function of the \textbf{VNF Timing Actuator} is isolation and precise phase execution. Initially, we define the basic mathematical parameters used in the system. Let $\mu$ denote the subcarrier spacing parameter (Numerology), and the corresponding slot duration (in microseconds) is defined as $T_{\text{slot}}$:
-\begin{equation} \label{eq:tslot}
-T_{\text{slot}} = \frac{1000}{2^\mu} 
-\end{equation}
-Let $s_{\text{ahead}}$ be the target slot-ahead value, and $T_{\text{adv}}$ be the accumulated total phase advance in microseconds. For microsecond-level phase correction, let $\Delta_{\text{slot}}$ be the integer slot correction provided by the lower layer, and $\Delta_{\text{pending}}$ be the sub-slot phase deviation (in \textmu s). The algorithm calculates the next absolute wake-up time $T_{\text{next}}$:
-\begin{equation} \label{eq:tnext}
-T_{\text{next}}^{(k)} = T_{\text{next}}^{(k-1)} + T_{\text{slot}} + \Delta_{\text{pending}}
-\end{equation}
-Before receiving the initial timing anchor from the PNF, the thread blocks execution via a condition variable. Once active, the thread operates within a mutex-locked environment and triggers sleep according to the absolute monotonic clock calculated in \eqref{eq:tnext}, mitigating long-term error accumulation. The condensed control logic is presented in Algorithm~\ref{alg:vnf_timing_thread}.}
-
-\begin{algorithm}[H]
-\caption{VNF Timing Actuator Thread}
-\label{alg:vnf_timing_thread}
-\begin{algorithmic}[1]
-\Procedure{TimingActuator}{$s_{\text{ahead}}, \mu$}
-  \State Wait for \texttt{timing\_info} condition variable
-  \State $T_{\text{next}} \gets \text{Now}()$
-  \State $ID_{\text{DEC}} \gets \mathrm{DEC}(\mu, sfn, slot)$
-  \While{$running$}
-    \State \textbf{Lock} Mutex
-    \State $T_{\text{adv}} \gets s_{\text{ahead}} \cdot T_{\text{slot}}$
-    \If{$\Delta_{\text{slot}} \neq 0$} \Comment{Integer correction}
-      \State $ID_{\text{DEC}} \mathrel{+}= \Delta_{\text{slot}}$
-      \If{$sync\_locked$} \State $T_{\text{adv}} \mathrel{+}= \Delta_{\text{slot}}$ \EndIf
-      \State $\Delta_{\text{slot}} \gets 0$
-    \EndIf
-    \State $\Delta_{\text{current}} \gets \Delta_{\text{pending}}$ \Comment{Sub-slot correction}
-    \If{$sync\_locked$} \State $T_{\text{adv}} \mathrel{-}= \Delta_{\text{current}}$ \EndIf
-    \State $\Delta_{\text{pending}} \gets 0$
-    \State \textbf{Unlock} Mutex
-
-    \State $T_{\text{next}} \mathrel{+}= T_{\text{slot}} + \Delta_{\text{current}}$
-    \State \Call{SleepUntil}{$T_{\text{next}}$}
-    
-    \State \Call{HandlePeriodicSync}{}
-    \State $target \gets \mathrm{wrap}(ID_{\text{DEC}} + s_{\text{ahead}})$
-    \While{$last\_mac \neq target$} \Comment{Indication catch-up}
-      \State $last\_mac \mathrel{+}= 1$ (wrapped)
-      \State \Call{DeliverToMAC}{$last\_mac$}
-    \EndWhile
-    \State $ID_{\text{DEC}} \mathrel{+}= 1$ (wrapped)
-  \EndWhile
-\EndProcedure
-\end{algorithmic}
-\end{algorithm}
+\textcolor{blue}{The core function of the \textbf{VNF Timing Actuator} is isolation and precise phase execution. Let $T_{\text{slot}}$ denote the slot duration. The target slot-ahead value, $S_{\text{next}}$, is determined by the policy loop. For microsecond-level phase correction, the actuator calculates the next absolute wake-up time, operating within a mutex-locked environment to mitigate long-term error accumulation. By adjusting the absolute wake-up time, it accurately translates the upper-layer policy target and low-layer microsecond phase deviations into actual timing advancement.}
 
 \subsection{Convergence Optimization Policy}
 \label{subsec:convergence_optimization}
 
-\textcolor{blue}{To counteract fluctuating network latency and maintain scheduling robustness, this paper proposes a dynamic convergence optimization policy. Upon receiving the timing statistics reported by the PNF, the system incorporates an Exponentially Weighted Moving Average (EWMA) model to estimate the mean latency $\bar{L}$ and jitter variance $V_{\text{jitter}}$. Given the worst-case late arrival $L_{\text{worst}}$ in the current observation period, the iterative update formulas are:
-\begin{align}
-\label{eq:ewma_mean}
-\bar{L}^{(k)} ={}& \bar{L}^{(k-1)} + \frac{L_{\text{worst}} - \bar{L}^{(k-1)}}{8} \\
-\label{eq:ewma_var}
-V_{\text{jitter}}^{(k)} ={}& V_{\text{jitter}}^{(k-1)} + \frac{|L_{\text{worst}} - \bar{L}^{(k-1)}| - V_{\text{jitter}}^{(k-1)}}{4}
-\end{align}}
+\textcolor{blue}{To counteract fluctuating network latency and maintain scheduling robustness, we propose a dynamic convergence optimization policy, as condensed in Algorithm~\ref{alg:delay_manager_ewma}. Upon receiving the timing statistics reported by the PNF, the system incorporates an Exponentially Weighted Moving Average (EWMA) model to estimate the mean latency ($mean$) and jitter variance ($var$).}
 
-\textcolor{blue}{Before making tracking adjustments, a dynamic safety margin $M_{\text{safe}}$ is established to cover the networking jitter, and an absolute boundary $B_{\text{abs}}$ is enforced to limit overly aggressive delays:
-\begin{align}
-M_{\text{safe}} ={}& \max\left(1.5 \cdot T_{\text{slot}}, 1.5 \cdot V_{\text{jitter}}\right) \\
-B_{\text{abs}} ={}& 2 \cdot T_{\text{slot}}
-\end{align}
-Furthermore, the algorithm designs multiple \textbf{Panic Criteria} triggers (including deadline edge $panic_{\text{edge}}$, severe jitter $panic_{\text{jitter}}$, statistical anomaly $anomaly_{\text{stat}}$, and strict violation $violation_{\text{strict}}$). To prevent unexpected oscillation during target transitions, a \textbf{Directionality Guard} is introduced. Additionally, a \textbf{Penalty Counter \& Anti-bounce} mechanism filters out pseudo-stable low-latency states to prevent prematurely lowering $s_{\text{ahead}}$. When panic events are detected, the algorithm initiates a fast-attack mode, radically increasing $S_{\text{target}}$ to ensure connection continuity. Conversely, when redundant phase advance exists continuously without penalties, a slow-decay backoff is triggered. The overall dynamic adjustment is condensed in Algorithm~\ref{alg:convergence_opt}.}
-
+\textcolor{blue}{The algorithm detects statistical anomalies when the latency deviation exceeds three times the variance. If a severe jitter anomaly occurs or the late arrival exceeds the slot boundary ($T_{\text{slot}}$), the system enters ``Panic Mode.'' To balance robustness and minimal latency, we employ an asymmetric response: a \textbf{Fast up} mechanism that radically increases the slots ahead to ensure connection continuity during panic events, and a \textbf{Proactive Slow Decay} backoff. The slow decay utilizes a leaky bucket counter to filter out pseudo-stable states, cautiously reducing the delay margin only during sustained stable periods. This effectively prevents ping-pong effects and oscillation in timing adjustments.}
 
 \begin{algorithm}
-\caption{Delay Manager: Dynamic Scheduler Trigger Timing}
-\label{alg:timing_optimization}
+\caption{Delay Manager: Statistical Variance-Based Control}
+\label{alg:delay_manager_ewma}
 \begin{algorithmic}[1]
 \Require 
-    \Statex $t_{late}$: Worst late timing from PHY (Input)
-    \Statex $T_{slot}$: Slot duration in microseconds
-    \Statex $S_{curr}$: Current slots ahead (Environment state)
+    \Statex $t_{late}$: The latest arriving timing offset from PNF
+    \Statex $S_{curr}$: Current slots ahead (trigger timing)
 \Ensure 
-    \Statex $S_{next}$: Adjusted slots ahead (Output: Higher = Earlier, Lower = Later)
+    \Statex $S_{next}$: Proposed slots ahead for the next MAC scheduler
 
-\State \textbf{Update} EWMA Mean Late ($E$) and Jitter Variance ($V$) using $t_{late}$
-\State $B_{safe} \gets (S_{curr} - 1) \times T_{slot}$ \Comment{Absolute safe boundary}
-\State $C_{panic} \gets (t_{late} \ge T_{slot}) \lor (V > \text{SafeMargin}) \lor (\text{Statistical Anomaly})$
+\Statex \textbf{/* Phase 1: EWMA Estimation */}
+\State $Delay\_Deviation \gets t_{late} - mean$
+\State $mean \gets mean + (Delay\_Deviation / 8)$
+\State $var \gets var + (|Delay\_Deviation| - var) / 4$
 
-\If{$C_{panic}$}
-    \State $S_{next} \gets S_{curr} + \text{StepUp}$ \Comment{\textbf{Earlier:} Fast attack due to violation/jitter}
-    \State Reset safety counters and apply reduction penalty
-\ElsIf{$t_{late} < -B_{safe}$ \textbf{and} \text{Reduction is not locked}}
-    \State $Count_{safe} \gets Count_{safe} + 1$
-    \If{$Count_{safe} > \text{Decay Threshold}$}
-        \State $S_{next} \gets S_{curr} - 1$ \Comment{\textbf{Later:} Proactive safe latency reduction}
-        \State $Count_{safe} \gets 0$
+\Statex \textbf{/* Phase 2: Detect "Near out of Window" */}
+\State $Statistical\_Anomaly \gets |Delay\_Deviation| > (3 \times var)$
+\State $Panic\_Mode \gets Statistical\_Anomaly \textbf{ or } (t_{late} \ge T_{slot})$
+
+\Statex \textbf{/* Phase 3: Fast up \& Proactive Slow Decay */}
+\If{$Panic\_Mode$}
+    \State $S_{next} \gets S_{curr} + N_{jump}$ \Comment{\textbf{Fast up:} Jump slots to ensure survival}
+    \State $Leaky\_Bucket\_Counter \gets Penalty\_Threshold$ \Comment{Reset decay counter}
+\ElsIf{$t_{late} \le -Safe\_Boundary$}
+    \If{$Leaky\_Bucket\_Counter > 0$}
+        \State $Leaky\_Bucket\_Counter \gets Leaky\_Bucket\_Counter - 1$ \Comment{Stable period decay}
+        \State $S_{next} \gets S_{curr}$ \Comment{Prevent ping-pong effect}
+    \Else
+        \State $S_{next} \gets S_{curr} - 1$ \Comment{\textbf{Proactive Slow Decay:} Minimize RTT}
+        \State $Leaky\_Bucket\_Counter \gets Normal\_Threshold$
     \EndIf
 \Else
-    \State $S_{next} \gets S_{curr}$ \Comment{\textbf{Maintain:} Timing is stable within bounds}
+    \State $S_{next} \gets S_{curr}$ \Comment{Maintain current timing}
 \EndIf
 
-\State $S_{next} \gets \max(1, \min(S_{next}, 8))$ \Comment{Apply absolute system bounds}
+\State $S_{next} \gets \max(1, \min(S_{next}, Max\_Slots))$ \Comment{Enforce system bounds}
 \State \Return $S_{next}$
-\end{algorithmic}
-\end{algorithm}
-
-\begin{algorithm}[H]
-\caption{Dynamic Convergence Optimization Policy}
-\label{alg:convergence_opt}
-\begin{algorithmic}[1]
-\Procedure{ConvergenceOpt}{$L_{\text{worst}}, T_{\text{slot}}$}
-  \State $diff \gets L_{\text{worst}} - \bar{L}$
-  \State $\bar{L} \gets \bar{L} + diff / 8$
-  \State $V_{\text{jitter}} \gets V_{\text{jitter}} + (|diff| - V_{\text{jitter}}) / 4$
-  
-  \State $B_{\text{abs}} \gets 2 \cdot T_{\text{slot}}$, $S_{\text{target}} \gets s_{\text{ahead}}$
-  
-  \State Evaluate logic flags: $panic$, $anomaly_{\text{stat}}$
-  \If{$L_{\text{worst}} < 0$} \State $anomaly_{\text{stat}} \gets false$ \EndIf
-  
-  \State $\Delta T_{\text{adv}} \gets T_{\text{adv}} - last\_T_{\text{adv}}$
-  \State $dir\_helpful \gets \mathrm{SignMatch}(\Delta T_{\text{adv}}, L_{\text{worst}})$
-
-  \State $S_{\text{prop}} \gets \mathrm{clamp}(\mathrm{round}(T_{\text{adv}} / T_{\text{slot}}), 1, S_{\max})$
-  \If{$L_{\text{worst}} \ge T_{\text{slot}} / 2$} \State $S_{\text{prop}} \mathrel{+}= 1$ \EndIf
-
-  \If{$S_{\text{prop}} \neq S_{\text{target}}$}
-    \If{$|S_{\text{prop}} - S_{\text{target}}| > 1$ \textbf{and not} $dir\_helpful$}
-      \State $S_{\text{target}} \mathrel{+}= \mathrm{sign}(S_{\text{prop}} - S_{\text{target}})$ 
-    \Else
-      \State $S_{\text{target}} \gets S_{\text{prop}}$
-    \EndIf
-  \EndIf
-
-  \If{$panic$ \textbf{or} $anomaly_{\text{stat}}$} \Comment{Fast-Attack}
-    \State $step \gets (violation_{\text{strict}}) ? \lfloor L_{\text{worst}} / T_{\text{slot}} \rfloor + 2 : 2$
-    \If{$violation_{\text{strict}}$} \State $penalty \mathrel{+}= 10000$ \EndIf
-    \State $S_{\text{target}} \gets \min(S_{\text{target}} + step, S_{\max})$
-    \State $safe\_cnt \gets 0$
-  \ElsIf{$L_{\text{worst}} < -B_{\text{abs}}$} \Comment{Slow-Decay}
-    \State $safe\_cnt \mathrel{+}= 1$
-    \State $penalty \gets \max(0, penalty - 1)$
-    \If{$safe\_cnt > 2000 + penalty$} 
-      \State \text{Anti-bounce top-tier hold logic once}
-      \State $S_{\text{target}} \mathrel{-}= 1$
-      \State $safe\_cnt \gets 0$
-    \EndIf
-  \Else
-    \State Reset counters and top-hold state
-  \EndIf
-
-  \State $S_{\text{target}} \gets \mathrm{clamp}(S_{\text{target}}, 1, S_{\max})$
-  \If{$S_{\text{target}} \neq s_{\text{ahead}}$} \Comment{Phase drift compensation}
-    \State $\bar{L} \mathrel{+}= (S_{\text{target}} - s_{\text{ahead}}) \cdot T_{\text{slot}}$ 
-    \State $last\_T_{\text{adv}} \gets T_{\text{adv}}$, $s_{\text{ahead}} \gets S_{\text{target}}$
-  \EndIf
-\EndProcedure
 \end{algorithmic}
 \end{algorithm}
 

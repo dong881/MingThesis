@@ -21,151 +21,64 @@
 \begin{equation} \label{eq:tslot}
 T_{\text{slot}} = \frac{1000}{2^\mu} 
 \end{equation}
-Let $s_{\text{ahead}}$ be the target slot-ahead value, and $T_{\text{adv}}$ be the accumulated total phase advance in microseconds. For microsecond-level phase correction, let $\Delta_{\text{slot}}$ be the integer slot correction provided by the lower layer, and $\Delta_{\text{pending}}$ be the sub-slot phase deviation (in \textmu s). The algorithm calculates the next absolute wake-up time $T_{\text{next}}$:
+Let $S_{\text{next}}$ be the target slot-ahead value determined by the policy loop, and $T_{\text{adv}}$ be the accumulated total phase advance in microseconds. For microsecond-level phase correction, let $\Delta_{\text{pending}}$ be the sub-slot phase deviation (in \textmu s). The algorithm calculates the next absolute wake-up time $T_{\text{next}}$:
 \begin{equation} \label{eq:tnext}
 T_{\text{next}}^{(k)} = T_{\text{next}}^{(k-1)} + T_{\text{slot}} + \Delta_{\text{pending}}
 \end{equation}
-Before receiving the initial timing anchor from the PNF, the thread blocks execution via a condition variable. Once active, the thread operates within a mutex-locked environment and triggers sleep according to the absolute monotonic clock calculated in \eqref{eq:tnext}, mitigating long-term error accumulation. The condensed control logic is presented in Algorithm~\ref{alg:vnf_timing_thread}.}
-
-\begin{algorithm}[H]
-\caption{VNF Timing Actuator Thread}
-\label{alg:vnf_timing_thread}
-\begin{algorithmic}[1]
-\Procedure{TimingActuator}{$s_{\text{ahead}}, \mu$}
-  \State Wait for \texttt{timing\_info} condition variable
-  \State $T_{\text{next}} \gets \text{Now}()$
-  \State $ID_{\text{DEC}} \gets \mathrm{DEC}(\mu, sfn, slot)$
-  \While{$running$}
-    \State \textbf{Lock} Mutex
-    \State $T_{\text{adv}} \gets s_{\text{ahead}} \cdot T_{\text{slot}}$
-    \If{$\Delta_{\text{slot}} \neq 0$} \Comment{Integer correction}
-      \State $ID_{\text{DEC}} \mathrel{+}= \Delta_{\text{slot}}$
-      \If{$sync\_locked$} \State $T_{\text{adv}} \mathrel{+}= \Delta_{\text{slot}}$ \EndIf
-      \State $\Delta_{\text{slot}} \gets 0$
-    \EndIf
-    \State $\Delta_{\text{current}} \gets \Delta_{\text{pending}}$ \Comment{Sub-slot correction}
-    \If{$sync\_locked$} \State $T_{\text{adv}} \mathrel{-}= \Delta_{\text{current}}$ \EndIf
-    \State $\Delta_{\text{pending}} \gets 0$
-    \State \textbf{Unlock} Mutex
-
-    \State $T_{\text{next}} \mathrel{+}= T_{\text{slot}} + \Delta_{\text{current}}$
-    \State \Call{SleepUntil}{$T_{\text{next}}$}
-    
-    \State \Call{HandlePeriodicSync}{}
-    \State $target \gets \mathrm{wrap}(ID_{\text{DEC}} + s_{\text{ahead}})$
-    \While{$last\_mac \neq target$} \Comment{Indication catch-up}
-      \State $last\_mac \mathrel{+}= 1$ (wrapped)
-      \State \Call{DeliverToMAC}{$last\_mac$}
-    \EndWhile
-    \State $ID_{\text{DEC}} \mathrel{+}= 1$ (wrapped)
-  \EndWhile
-\EndProcedure
-\end{algorithmic}
-\end{algorithm}
+Before receiving the initial timing anchor from the PNF, the actuator thread blocks execution via a condition variable. Once active, the thread operates within a mutex-locked environment and triggers sleep according to the absolute monotonic clock calculated in \eqref{eq:tnext}, mitigating long-term error accumulation. By adjusting the absolute wake-up time, it translates the upper-layer policy target ($S_{\text{next}}$) and low-layer microsecond phase deviations into actual timing advancement.}
 
 \section{Convergence Optimization Policy}
 \label{subsec:convergence_optimization}
 
-\textcolor{blue}{To counteract fluctuating network latency and maintain scheduling robustness, this paper proposes a dynamic convergence optimization policy. Upon receiving the timing statistics reported by the PNF, the system incorporates an Exponentially Weighted Moving Average (EWMA) model to estimate the mean latency $\bar{L}$ and jitter variance $V_{\text{jitter}}$. Given the worst-case late arrival $L_{\text{worst}}$ in the current observation period, the iterative update formulas are:
+\textcolor{blue}{To counteract fluctuating network latency and maintain scheduling robustness, this paper proposes a dynamic convergence optimization policy. Upon receiving the timing statistics reported by the PNF, the system incorporates an Exponentially Weighted Moving Average (EWMA) model to estimate the mean latency $mean$ and jitter variance $var$. Given the worst-case late arrival $t_{late}$ in the current observation period, the iterative update formulas are:
 \begin{align}
 \label{eq:ewma_mean}
-\bar{L}^{(k)} ={}& \bar{L}^{(k-1)} + \frac{L_{\text{worst}} - \bar{L}^{(k-1)}}{8} \\
+mean^{(k)} ={}& mean^{(k-1)} + \frac{t_{late} - mean^{(k-1)}}{8} \\
 \label{eq:ewma_var}
-V_{\text{jitter}}^{(k)} ={}& V_{\text{jitter}}^{(k-1)} + \frac{|L_{\text{worst}} - \bar{L}^{(k-1)}| - V_{\text{jitter}}^{(k-1)}}{4}
+var^{(k)} ={}& var^{(k-1)} + \frac{|t_{late} - mean^{(k-1)}| - var^{(k-1)}}{4}
 \end{align}}
 
-\textcolor{blue}{Before making tracking adjustments, a dynamic safety margin $M_{\text{safe}}$ is established to cover the networking jitter, and an absolute boundary $B_{\text{abs}}$ is enforced to limit overly aggressive delays:
-\begin{align}
-M_{\text{safe}} ={}& \max\left(1.5 \cdot T_{\text{slot}}, 1.5 \cdot V_{\text{jitter}}\right) \\
-B_{\text{abs}} ={}& 2 \cdot T_{\text{slot}}
-\end{align}
-Furthermore, the algorithm designs multiple \textbf{Panic Criteria} triggers (including deadline edge $panic_{\text{edge}}$, severe jitter $panic_{\text{jitter}}$, statistical anomaly $anomaly_{\text{stat}}$, and strict violation $violation_{\text{strict}}$). To prevent unexpected oscillation during target transitions, a \textbf{Directionality Guard} is introduced. Additionally, a \textbf{Penalty Counter \& Anti-bounce} mechanism filters out pseudo-stable low-latency states to prevent prematurely lowering $s_{\text{ahead}}$. When panic events are detected, the algorithm initiates a fast-attack mode, radically increasing $S_{\text{target}}$ to ensure connection continuity. Conversely, when redundant phase advance exists continuously without penalties, a slow-decay backoff is triggered. The overall dynamic adjustment is condensed in Algorithm~\ref{alg:convergence_opt}.}
+\textcolor{blue}{Before making tracking adjustments, a dynamic safety margin $Safe\_Boundary$ is established to cover the networking jitter. Furthermore, the algorithm designs multiple \textbf{Panic Criteria} triggers. A statistical anomaly is detected if the absolute delay deviation $|t_{late} - mean|$ exceeds $3 \times var$, indicating a sudden latency spike. A strict violation occurs if $t_{late} \ge T_{\text{slot}}$, meaning the packet is late beyond the slot boundary. Either condition triggers a \textbf{Panic Mode}.}
 
-
-\begin{algorithm}
-\caption{Delay Manager: Dynamic Scheduler Trigger Timing}
-\label{alg:timing_optimization}
-\begin{algorithmic}[1]
-\Require 
-    \Statex $t_{late}$: Worst late timing from PHY (Input)
-    \Statex $T_{slot}$: Slot duration in microseconds
-    \Statex $S_{curr}$: Current slots ahead (Environment state)
-\Ensure 
-    \Statex $S_{next}$: Adjusted slots ahead (Output: Higher = Earlier, Lower = Later)
-
-\State \textbf{Update} EWMA Mean Late ($E$) and Jitter Variance ($V$) using $t_{late}$
-\State $B_{safe} \gets (S_{curr} - 1) \times T_{slot}$ \Comment{Absolute safe boundary}
-\State $C_{panic} \gets (t_{late} \ge T_{slot}) \lor (V > \text{SafeMargin}) \lor (\text{Statistical Anomaly})$
-
-\If{$C_{panic}$}
-    \State $S_{next} \gets S_{curr} + \text{StepUp}$ \Comment{\textbf{Earlier:} Fast attack due to violation/jitter}
-    \State Reset safety counters and apply reduction penalty
-\ElsIf{$t_{late} < -B_{safe}$ \textbf{and} \text{Reduction is not locked}}
-    \State $Count_{safe} \gets Count_{safe} + 1$
-    \If{$Count_{safe} > \text{Decay Threshold}$}
-        \State $S_{next} \gets S_{curr} - 1$ \Comment{\textbf{Later:} Proactive safe latency reduction}
-        \State $Count_{safe} \gets 0$
-    \EndIf
-\Else
-    \State $S_{next} \gets S_{curr}$ \Comment{\textbf{Maintain:} Timing is stable within bounds}
-\EndIf
-
-\State $S_{next} \gets \max(1, \min(S_{next}, 8))$ \Comment{Apply absolute system bounds}
-\State \Return $S_{next}$
-\end{algorithmic}
-\end{algorithm}
+\textcolor{blue}{To prevent unexpected oscillation during target transitions, a \textbf{Leaky Bucket Counter} mechanism acts as an anti-bounce filter. It filters out pseudo-stable low-latency states to prevent prematurely lowering the slots ahead. When panic events are detected, the algorithm initiates a \textbf{Fast up} mode, radically increasing $S_{\text{next}}$ by $N_{jump}$ to ensure connection continuity and resetting the penalty threshold. Conversely, when redundant phase advance exists continuously and the latency is well below the safety boundary ($t_{late} \le -Safe\_Boundary$), the leaky bucket counter decays. Once it reaches zero, a \textbf{Proactive Slow Decay} backoff is triggered to minimize the round-trip time without sacrificing stability. The unified dynamic adjustment is condensed in Algorithm~\ref{alg:delay_manager_ewma}.}
 
 \begin{algorithm}[H]
-\caption{Dynamic Convergence Optimization Policy}
-\label{alg:convergence_opt}
+\caption{Delay Manager: Statistical Variance-Based Control}
+\label{alg:delay_manager_ewma}
 \begin{algorithmic}[1]
-\Procedure{ConvergenceOpt}{$L_{\text{worst}}, T_{\text{slot}}$}
-  \State $diff \gets L_{\text{worst}} - \bar{L}$
-  \State $\bar{L} \gets \bar{L} + diff / 8$
-  \State $V_{\text{jitter}} \gets V_{\text{jitter}} + (|diff| - V_{\text{jitter}}) / 4$
-  
-  \State $B_{\text{abs}} \gets 2 \cdot T_{\text{slot}}$, $S_{\text{target}} \gets s_{\text{ahead}}$
-  
-  \State Evaluate logic flags: $panic$, $anomaly_{\text{stat}}$
-  \If{$L_{\text{worst}} < 0$} \State $anomaly_{\text{stat}} \gets false$ \EndIf
-  
-  \State $\Delta T_{\text{adv}} \gets T_{\text{adv}} - last\_T_{\text{adv}}$
-  \State $dir\_helpful \gets \mathrm{SignMatch}(\Delta T_{\text{adv}}, L_{\text{worst}})$
+\Require 
+    \Statex $t_{late}$: The latest arriving timing offset from PNF
+    \Statex $S_{curr}$: Current slots ahead (trigger timing)
+\Ensure 
+    \Statex $S_{next}$: Proposed slots ahead for the next MAC scheduler
 
-  \State $S_{\text{prop}} \gets \mathrm{clamp}(\mathrm{round}(T_{\text{adv}} / T_{\text{slot}}), 1, S_{\max})$
-  \If{$L_{\text{worst}} \ge T_{\text{slot}} / 2$} \State $S_{\text{prop}} \mathrel{+}= 1$ \EndIf
+\Statex \textbf{/* Phase 1: EWMA Estimation */}
+\State $Delay\_Deviation \gets t_{late} - mean$
+\State $mean \gets mean + (Delay\_Deviation / 8)$
+\State $var \gets var + (|Delay\_Deviation| - var) / 4$
 
-  \If{$S_{\text{prop}} \neq S_{\text{target}}$}
-    \If{$|S_{\text{prop}} - S_{\text{target}}| > 1$ \textbf{and not} $dir\_helpful$}
-      \State $S_{\text{target}} \mathrel{+}= \mathrm{sign}(S_{\text{prop}} - S_{\text{target}})$ 
+\Statex \textbf{/* Phase 2: Detect "Near out of Window" */}
+\State $Statistical\_Anomaly \gets |Delay\_Deviation| > (3 \times var)$
+\State $Panic\_Mode \gets Statistical\_Anomaly \textbf{ or } (t_{late} \ge T_{slot})$
+
+\Statex \textbf{/* Phase 3: Fast up \& Proactive Slow Decay */}
+\If{$Panic\_Mode$}
+    \State $S_{next} \gets S_{curr} + N_{jump}$ \Comment{\textbf{Fast up:} Jump slots to ensure survival}
+    \State $Leaky\_Bucket\_Counter \gets Penalty\_Threshold$ \Comment{Reset decay counter}
+\ElsIf{$t_{late} \le -Safe\_Boundary$}
+    \If{$Leaky\_Bucket\_Counter > 0$}
+        \State $Leaky\_Bucket\_Counter \gets Leaky\_Bucket\_Counter - 1$ \Comment{Stable period decay}
+        \State $S_{next} \gets S_{curr}$ \Comment{Prevent ping-pong effect}
     \Else
-      \State $S_{\text{target}} \gets S_{\text{prop}}$
+        \State $S_{next} \gets S_{curr} - 1$ \Comment{\textbf{Proactive Slow Decay:} Minimize RTT}
+        \State $Leaky\_Bucket\_Counter \gets Normal\_Threshold$
     \EndIf
-  \EndIf
+\Else
+    \State $S_{next} \gets S_{curr}$ \Comment{Maintain current timing}
+\EndIf
 
-  \If{$panic$ \textbf{or} $anomaly_{\text{stat}}$} \Comment{Fast-Attack}
-    \State $step \gets (violation_{\text{strict}}) ? \lfloor L_{\text{worst}} / T_{\text{slot}} \rfloor + 2 : 2$
-    \If{$violation_{\text{strict}}$} \State $penalty \mathrel{+}= 10000$ \EndIf
-    \State $S_{\text{target}} \gets \min(S_{\text{target}} + step, S_{\max})$
-    \State $safe\_cnt \gets 0$
-  \ElsIf{$L_{\text{worst}} < -B_{\text{abs}}$} \Comment{Slow-Decay}
-    \State $safe\_cnt \mathrel{+}= 1$
-    \State $penalty \gets \max(0, penalty - 1)$
-    \If{$safe\_cnt > 2000 + penalty$} 
-      \State \text{Anti-bounce top-tier hold logic once}
-      \State $S_{\text{target}} \mathrel{-}= 1$
-      \State $safe\_cnt \gets 0$
-    \EndIf
-  \Else
-    \State Reset counters and top-hold state
-  \EndIf
-
-  \State $S_{\text{target}} \gets \mathrm{clamp}(S_{\text{target}}, 1, S_{\max})$
-  \If{$S_{\text{target}} \neq s_{\text{ahead}}$} \Comment{Phase drift compensation}
-    \State $\bar{L} \mathrel{+}= (S_{\text{target}} - s_{\text{ahead}}) \cdot T_{\text{slot}}$ 
-    \State $last\_T_{\text{adv}} \gets T_{\text{adv}}$, $s_{\text{ahead}} \gets S_{\text{target}}$
-  \EndIf
-\EndProcedure
+\State $S_{next} \gets \max(1, \min(S_{next}, Max\_Slots))$ \Comment{Enforce system bounds}
+\State \Return $S_{next}$
 \end{algorithmic}
 \end{algorithm}
 
