@@ -79,7 +79,7 @@ nFAPI, O-RAN, Functional Split, Adaptive Control.
 \section{System Model}
 \label{sec:system_architecture}
 
-\textcolor{blue}{Before diving into the system details, this study establishes a fundamental assumption: currently, there is a lack of Open Radio Access Network (O-RAN) Radio Units (O-RUs) in the market that natively support the Network Functional Application Platform Interface (nFAPI) via Split~6. As a result, the proposed system adopts a resilient two-stage split architecture. The network first connects via the Split~6 nFAPI interface between the network functions, and then translates to the standard O-RAN Split~7.2x interface to connect to the remote O-RU. Figure~\ref{fig:System-Architecture} illustrates this proposed system architecture and its delay management mechanism.}
+\textcolor{blue}{Before diving into the system details, this study introduces the adopted system framework. To integrate the Network Functional Application Platform Interface (nFAPI) with mainstream commercial equipment, the proposed system adopts a resilient two-stage split architecture. The network first connects via the Split~6 nFAPI interface between the network functions, and then translates to the standard O-RAN Split~7.2x interface to connect to a commercial Pegatron O-RU. Figure~\ref{fig:System-Architecture} illustrates this proposed system architecture and its delay management mechanism.}
 
 \subsection{End-to-End Architecture}
 \label{subsec:A_end_to_end}
@@ -125,11 +125,10 @@ nFAPI, O-RAN, Functional Split, Adaptive Control.
 \item \textbf{VNF-PNF Downlink Latency ($T_3 - T_2$):} Measures the one-way downlink latency accumulated from the virtualized machine to the physical machine. This metric is used to directly quantify and analyze the delay jitter impact injected by the intermediate Ethernet switch.
 \end{itemize}}
 
-\textcolor{blue}{To validate the proposed performance optimization within a realistic network environment, the following assumptions and system design constraints are established:
+\textcolor{blue}{To validate the proposed performance optimization within a realistic network environment, the system design leverages a commercial-grade deployment framework:
 \begin{itemize}
-\item \textbf{Predominance of O-RAN Split 7.2 in Commercial Infrastructure:} While the Small Cell Forum (SCF) has standardized the nFAPI for the MAC-PHY split (Option 6) \cite{douros2018nfapi}, current commercial-grade O-RUs primarily support Split 7.2x. This creates a barrier for direct nFAPI deployment in commercial ecosystems.
-\item \textbf{Research Prototypes and FPGA-based nFAPI Implementations:} Current literature on nFAPI-compliant RUs is largely restricted to experimental prototypes or FPGA-based development boards \cite{lohith2021design, BROWN2025100408}. Open-source stacks like OpenAirInterface have incorporated 5G NR nFAPI support \cite{wang2022opensource}, yet require specialized hardware adapters to interface with mainstream RUs.
-\item \textbf{Hybrid System Architecture for E2E Validation:} Given the lack of native Option 6 support in commercial O-RUs, this paper adopts a hybrid architecture (Split Option 6 + Split Option 7.2). This facilitates an interworking layer that enables the nFAPI-driven MAC/High-PHY to interact with commercial O-RUs, allowing end-to-end verification using Commercial Off-The-Shelf (COTS) UEs.
+\item \textbf{O-RAN Split 7.2x Interoperability:} While the Small Cell Forum (SCF) has standardized the nFAPI for the MAC-PHY split (Option 6) \cite{douros2018nfapi}, commercial-grade Open Radio Units (O-RUs) natively support the O-RAN Split Option 7.2x. To achieve seamless integration with open-source stacks like OpenAirInterface \cite{wang2022opensource}, our system bridges these interfaces.
+\item \textbf{Hybrid System Architecture for E2E Validation:} To validate the nFAPI performance over a fully commercial ecosystem, this paper adopts a hybrid architecture (Split Option 6 + Split Option 7.2). This setup establishes a translation/interworking layer that enables the nFAPI-driven MAC/High-PHY to successfully interact with a commercial Pegatron O-RU, facilitating end-to-end verification using Commercial Off-The-Shelf (COTS) UEs.
 \end{itemize}}
 
 \section{Proposed Method}

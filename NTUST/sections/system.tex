@@ -3,7 +3,7 @@
 \chapter{System Architecture}
 \label{sec:system}
 
-\textcolor{blue}{Before diving into the system details, this study establishes a fundamental assumption: currently, there is a lack of Open Radio Access Network (O-RAN) Radio Units (O-RUs) in the market that natively support the Network Functional Application Platform Interface (nFAPI) via Split~6. As a result, the proposed system adopts a resilient two-stage split architecture. The network first connects via the Split~6 nFAPI interface between the network functions, and then translates to the standard O-RAN Split~7.2x interface to connect to the remote O-RU. Figure~\ref{fig:System-Architecture} illustrates this proposed system architecture and its delay management mechanism.}
+\textcolor{blue}{Before diving into the system details, this study introduces the adopted system framework. To integrate the Network Functional Application Platform Interface (nFAPI) with mainstream commercial equipment, the proposed system adopts a resilient two-stage split architecture. The network first connects via the Split~6 nFAPI interface between the network functions, and then translates to the standard O-RAN Split~7.2x interface to connect to a commercial Pegatron O-RU. Figure~\ref{fig:System-Architecture} illustrates this proposed system architecture and its delay management mechanism.}
 
 \section{End-to-End Architecture}
 \label{subsec:A_end_to_end}
@@ -49,14 +49,12 @@
 \item \textbf{VNF-PNF Downlink Latency ($T_3 - T_2$):} Measures the one-way downlink latency accumulated from the virtualized machine to the physical machine. This metric is used to directly quantify and analyze the delay jitter impact injected by the intermediate Ethernet switch.
 \end{itemize}}
 
-\textcolor{blue}{To validate the proposed performance optimization within a realistic network environment, the following assumptions and system design constraints are established:
+\textcolor{blue}{To validate the proposed performance optimization within a realistic network environment, the system design leverages a commercial-grade deployment framework:
 \begin{itemize}
-\item \textbf{Assumption 1: Predominance of O-RAN Split 7.2 in Commercial Infrastructure.} \\
-      While the Small Cell Forum (SCF) has standardized the \textbf{nFAPI (Network Functional Application Platform Interface)} for the MAC-PHY split (Option 6) \cite{douros2018nfapi}, current commercial-grade Open Radio Units (O-RUs) primarily support the O-RAN Split Option 7.2x. This creates a technical barrier for the direct deployment of nFAPI-based solutions in existing end-to-end commercial hardware ecosystems.
-\item \textbf{Assumption 2: Research Prototypes and FPGA-based nFAPI Implementations.} \\
-      Current literature focusing on nFAPI-compliant RUs is largely restricted to experimental prototypes or FPGA-based development boards \cite{lohith2021design, BROWN2025100408}. These implementations often focus on functional logic verification rather than full-scale commercial interoperability. Comprehensive open-source software stacks (e.g., OpenAirInterface) have begun incorporating 5G NR nFAPI support \cite{wang2022opensource}, yet they still require specialized hardware adapters to interface with mainstream RU equipment.
-\item \textbf{Assumption 3: Hybrid System Architecture for E2E Validation.} \\
-      Given the lack of native Option 6 support in commercial O-RUs, this thesis adopts a \textbf{hybrid architecture} (Split Option 6 + Split Option 7.2). In this model, the system facilitates a translation/interworking layer that enables the nFAPI-driven MAC/High-PHY to interact with commercial O-RUs. This setup allows for the verification of nFAPI performance using \textbf{Commercial Off-The-Shelf (COTS)} UEs in a real-world end-to-end environment.
+\item \textbf{O-RAN Split 7.2x Interoperability.} \\
+      While the Small Cell Forum (SCF) has standardized the \textbf{nFAPI (Network Functional Application Platform Interface)} for the MAC-PHY split (Option 6) \cite{douros2018nfapi}, commercial-grade Open Radio Units (O-RUs) natively support the O-RAN Split Option 7.2x. To achieve seamless integration with open-source stacks like OpenAirInterface \cite{wang2022opensource}, our system bridges these interfaces to ensure full-scale commercial interoperability.
+\item \textbf{Hybrid System Architecture for E2E Validation.} \\
+      To validate the nFAPI performance over a fully commercial ecosystem, this thesis adopts a \textbf{hybrid architecture} (Split Option 6 + Split Option 7.2). In this model, the system facilitates a translation/interworking layer that enables the nFAPI-driven MAC/High-PHY to successfully interact with a commercial Pegatron O-RU. This setup allows for the verification of nFAPI performance using \textbf{Commercial Off-The-Shelf (COTS)} UEs in a real-world end-to-end environment.
 \end{itemize}}
 
 \end{document}
