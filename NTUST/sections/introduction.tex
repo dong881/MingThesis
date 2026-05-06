@@ -17,24 +17,23 @@
 \item \textcolor{blue}{\textbf{Split Option 7.2 (DU/RU Split):} Located within the physical layer, this split demands extreme \textbf{Phase/Symbol} level synchronization. Its core management requires strict hardware-assisted mechanisms such as \textbf{Hardware PTP and Window} enforcement. Due to its high sensitivity to delay and jitter, it necessitates deployment over specialized \textbf{Time-Sensitive Networking} (TSN) environments.}
 \end{itemize}
 
-\section{Comparative Analysis of Timing Maintenance}
-
 \textcolor{blue}{Table~\ref{tab:split_comparison} summarizes the technical characteristics of the three split architectures regarding synchronization maintenance.}
 
 \begin{table}[h]
 \centering
 \caption{Comparison of Functional Splits and Timing Maintenance}
 \label{tab:split_comparison}
-\begin{tabular}{@{}lllll@{}}
+\small
+\begin{tabularx}{\textwidth}{@{}L L L L@{}}
 \toprule
-\textbf{Split Option} & \textbf{Core Interface} & \textbf{Sync Level} & \textbf{Sync Mechanism} & \textbf{Out-of-Window Behavior} \\ \midrule
-\textbf{Option 2} & F1-C/U & Millisecond & Message-based (TSS/GTP-U) & Buffer management, RRC drop \\
-\textbf{Option 6} & nFAPI & Slot-level & Message-based (P7 Node Sync) & \textbf{Algorithmic:} Slot Offset adjustment \\
-\textbf{Option 7.2x} & O-FH & Nanosecond & Hardware-based (PTP/SyncE) & \textbf{Direct Drop:} Causes TX holes \\ \bottomrule
-\end{tabular}
+\textbf{Split Option} & \textbf{Sync Level} & \textbf{Core Management} & \textbf{Deployment Environment} \\ \midrule
+\textbf{Option 2} (CU/DU Split) & Sequence Number & Flow control \& Deep Buffering & General packet-switched networks \\
+\textbf{Option 6} (DU High/Low split) & Frame/Slot & Delay management & General packet-switched networks \\
+\textbf{Option 7.2} (DU/RU Split) & Phase/Symbol & Hardware PTP \& Window & Time-Sensitive Networking \\ \bottomrule
+\end{tabularx}
 \end{table}
 
-\textcolor{blue}{This architectural difference means that when facing non-ideal fronthaul networks, Option 6 exhibits a better delay tolerance compared to Option 7.2x, while providing more granular physical-layer control compared to Option 2.}
+\textcolor{blue}{This architectural difference means that when facing non-ideal fronthaul networks, Option 6 exhibits a better delay tolerance compared to Option 7.2, while providing more granular physical-layer control compared to Option 2.}
 
 \section{Motivation and Problem Statement}
 
@@ -47,11 +46,27 @@
 \textcolor{blue}{However, this resource scaling introduces a new challenge for synchronization. As the number of UEs increases, the MAC processing time ($T_{\text{process\_VNF}}$) inevitably lengthens within a given Transmission Time Interval (TTI). This extended processing duration compresses the remaining time margin available for fronthaul transmission latency. If the scheduling mechanism does not account for this endogenously increasing processing delay, static timing configurations will result in scheduling messages arriving at the PNF too late. Although Option 6 possesses flexible timing adjustment capabilities, its dynamic adjustment algorithms remain immature in existing open-source implementations, such as OpenAirInterface (OAI). Consequently, when confronted with non-deterministic operating system scheduling, UE-dependent processing load, and network congestion, the system frequently encounters ``Missing Subframe'' errors. This thesis selects Split 6 as the primary research subject, proposing an Adaptive Advance-Time Control architecture to dynamically compensate for both processing and transport latency variations, effectively overcoming these synchronization failures. A detailed analysis of this non-deterministic latency and the corresponding verification of these problems will be presented in Chapter~\ref{sec:experiment}, specifically isolating these issues in Scenario I (\ref{subsec:scenario_1}).}
 
 \section{Related Works}
-\textcolor{blue}{The evolution of Radio Access Network (RAN) architectures from Distributed RAN (D-RAN) to Open RAN (O-RAN) requires a thorough study of functional splits \cite{larsen2019comparison, PerezRomero2023, 11124199}. The MAC-PHY split (Option 6), standardized by the Small Cell Forum (SCF) as nFAPI \cite{SCF225, scf_222}, is suitable for small cell deployments. It allows the MAC layer to be virtualized on commercial servers while the PHY layer remains on dedicated hardware.}
+\textcolor{blue}{The evolution of Radio Access Network (RAN) architectures from Distributed RAN (D-RAN) to Open RAN (O-RAN) requires a thorough study of functional splits \cite{larsen2019comparison, 10186379, 11124199}. Current research has explored various implementation strategies and verification methods for different split options, as summarized in Table~\ref{tab:related_works_comparison}.}
 
-\textcolor{blue}{The performance of the nFAPI split depends on the transport network. Practical deployments often use non-ideal fronthaul, such as Shared Ethernet or DOCSIS. Mehran and MacKenzie \cite{Mehran2020} demonstrated that uplink throughput drops to zero with a small increase in fronthaul delay. Furthermore, server processing delay is unpredictable. Khalaf \textit{et al.} \cite{Khalaf2024} indicated that server delay increases under high CPU utilization, causing the MAC scheduler to miss its timing window.}
+\begin{table}[h]
+\centering
+\caption{Comparative Analysis of Related Works}
+\label{tab:related_works_comparison}
+\small
+\begin{tabularx}{\textwidth}{@{}l l L c c c L@{}}
+\toprule
+\textbf{Paper} & \textbf{Env.} & \textbf{Interface} & \textbf{Spec.} & \textbf{Verify} & \textbf{E2E} & \textbf{Proposed Methods} \\ \midrule
+[1] \cite{Mehran2020} & Mavenir & Fronthaul (split 7.2) & \cmark & Throughput & \cmark & Only Feasibility verification \\
+[2] \cite{ryu20225gemane} & OAI & nFAPI (split 6) & \xmark & \xmark & \xmark & emulator 「5G-EMANE」 \\
+[3] \cite{Lee2022} & No impl. & FAPI (split 6) & \xmark & \xmark & \xmark & Sub scheduler in Layer1 \\
+\textbf{This thesis} & OAI & nFAPI (split 6) & \cmark & \makecell[l]{Throughput/ \\ HARQ RTT} & \cmark & Delay manager for os/network latency \\ \bottomrule
+\end{tabularx}
+\begin{flushleft}
+\footnotesize{Note: Spec.: Specification Compliance; E2E: End-to-End; \cmark: Yes/Compliance; \xmark: No/Partial.}
+\end{flushleft}
+\end{table}
 
-\textcolor{blue}{To address fronthaul latency, Huang and Zhang \cite{Huang2026} proposed a distributed MAC scheduling scheme. While this scheme reduces the impact of delayed grants, it introduces a ``split-brain'' issue with multiple schedulers. Akgun \textit{et al.} \cite{Akgun2024} utilized intelligent scheduling to adapt modulation based on interference, but did not solve the sub-millisecond timing of message delivery itself. Existing OpenAirInterface (OAI) reference models typically rely on static timing windows, leading to frequent ``missing subframe'' errors when network jitter exceeds configured limits. This paper bridges this gap by proposing a centralized Adaptive Advance-Time Control algorithm to dynamically manage scheduling timing.}
+\textcolor{blue}{Mehran and MacKenzie \cite{Mehran2020} demonstrated that throughput in Split 7.2 architectures drops significantly with increased fronthaul delay, though their work was limited to feasibility verification. For Split 6, Ryu \textit{et al.} \cite{ryu20225gemane} developed the 5G-EMANE emulator to scale network tests, but it does not address the strict timing window requirements of physical hardware. Lee and Lee \cite{Lee2022} proposed an adaptive sub-scheduler within the physical layer to handle latency, yet lacked a full end-to-end implementation. This thesis bridges these gaps by proposing a centralized Delay Manager within the OAI framework, specifically designed to adapt to both operating system scheduling jitter and network latency, ensuring stable E2E performance.}
 
 \section{Contributions}
 \begin{itemize}

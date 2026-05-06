@@ -34,15 +34,15 @@ Before receiving the initial timing anchor from the PNF, the actuator thread blo
 \begin{algorithm}[H]
 \caption{Adaptive Node Synchronization}
 \label{alg:node_sync_simplified}
+\small
 \begin{algorithmic}[1]
-\Require $t_1, t_2, t_3$ (Timestamps from PNF \textit{UL\_node\_sync}), $t_4$ (VNF local receive timestamp)
+\Require $t_1, t_2, t_3$ (PNF \textit{UL\_node\_sync}), $t_4$ (VNF local receive timestamp)
 \Ensure $S_{adj}$ (Slot adjustment), $\mu s_{adj}$ (Microsecond adjustment)
 
 \Statex \textbf{Notation:} 
-\Statex $offset$ (Instantaneous timing offset), $\mu_{offset}$ (EWMA mean offset)
-\Statex $dev_{offset}$ (EWMA mean absolute deviation / Jitter)
-\Statex $Threshold$ (Dynamic synchronization threshold)
-\Statex $\alpha, \beta$ (Smoothing factors, where $\alpha=1/8, \beta=1/4$)
+\Statex $offset$ (Inst. timing offset), $\mu_{offset}$ (EWMA mean offset)
+\Statex $dev_{offset}$ (EWMA mean abs. dev. / Jitter)
+\Statex $Threshold$ (Dyn. sync threshold), $\alpha, \beta$ (Smoothing factors)
 
 \Statex \textbf{Phase I: Timestamp Processing and Wrap-around Protection}
 \State $d_1 \gets t_2 - t_1$
@@ -80,16 +80,15 @@ Before receiving the initial timing anchor from the PNF, the actuator thread blo
 \begin{algorithm}[H]
 \caption{Trigger Timing Control}
 \label{alg:delay_manager_simplified}
+\small
 \begin{algorithmic}[1]
 \Require $t_{arrive}$ (Timing info from PNF)
 \Ensure $S_{next}$ (Trigger timing for the next MAC scheduling)
 
 \Statex \textbf{Notation:} 
 \Statex $S_{curr}$ (Current trigger timing), $\mu_{delay}$ (EWMA mean delay)
-\Statex $dev_{delay}$ (EWMA mean deviation)
-\Statex $count_{stable}$ (Consecutive stable arrivals counter)
-\Statex $N_{stable}$ (Adaptive stability threshold, dynamically scaled by $dev_{delay}$)
-\Statex $\alpha, \beta$ (Smoothing factors, where $\alpha=1/8, \beta=1/4$)
+\Statex $dev_{delay}$ (EWMA mean dev.), $count_{stable}$ (Stable arrivals counter)
+\Statex $N_{stable}$ (Adaptive threshold), $\alpha, \beta$ (Smoothing factors)
 
 \Statex \textbf{Phase I: Delay Statistics Update}
 \State $error \gets t_{arrive} - \mu_{delay}$
