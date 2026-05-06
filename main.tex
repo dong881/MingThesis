@@ -238,9 +238,9 @@ Note that RTT denotes the Round-Trip Time. To validate the split-architecture st
 \section{Experimental Results}
 \label{sec:experiments}
 
-\textcolor{blue}{To validate the hypothesis and the effectiveness of the proposed dynamic trigger scheduler algorithm, we systematically designed multiple experimental scenarios. Section~\ref{subsec:experimental_scenario} outlines the general software and hardware environment used across all tests. Subsequent sections present specific scenarios: Scenario I (\ref{subsec:scenario_1}) isolates and verifies the problems caused by non-deterministic latency under standard OpenAirInterface implementations, while Scenario II (\ref{subsec:scenario_2}) and subsequent experiments evaluate the robustness of our proposed time-advance control under varying levels of congestion.}
+\textcolor{blue}{Experiments were conducted to verify the proposed delay management method in an OpenAirInterface (OAI) nFAPI End-to-End environment. Each reported throughput value represents the average of 180 data points (3 independent trials $\times$ 60 samples per trial). We structure the evaluation into three parts: benchmarking peak throughput and MAC Round-Trip Time (RTT) against static baselines (Section~\ref{subsec:scenario_1}), evaluating stability under network congestion (Section~\ref{subsec:scenario_2}), and confirming the end-to-end functional deployment through an rApp demonstration video.}
 
-\subsection{Experimental Scenario}
+\subsection{Experimental Scenario and rApp Framework}
 \label{subsec:experimental_scenario}
 
 \textcolor{blue}{The testbed environment connects a series of high-performance servers, radio units, and a commercial smartphone. The detailed software and hardware configurations for the end-to-end network deployment are outlined below.}
@@ -279,7 +279,16 @@ Fronthaul & O-RAN F release \\
 \end{tabular}
 \end{table}
 
-\subsection{Scenario I: Analysis of Non-Deterministic Latency}
+\textcolor{blue}{To ensure repeatable validation, an automated evaluation framework (rApp) was developed, as shown in Fig.~\ref{fig:rapp_architecture}. This rApp automates end-to-end experiments, data collection, and chart generation. Crucially, it manages the network latency simulation at $T_5-T_4$ and $T_2-T_1$ via Linux Traffic Control (TC) to systematically validate the split-architecture stability.}
+
+\begin{figure}[!t]
+  \centering
+  \includegraphics[width=0.9\columnwidth]{figures/rapp.png}
+  \caption{Architecture of the rApp automated evaluation framework.}
+  \label{fig:rapp_architecture}
+\end{figure}
+
+\subsection{Scenario I: Performance Benchmark}
 \label{subsec:scenario_1}
 
 \textcolor{blue}{Deploying the VNF and PNF on different machines introduces significant challenges.
@@ -291,7 +300,7 @@ Instead, it must dynamically advance its scheduling point to compensate for thes
 
 
 
-\subsection{Scenario II: [Placeholder for Future Experiment]}
+\subsection{Scenario II: Stability under Network Congestion}
 \label{subsec:scenario_2}
 %     X axis: 
 %     Y axis:
