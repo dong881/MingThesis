@@ -50,17 +50,9 @@ Fronthaul & O-RAN F release \\
 \textcolor{blue}{Deploying the VNF and PNF on different machines introduces significant challenges.
 Because the MAC scheduler is separated from the PHY layer, strict slot synchronization is required between these distributed components.
 However, even when deployed in the exact same network environment, different traffic loads directly impact the latency.
-Figure~\ref{fig:Scheduler-to-PNF-latency} illustrates the latency between the VNF scheduler and the PNF under varying traffic loads.
 As traffic increases, three factors heighten the overall delay: the scheduler requires more processing time, the data packing time lengthens, and the VNF-to-PNF One-Way Delay (OWD) is affected.
 Consequently, the VNF cannot reliably transmit data exactly at the slot boundary.
 Instead, it must dynamically advance its scheduling point to compensate for these varying delays and ensure packets arrive at the PNF on time.}
-
-\begin{figure}[!t]
-  \centering
-  \includegraphics[width=0.8\columnwidth]{figures/Scheduler-to-PNF-latency.png}
-  \caption{Observation of latency between VNF scheduler and PNF under different traffic loads.}
-  \label{fig:Scheduler-to-PNF-latency}
-\end{figure}
 
 \section{Scenario II: [Placeholder for Future Experiment]}
 \label{subsec:scenario_2}

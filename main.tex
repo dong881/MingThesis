@@ -37,21 +37,13 @@ nFAPI, O-RAN, Functional Split, Adaptive Control.
 \section{Introduction}
 \subsection{Background and Motivation}
 
-\textcolor{blue}{The evolution of fifth-generation (5G) mobile networks toward open and disaggregated architectures has fundamentally transformed the design of Radio Access Networks (RANs). Initiatives such as Open RAN (O-RAN) and 3GPP-defined functional splits \cite{3gpp_ts_38_401} enable network functions to be distributed across heterogeneous platforms, thereby improving deployment flexibility, vendor interoperability, and cost efficiency. However, this architectural shift introduces a critical and often under-addressed challenge: \emph{maintaining precise timing coordination across physically separated network entities under non-deterministic transport conditions}.}
+\textcolor{blue}{To address the diverse demands of 5G networks, the 3rd Generation Partnership Project (3GPP) and the O-RAN Alliance have standardized the disaggregation of traditional base stations into Open Central Units (O-CUs), Open Distributed Units (O-DUs), and Open Radio Units (O-RUs) \cite{3gpp_tr_38_801}. Among the proposed architectures, three functional split configurations have emerged as mainstream: Option 2 (O-CU/O-DU), Option 7.2 (O-DU/O-RU), and Option 6 (O-DU High/Low) \cite{11124199}.}
 
-\textcolor{blue}{In traditional monolithic base stations, inter-layer interactions are tightly coupled within a single hardware platform, where timing relationships are inherently deterministic. In contrast, functional split architectures replace internal data buses with packet-based transport networks, where latency, jitter, and processing delays become non-deterministic \cite{larsen2019comparison}. As a result, synchronization is no longer a purely physical-layer problem, but evolves into a cross-layer system challenge involving transport protocols, scheduling logic, and timing window management.}
+\textcolor{blue}{These splits present distinct synchronization requirements and management strategies. Option 2 relies on sequence numbers and deep buffering over general packet-switched networks, making its timing constraints relatively relaxed. Option 7.2 \cite{oran_wg4_cus}, operating within the physical layer, demands strict phase/symbol-level synchronization enforced by hardware Precision Time Protocol (PTP) over Time-Sensitive Networking (TSN). Occupying a unique intermediate position is Option 6 (standardized as nFAPI by the Small Cell Forum \cite{SCF225}), which separates the MAC and PHY layers. Option 6 requires frame/slot-level synchronization and focuses on delay management, offering the flexibility to operate over general packet-switched networks without the prohibitive costs of TSN.}
 
-\textcolor{blue}{Although multiple functional split options have been standardized, including 3GPP Option 2, Small Cell Forum (SCF) Option 6 (nFAPI), and O-RAN Option 7.2x, they fundamentally differ in their synchronization models and timing sensitivities. Option 2, which separates the Packet Data Convergence Protocol (PDCP) and Radio Link Control (RLC) layers, operates over the F1 interface and primarily relies on message-based coordination and status reporting. Its timing requirements are relatively relaxed, typically at the millisecond level, and timing misalignment is mitigated through buffering and retransmission mechanisms.}
+\textcolor{blue}{The rationale for deploying the MAC layer (O-DU High) in a cloud environment via Option 6 is primarily driven by resource pooling, as Layer 2 processing complexity scales dynamically with user equipment (UE) density \cite{Foukas2021_ICC}. However, migrating the MAC layer to a Virtualized Network Function (VNF) introduces endogenous processing latency that compresses the available margin for fronthaul transmission delay. Unlike Option 7.2, which rigidly drops out-of-window packets, Option 6 must adaptively manage delays to ensure slot-level synchronization over non-deterministic Ethernet transport. Existing open-source implementations typically employ static timing advance configurations, which fail to accommodate dynamic network jitter and server processing variations, leading to frequent scheduling failures (e.g., missing subframes).}
 
-\textcolor{blue}{In contrast, Option 6 introduces a tighter coupling between the Medium Access Control (MAC) and Physical (PHY) layers through the nFAPI interface \cite{scf_222}. In this architecture, per-slot scheduling decisions must be delivered within strict deadlines, requiring slot-level synchronization between distributed entities. Synchronization is achieved through timestamp-based message exchanges (e.g., P7 Node Sync), enabling delay estimation and timing alignment. However, unlike lower-layer splits, Option 6 operates over general-purpose transport networks (e.g., Ethernet), where latency variations caused by operating system scheduling and network congestion can significantly disrupt timing determinism.}
-
-\textcolor{blue}{Option 7.2x further pushes the limits of synchronization by splitting the PHY layer into high-PHY and low-PHY components and transporting time-sensitive in-phase and quadrature (IQ) samples over the fronthaul \cite{oran_wg4_cus}. This architecture requires nanosecond-level time and phase synchronization, typically achieved through hardware-assisted mechanisms such as IEEE 1588 Precision Time Protocol (PTP) and Synchronous Ethernet (SyncE) \cite{ieee_1588_2019}. To preserve real-time processing constraints, strict timing windows (e.g., $T_{2a}$ and $T_{a4}$) are enforced, and packets arriving outside these windows are typically discarded.}
-
-\textcolor{blue}{These distinct synchronization paradigms also lead to fundamentally different timing window behaviors. In Option 7.2x, timing windows are rigid and enforced at the physical layer, where out-of-window packets are dropped to ensure real-time signal processing. In Option 2, timing misalignment is largely absorbed by higher-layer retransmission and buffering mechanisms, with minimal strict enforcement. Option 6, however, occupies a unique intermediate position: it requires strict slot-level timing alignment but operates over non-deterministic transport networks without hardware-enforced synchronization. Consequently, timing violations often manifest as scheduling failures (e.g., missing subframes), and existing implementations typically rely on static timing configurations that are insufficient under dynamic network conditions.}
-
-\textcolor{blue}{The rationale for deploying the MAC layer in a cloud environment is primarily driven by resource pooling. Research demonstrates that while physical layer processing load is largely determined by bandwidth and antenna configurations, Layer 2 processing complexity—particularly the MAC scheduler—scales linearly or quadratically with the number of active User Equipments (UEs) \cite{Foukas2021_ICC, ComplexityPFS2019_WCNC}. By migrating the MAC layer to a VNF, operators can dynamically allocate computational resources to accommodate fluctuating UE densities \cite{GPP_CSCN2018}. However, this flexibility introduces endogenous latency: as UE count increases, the MAC processing time inevitably lengthens, compressing the available margin for fronthaul transmission delay. Furthermore, operating in non-ideal transport environments with elevated latency disrupts traditional Hybrid ARQ (HARQ) timelines, an issue highlighted in the O-RAN specifications \cite{oran_wg4_cus_v02}. While Option 6 inherently tolerates higher latency by separating the MAC and PHY layers—making it suitable for low-mobility small cell deployments without requiring expensive precise synchronization hardware—it still demands adaptive synchronization to manage the variable processing and transport delays.}
-
-\textcolor{blue}{This gap highlights a fundamental limitation in current disaggregated RAN designs: while synchronization mechanisms exist at both extremes (message-level and hardware-level), there is a lack of adaptive timing control mechanisms for intermediate-layer splits operating under non-ideal transport environments.}
+\textcolor{blue}{This highlights a fundamental gap in current disaggregated RAN designs: the lack of adaptive timing control mechanisms for intermediate-layer splits operating under non-ideal transport environments.}
 
 \subsection{Related Works}
 \textcolor{blue}{The evolution of Radio Access Network (RAN) architectures from Distributed RAN (D-RAN) to Open RAN (O-RAN) requires a thorough study of functional splits \cite{larsen2019comparison, PerezRomero2023, 11124199}. The MAC-PHY split (Option 6), standardized by the Small Cell Forum (SCF) as nFAPI \cite{SCF225, scf_222}, is suitable for small cell deployments. It allows the MAC layer to be virtualized on commercial servers while the PHY layer remains on dedicated hardware.}
@@ -148,13 +140,13 @@ Note that RTT denotes the Round-Trip Time. To validate the split-architecture st
 \subsection{VNF Timing Actuator}
 \label{subsec:vnf_timing_actuator}
 
-\textcolor{blue}{The core function of the \textbf{VNF Timing Actuator} is isolation and precise phase execution. Let $T_{\text{slot}}$ denote the slot duration. The target slot-ahead value, $S_{\text{next}}$, is determined by the policy loop. For microsecond-level phase correction, the actuator calculates the next absolute wake-up time, operating within a mutex-locked environment to mitigate long-term error accumulation. By adjusting the absolute wake-up time, it accurately translates the upper-layer policy target and low-layer microsecond phase deviations into actual timing advancement.}
+\textcolor{blue}{The core function of the \textbf{VNF Timing Actuator} is isolation and precise phase execution. Let $\text{slot\_duration}$ denote the slot duration. The target slot-ahead value, $S_{next}$, is determined by the policy loop. For microsecond-level phase correction, the actuator calculates the next absolute wake-up time, operating within a mutex-locked environment to mitigate long-term error accumulation. By adjusting the absolute wake-up time, it accurately translates the upper-layer policy target and low-layer microsecond phase deviations into actual timing advancement.}
 
 \subsection{Adaptive Node Synchronization}
 \label{subsec:node_sync}
-\textcolor{blue}{To achieve microsecond-level phase alignment, the system utilizes an IEEE 1588 (PTP) style timestamp exchange. When the VNF receives the \textit{UL\_node\_sync} message, it calculates the network delay and instantaneous timing offset based on four timestamps ($t_1$ to $t_4$). To avoid transient spikes, the offset and jitter are smoothed using an Exponentially Weighted Moving Average (EWMA) model. If the offset exceeds a dynamic threshold derived from the estimated jitter, the system breaks the offset down into a slot adjustment ($S_{\text{adj}}$) and a microsecond-level adjustment ($\mu s_{\text{adj}}$). These parameters are subsequently consumed by the VNF Timing Actuator to precisely align the local clock. The process is summarized in Algorithm~\ref{alg:node_sync_simplified}.}
+\textcolor{blue}{To achieve microsecond-level phase alignment, the system utilizes an IEEE 1588 (PTP) style timestamp exchange. When the VNF receives the \textit{UL\_node\_sync} message, it calculates the instantaneous timing offset ($offset$) based on four timestamps ($t_1$ to $t_4$). To avoid transient spikes, the $offset$ and its variation ($error$) are smoothed using an Exponentially Weighted Moving Average (EWMA) model to produce the mean offset ($\mu_{offset}$) and the mean absolute deviation ($dev_{offset}$), utilizing smoothing factors $\alpha$ and $\beta$. A dynamic synchronization threshold ($Threshold$) is then derived directly from the estimated jitter ($dev_{offset}$). If the absolute $offset$ exceeds this $Threshold$, the system breaks the $offset$ down into a slot adjustment ($S_{adj}$) and a microsecond-level adjustment ($\mu s_{adj}$) based on the slot duration ($\text{slot\_duration}$). These parameters are subsequently consumed by the VNF Timing Actuator to precisely align the local clock. The process is summarized in Algorithm~\ref{alg:node_sync_simplified}.}
 
-\begin{algorithm*}
+\begin{algorithm}
 \caption{Adaptive Node Synchronization}
 \label{alg:node_sync_simplified}
 \begin{algorithmic}[1]
@@ -189,18 +181,18 @@ Note that RTT denotes the Round-Trip Time. To validate the split-architecture st
 \EndIf
 \State \Return $S_{adj}, \mu s_{adj}$
 \end{algorithmic}
-\end{algorithm*}
+\end{algorithm}
 
 \subsection{Trigger Timing Control (Convergence Optimization)}
 \label{subsec:convergence_optimization}
 
-\textcolor{blue}{To counteract fluctuating network latency and maintain scheduling robustness, we propose a dynamic trigger timing control policy. Upon receiving timing statistics (e.g., the worst-case late arrival $t_{arrive}$) reported by the PNF, the system incorporates an EWMA model inspired by the Jacobson/Karels TCP RTT algorithm to estimate the mean latency $\mu_{delay}$ and jitter deviation $dev_{delay}$.}
+\textcolor{blue}{To counteract fluctuating network latency and maintain scheduling robustness, this paper proposes a dynamic trigger timing control policy. Upon receiving timing statistics, specifically the worst-case late arrival ($t_{arrive}$) reported by the PNF, the system computes the deviation ($error$) and incorporates an EWMA model inspired by the Jacobson/Karels TCP RTT algorithm to estimate the mean latency ($\mu_{delay}$) and jitter deviation ($dev_{delay}$), utilizing smoothing factors $\alpha$ and $\beta$.}
 
-\textcolor{blue}{Before making tracking adjustments, the algorithm establishes multiple \textbf{Panic Criteria}. A statistical anomaly is detected if the absolute error $|error|$ exceeds $3 \cdot dev_{delay}$, indicating a sudden latency spike. A strict violation occurs if $t_{arrive} \ge T_{\text{slot}}$, meaning the packet is late beyond the slot boundary. Either condition triggers a \textbf{Fast Attack Panic Mode}, radically jumping the slot-ahead value $S_{next}$ by at least 2 slots to ensure connection continuity and mitigate catastrophic deadline violations.}
+\textcolor{blue}{Before making tracking adjustments, the algorithm establishes multiple \textbf{Panic Criteria}. A statistical anomaly is detected if the absolute $error$ exceeds $3 \cdot dev_{delay}$, indicating a sudden latency spike. A strict violation occurs if $t_{arrive} > \text{slot\_duration}$, meaning the packet is late beyond the slot boundary. Either condition triggers a \textbf{Fast Attack Panic Mode}, radically incrementing the current trigger timing ($S_{curr}$) by 1 slot to calculate the next trigger timing ($S_{next}$) to ensure connection continuity and mitigate catastrophic deadline violations.}
 
-\textcolor{blue}{Conversely, to maximize low-latency operation in safe zones, a \textbf{Proactive Latency Reduction} mechanism is used. When the latency operates safely below an absolute boundary ($t_{arrive} \le \text{Safe\_Margin}$), a stability counter $count_{stable}$ increments. Once this counter exceeds a dynamically scaled threshold (incorporating a leaky bucket penalty that slowly decays over time), the system cautiously drops $S_{next}$ by 1 slot. This asymmetric response (fast expansion, slow decay) prevents ping-pong oscillation while minimizing round-trip time. The adjustment strategy is condensed in Algorithm~\ref{alg:delay_manager_simplified}.}
+\textcolor{blue}{Conversely, to maximize low-latency operation in safe zones, a \textbf{Proactive Latency Reduction} mechanism is used. When the latency operates safely below an absolute boundary ($t_{arrive} \le \text{Safe\_Margin}$), a stability counter ($count_{stable}$) increments. Once this counter exceeds an adaptive stability threshold ($N_{stable}$) which scales dynamically by $dev_{delay}$, the system cautiously drops $S_{curr}$ by 1 to determine $S_{next}$. This asymmetric response (fast expansion, slow decay) prevents ping-pong oscillation while minimizing round-trip time. Finally, $S_{next}$ is limited within the allowable nFAPI timing window. The adjustment strategy is condensed in Algorithm~\ref{alg:delay_manager_simplified}.}
 
-\begin{algorithm*}
+\begin{algorithm}
 \caption{Trigger Timing Control}
 \label{alg:delay_manager_simplified}
 \begin{algorithmic}[1]
@@ -241,7 +233,7 @@ Note that RTT denotes the Round-Trip Time. To validate the split-architecture st
 \State Limit $S_{next}$ within the allowable nFAPI timing window
 \State \Return $S_{next}$
 \end{algorithmic}
-\end{algorithm*}
+\end{algorithm}
 
 \section{Experimental Results}
 \label{sec:experiments}
@@ -293,17 +285,9 @@ Fronthaul & O-RAN F release \\
 \textcolor{blue}{Deploying the VNF and PNF on different machines introduces significant challenges.
 Because the MAC scheduler is separated from the PHY layer, strict slot synchronization is required between these distributed components.
 However, even when deployed in the exact same network environment, different traffic loads directly impact the latency.
-Figure~\ref{fig:Scheduler-to-PNF-latency} illustrates the latency between the VNF scheduler and the PNF under varying traffic loads.
 As traffic increases, three factors heighten the overall delay: the scheduler requires more processing time, the data packing time lengthens, and the VNF-to-PNF One-Way Delay (OWD) is affected.
 Consequently, the VNF cannot reliably transmit data exactly at the slot boundary.
 Instead, it must dynamically advance its scheduling point to compensate for these varying delays and ensure packets arrive at the PNF on time.}
-
-\begin{figure}[!t]
-  \centering
-  \includegraphics[width=0.8\columnwidth]{figures/Scheduler-to-PNF-latency.png}
-  \caption{Observation of latency between VNF scheduler and PNF under different traffic loads.}
-  \label{fig:Scheduler-to-PNF-latency}
-\end{figure}
 
 
 
