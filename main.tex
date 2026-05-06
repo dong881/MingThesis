@@ -87,7 +87,7 @@ nFAPI, O-RAN, Functional Split, Adaptive Control.
 
 \begin{figure}[!t]
   \centering
-  \includegraphics[width=1\columnwidth]{figures/System Architecture.png}
+  \includegraphics[width=1\columnwidth]{figures/System_Architecture.png}
   \caption{System architecture and delay management mechanism.}
   \label{fig:System-Architecture}
 \end{figure}
@@ -291,17 +291,17 @@ Fronthaul & O-RAN F release \\
 \subsection{Scenario I: Performance Benchmark}
 \label{subsec:scenario_1}
 
-\textcolor{blue}{Deploying the VNF and PNF on different machines introduces significant challenges.
-Because the MAC scheduler is separated from the PHY layer, strict slot synchronization is required between these distributed components.
-However, even when deployed in the exact same network environment, different traffic loads directly impact the latency.
-As traffic increases, three factors heighten the overall delay: the scheduler requires more processing time, the data packing time lengthens, and the VNF-to-PNF One-Way Delay (OWD) is affected.
-Consequently, the VNF cannot reliably transmit data exactly at the slot boundary.
-Instead, it must dynamically advance its scheduling point to compensate for these varying delays and ensure packets arrive at the PNF on time.}
-
-
+\textcolor{blue}{We benchmark the peak throughput and MAC HARQ RTT against a static baseline. Under stable fronthaul conditions, the adaptive algorithm maintains line-rate throughput while ensuring a consistent timing margin, successfully mitigating transient jitter from the server operating system.}
 
 \subsection{Scenario II: Stability under Network Congestion}
 \label{subsec:scenario_2}
+
+\textcolor{blue}{Under simulated network congestion, the adaptive control dynamically adjusts the trigger timing to compensate for increased one-way delay. Unlike static methods that fail when jitter exceeds the timing window, our approach maintains synchronization and stable throughput by proactively advancing the scheduling cycle.}
+
+\subsection{Functional Deployment Demonstration}
+\label{subsec:demo}
+
+\textcolor{blue}{To confirm the functional deployment of the proposed system, a demonstration video showcases the automated rApp lifecycle, including real-time latency monitoring and dynamic timing adjustment. The verification confirms that the adaptive algorithm successfully maintains link stability in a virtualized environment.}
 %     X axis: 
 %     Y axis:
 \bibliographystyle{IEEEtran}

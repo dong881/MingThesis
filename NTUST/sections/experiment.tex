@@ -58,15 +58,18 @@ Fronthaul & O-RAN F release \\
 \section{Scenario I: Performance Benchmark}
 \label{subsec:scenario_1}
 
-\textcolor{blue}{Deploying the VNF and PNF on different machines introduces significant challenges.
-Because the MAC scheduler is separated from the PHY layer, strict slot synchronization is required between these distributed components.
-However, even when deployed in the exact same network environment, different traffic loads directly impact the latency.
-As traffic increases, three factors heighten the overall delay: the scheduler requires more processing time, the data packing time lengthens, and the VNF-to-PNF One-Way Delay (OWD) is affected.
-Consequently, the VNF cannot reliably transmit data exactly at the slot boundary.
-Instead, it must dynamically advance its scheduling point to compensate for these varying delays and ensure packets arrive at the PNF on time.}
+\textcolor{blue}{In this scenario, we evaluate the baseline performance of the proposed adaptive timing mechanism compared to the standard static advance-time configuration. We measured the peak throughput and the MAC layer HARQ Round-Trip Time (RTT) over a stable Ethernet link. The results demonstrate that under ideal conditions, the adaptive mechanism maintains the same peak throughput as the static configuration while providing a more robust timing margin, effectively eliminating the rare ``missing subframe'' errors that occur even in low-jitter environments due to server OS preemption.}
 
 \section{Scenario II: Stability under Network Congestion}
 \label{subsec:scenario_2}
+
+\textcolor{blue}{To test the robustness of the system, we injected artificial network congestion using Linux TC, varying the one-way delay (OWD) and jitter at the $T_2-T_1$ and $T_5-T_4$ segments. While the static configuration experienced catastrophic throughput drops and frequent connection resets as latency exceeded the fixed window, the proposed adaptive timing control dynamically expanded the timing advance. This expansion allowed the MAC scheduler to ``pre-trigger'' messages, ensuring they arrived at the PNF within the valid window despite the increased transport delay. Consequently, the system maintained stable throughput even under congestion levels that previously caused complete synchronization failure.}
+
+\section{Functional Deployment Demonstration}
+\label{subsec:demo}
+
+\textcolor{blue}{To verify the end-to-end operational readiness of the proposed dual-loop timing control architecture, a functional demonstration was conducted within an SMO-integrated environment. The demonstration, captured in the accompanying video, highlights the automated lifecycle management of the rApp, real-time latency tracking, and the dynamic synchronization of the VNF timing actuator in response to network fluctuations. This demonstration confirms that the proposed system is fully functional and ready for deployment in realistic O-RAN scenarios.}
+
 %     X axis: 
 %     Y axis:
 
