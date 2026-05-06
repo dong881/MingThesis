@@ -46,27 +46,28 @@
 \textcolor{blue}{However, this resource scaling introduces a new challenge for synchronization. As the number of UEs increases, the MAC processing time ($T_{\text{process\_VNF}}$) inevitably lengthens within a given Transmission Time Interval (TTI). This extended processing duration compresses the remaining time margin available for fronthaul transmission latency. If the scheduling mechanism does not account for this endogenously increasing processing delay, static timing configurations will result in scheduling messages arriving at the PNF too late. Although Option 6 possesses flexible timing adjustment capabilities, its dynamic adjustment algorithms remain immature in existing open-source implementations, such as OpenAirInterface (OAI). Consequently, when confronted with non-deterministic operating system scheduling, UE-dependent processing load, and network congestion, the system frequently encounters ``Missing Subframe'' errors. This thesis selects Split 6 as the primary research subject, proposing an Adaptive Advance-Time Control architecture to dynamically compensate for both processing and transport latency variations, effectively overcoming these synchronization failures. A detailed analysis of this non-deterministic latency and the corresponding verification of these problems will be presented in Chapter~\ref{sec:experiment}, specifically isolating these issues in Scenario I (\ref{subsec:scenario_1}).}
 
 \section{Related Works}
-\textcolor{blue}{The evolution of Radio Access Network (RAN) architectures from Distributed RAN (D-RAN) to Open RAN (O-RAN) requires a thorough study of functional splits \cite{larsen2019comparison, 10186379, 11124199}. Current research has explored various implementation strategies and verification methods for different split options, as summarized in Table~\ref{tab:related_works_comparison}.}
+\textcolor{blue}{The evolution of Radio Access Network (RAN) architectures from Distributed RAN (D-RAN) to Open RAN (O-RAN) requires a thorough study of functional splits \cite{larsen2019comparison, 10186379, 11124199}. A fundamental challenge in deploying disaggregated RAN over non-ideal transport networks is managing the impact of fronthaul latency and functional split constraints. The O-RAN architecture introduces various functional splits to adapt to different network environments, each posing distinct synchronization requirements. For instance, Option 7.2 relies on hardware PTP and costly Time-Sensitive Networking (TSN) to achieve strict phase and symbol-level synchronization. Conversely, Option 6 (nFAPI) provides the flexibility to operate over general packet-switched networks, thereby reducing deployment costs, but it requires highly robust latency management to combat non-deterministic network jitter.}
+
+\textcolor{blue}{Current research focuses extensively on optimizing resource allocation and latency management in virtualized and cloud RANs. As summarized in Table~\ref{tab:related_works_comparison}, recent studies at top-tier venues address latency from various architectural levels. For example, Adamuz-Hinojosa \textit{et al.} \cite{Adamuz2024ORANUS} proposed ORANUS, a latency-tailored orchestration framework for 6G O-RAN. While their work effectively bounds ultra-reliable low-latency communication (URLLC) queues using stochastic network calculus on a timescale of 10~ms to 1~s, it operates at the higher orchestration level rather than addressing microsecond-level synchronization.}
+
+\textcolor{blue}{Furthermore, virtualizing the MAC scheduler introduces significant server processing variations. Lv \textit{et al.} \cite{Lv2024QoS} addressed this by jointly optimizing scheduling and orchestration to guarantee QoS in 5G vRANs. Their study highlights that shifting MAC processing to cloud VNF servers introduces endogenous processing latency, which compresses the permissible fronthaul transmission delay margin. However, their optimization predominantly targets computational resource contention rather than dynamically adapting to transport network jitter in a strict slot-level synchronization context like Split Option 6.}
+
+\textcolor{blue}{The necessity for highly strict, microsecond-level timing control in disaggregated architectures is further demonstrated by Chen \textit{et al.} \cite{chen2022m3}, who designed a sub-millisecond scheduler for multi-cell MIMO networks under the C-RAN architecture. Their work proves the severe constraints of sub-millisecond scheduling, illustrating that static timing advance configurations---commonly used in existing open-source frameworks like OpenAirInterface (OAI)---are highly susceptible to missing subframe errors under network jitter. This highlights the critical gap filled by our research: while existing top-tier literature focuses on high-level orchestration or centralized baseband processing, our thesis specifically addresses the microsecond phase-level synchronization challenges inherent to Option 6. We propose a dynamic, dual-loop Adaptive Advance-Time Control algorithm and validate it on an end-to-end commercial testbed (COTS UE and Pegatron O-RU), proving its efficacy against non-deterministic fronthaul jitter and system variations.}
 
 \begin{table}[h]
 \centering
 \caption{Comparative Analysis of Related Works}
 \label{tab:related_works_comparison}
 \small
-\begin{tabularx}{\textwidth}{@{}l l L c c c L@{}}
+\begin{tabularx}{\textwidth}{@{}l l X c X X@{}}
 \toprule
-\textbf{Paper} & \textbf{Env.} & \textbf{Interface} & \textbf{Spec.} & \textbf{Verify} & \textbf{E2E} & \textbf{Proposed Methods} \\ \midrule
-[1] \cite{Mehran2020} & Mavenir & Fronthaul (split 7.2) & \cmark & Throughput & \cmark & Only Feasibility verification \\
-[2] \cite{ryu20225gemane} & OAI & nFAPI (split 6) & \xmark & \xmark & \xmark & emulator 「5G-EMANE」 \\
-[3] \cite{Lee2022} & No impl. & FAPI (split 6) & \xmark & \xmark & \xmark & Sub scheduler in Layer1 \\
-\textbf{This thesis} & OAI & nFAPI (split 6) & \cmark & \makecell[l]{Throughput/ \\ HARQ RTT} & \cmark & Delay manager for os/network latency \\ \bottomrule
+\textbf{Paper} & \textbf{Architecture \& Split} & \textbf{Target Latency Issue} & \textbf{Time Scale} & \textbf{Core Mechanism} & \textbf{Evaluation Platform} \\ \midrule
+\cite{Adamuz2024ORANUS} INFOCOM 2024 & O-RAN (RIC-based) & URLLC queuing \& transmission delay & 10ms - 1s & Resource orchestration via SNC & Python system simulation \\
+\cite{chen2022m3} INFOCOM 2022 & C-RAN (BBU-RRH) & Centralized baseband processing delay & $<$ 1ms & GPU-parallelized joint scheduler & COTS GPU + simulation \\
+\cite{Lv2024QoS} INFOCOM 2024 & 5G vRAN (CU-DU) & Server non-deterministic computation & Cross-timescale & Joint scheduling \& orchestration & OAI prototype + USRP \\
+\textbf{This Thesis} & \textbf{O-RAN Option 6 (nFAPI)} & \textbf{Non-deterministic fronthaul jitter} & \textbf{Microsecond (phase-level)} & \textbf{Adaptive Advance-Time Control} & \textbf{OAI E2E commercial testbed} \\ \bottomrule
 \end{tabularx}
-\begin{flushleft}
-\footnotesize{Note: Spec.: Specification Compliance; E2E: End-to-End; \cmark: Yes/Compliance; \xmark: No/Partial.}
-\end{flushleft}
 \end{table}
-
-\textcolor{blue}{Mehran and MacKenzie \cite{Mehran2020} demonstrated that throughput in Split 7.2 architectures drops significantly with increased fronthaul delay, though their work was limited to feasibility verification. For Split 6, Ryu \textit{et al.} \cite{ryu20225gemane} developed the 5G-EMANE emulator to scale network tests, but it does not address the strict timing window requirements of physical hardware. Lee and Lee \cite{Lee2022} proposed an adaptive sub-scheduler within the physical layer to handle latency, yet lacked a full end-to-end implementation. This thesis bridges these gaps by proposing a centralized Delay Manager within the OAI framework, specifically designed to adapt to both operating system scheduling jitter and network latency, ensuring stable E2E performance.}
 
 \section{Contributions}
 \begin{itemize}
