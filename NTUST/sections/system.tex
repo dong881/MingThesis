@@ -29,7 +29,7 @@
 \textcolor{blue}{Within the Media Access Control (MAC) layer of the O-DU High, the core components handling timing mechanisms include the Scheduler and the nFAPI Delay Manager:
 \begin{itemize}
 \item \textbf{Scheduler:} Critical for allocating the available radio resources (such as time-frequency resource blocks) and determining the exact priority and timing of downlink/uplink data transmissions.
-\item \textbf{nFAPI Delay Manager:} This resides as the crucial control unit of this delay-aware architecture. Because unpredictable, unstable latency exists in the switch between the VNF and PNF, the Delay Manager continuously receives timing feedback from the lower physical layer. It uses this to dynamically calculate network jitter and proactively trigger the scheduler. This calculation guarantees that the scheduling instructions (\texttt{Sched data}) are generated ahead of time to account for network delays.
+\item \textbf{nFAPI Delay Manager:} This resides as the crucial control unit of this delay-aware architecture. Because unpredictable, unstable latency exists in the switch between the VNF and PNF, the Delay Manager continuously receives timing feedback from the lower physical layer. It uses this to dynamically calculate network jitter and proactively adjust the \textbf{slot-ahead} ($S_{ahead}$) to trigger the scheduler. This calculation guarantees that the scheduling instructions (\texttt{Sched data}) are generated ahead of time to account for network delays.
 \end{itemize}}
 
 \section{O-DU Low: High PHY and Timing Window}
@@ -37,7 +37,7 @@
 \textcolor{blue}{The O-DU Low manages the higher-level baseband processing of the physical layer (High PHY). At this level, the most critical synchronization mechanism is the nFAPI PNF Timing Window:
 \begin{itemize}
 \item \textbf{Timing Window:} A predefined, strict time duration. When the scheduling message (specifically the \texttt{DL\_TTI.request}) sent by the O-DU High propagates across the network, it must accurately arrive and fall exactly within this Window. Otherwise, the High PHY will reject the message and fail to process the subframe data.
-\item \textbf{Timing Info:} The PNF continuously monitors the exact arrival timestamp of these control messages and periodically sends this ``Timing Info'' back to the Delay Manager in the MAC layer. This establishes a closed-loop feedback control system, compensating for the unpredictable transmission latency variations between the VNF and PNF machines.
+\item \textbf{Timing Info ($\Delta t_{arrive}$):} The PNF continuously monitors the exact arrival offset of control messages relative to the transmission deadline. This offset, denoted as $\Delta t_{arrive}$, represents the remaining time margin within the timing window. The PNF periodically sends this information back to the Delay Manager in the MAC layer. This establishes a closed-loop feedback control system, compensating for the unpredictable transmission latency variations between the VNF and PNF machines.
 \end{itemize}}
 
 \section{Key Validation Metrics}

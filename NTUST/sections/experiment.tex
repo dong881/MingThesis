@@ -5,14 +5,14 @@
 
 \textcolor{blue}{Experiments were conducted to verify the proposed delay management method within an OpenAirInterface (OAI) nFAPI End-to-End environment. To ensure the statistical reliability of the evaluations, each reported throughput value represents the average of 180 data points (3 independent trials $\times$ 60 samples per trial).}
 
-\textcolor{blue}{To validate the hypothesis and the effectiveness of the proposed dynamic trigger scheduler algorithm, the experimental scenarios are structured as follows: Section~\ref{subsec:experimental_scenario} outlines the software, hardware environment, and the automated evaluation framework. Section~\ref{subsec:scenario_1} benchmarks the performance in terms of peak throughput and MAC Round-Trip Time (RTT) against static baselines. Section~\ref{subsec:scenario_2} evaluates the stability of the proposed method under varying levels of network congestion. Finally, an rApp demonstration video is provided to confirm the end-to-end functional deployment.}
+\textcolor{blue}{To validate the hypothesis and the effectiveness of the proposed dynamic trigger scheduler algorithm, the experimental scenarios are structured as follows: Section~\ref{subsec:experimental_scenario} outlines the software, hardware environment, and the automated evaluation framework. Section~\ref{subsec:scenario_1} validates the Exponentially Weighted Moving Average (EWMA) mechanism for the PNF arrival offset ($\Delta t_{arrive}$). Section~\ref{subsec:scenario_2} benchmarks the performance in terms of peak throughput and MAC Round-Trip Time (RTT) against static baselines. Section~\ref{subsec:scenario_3} evaluates the stability of the proposed method under varying levels of network congestion. Finally, an rApp demonstration video is provided to confirm the end-to-end functional deployment.}
 
 \section{Experimental Scenario}
 \label{subsec:experimental_scenario}
 
 \textcolor{blue}{The testbed environment connects a series of high-performance servers, radio units, and a commercial smartphone. The detailed software and hardware configurations for the end-to-end network deployment are outlined below.}
 
-\begin{table}[!t]
+\begin{table}[!htbp]
 \caption{Testbed Node Configuration}
 \label{tab:node_config}
 \centering
@@ -30,7 +30,7 @@ COTS UE & Samsung Galaxy S20 \\
 \end{tabular}
 \end{table}
 
-\begin{table}[!t]
+\begin{table}[!htbp]
 \caption{Wireless System Parameters}
 \label{tab:wireless_params}
 \centering
@@ -48,29 +48,58 @@ Fronthaul & O-RAN F release \\
 
 \textcolor{blue}{To execute these scenarios rigorously, an automated evaluation framework was developed as an rApp, as illustrated in Figure~\ref{fig:rapp_architecture}. This rApp automates the entire end-to-end experimental process, including test execution, data collection, and performance chart generation. A key capability of this rApp is the automated configuration of network latency simulation via Linux Traffic Control (TC) at both the MAC feedback link ($T_5-T_4$) and the fronthaul segment ($T_2-T_1$). This controlled latency injection is essential to validate the split-architecture stability under non-deterministic latency.}
 
-\begin{figure}[!t]
+\begin{figure}[!htbp]
   \centering
   \includegraphics[width=0.8\textwidth]{figures/rapp.png}
   \caption{Architecture of the rApp automated evaluation framework.}
   \label{fig:rapp_architecture}
 \end{figure}
 
-\section{Scenario I: Performance Benchmark}
+\section{Scenario I: Validation of EWMA for PNF Arrival Offset ($\Delta t_{arrive}$)}
 \label{subsec:scenario_1}
 
-\textcolor{blue}{In this scenario, we evaluate the baseline performance of the proposed adaptive timing mechanism compared to the standard static advance-time configuration. We measured the peak throughput and the MAC layer HARQ Round-Trip Time (RTT) over a stable Ethernet link. The results demonstrate that under ideal conditions, the adaptive mechanism maintains the same peak throughput as the static configuration while providing a more robust timing margin, effectively eliminating the rare ``missing subframe'' errors that occur even in low-jitter environments due to server OS preemption.}
+\textcolor{blue}{This scenario validates the effectiveness of applying an Exponentially Weighted Moving Average (EWMA) to smooth the PNF arrival offset ($\Delta t_{arrive}$). The raw timing offset received from the PNF can exhibit high variance due to network jitter and processing delays. Figure~\ref{fig:exp1} illustrates the impact of EWMA processing. Without EWMA (Figure~\ref{fig:exp1a}), the arrival offset fluctuates significantly, which could lead to unstable scheduling decisions. By applying EWMA (Figure~\ref{fig:exp1b}), the high-frequency jitter is effectively filtered out, providing a stable baseline for the timing adjustment algorithm.}
 
-\section{Scenario II: Stability under Network Congestion}
+\begin{figure}[!htbp]
+  \centering
+  \subfloat[Non-applied EWMA]{\includegraphics[width=0.48\textwidth]{figures/exp1a.png}\label{fig:exp1a}}
+  \hfill
+  \subfloat[Applied EWMA]{\includegraphics[width=0.48\textwidth]{figures/exp1b.png}\label{fig:exp1b}}
+  \caption{Validation of EWMA processing on PNF Arrival Offset ($\Delta t_{arrive}$).}
+  \label{fig:exp1}
+\end{figure}
+
+\section{Scenario II: Performance Benchmark}
 \label{subsec:scenario_2}
 
-\textcolor{blue}{To test the robustness of the system, we injected artificial network congestion using Linux TC, varying the one-way delay (OWD) and jitter at the $T_2-T_1$ and $T_5-T_4$ segments. While the static configuration experienced catastrophic throughput drops and frequent connection resets as latency exceeded the fixed window, the proposed adaptive timing control dynamically expanded the timing advance. This expansion allowed the MAC scheduler to ``pre-trigger'' messages, ensuring they arrived at the PNF within the valid window despite the increased transport delay. Consequently, the system maintained stable throughput even under congestion levels that previously caused complete synchronization failure.}
+\textcolor{blue}{In this scenario, we evaluate the baseline performance of the proposed adaptive timing mechanism compared to standard static slot-ahead configurations. Figure~\ref{fig:exp2} presents the performance evaluation in terms of MAC layer latency and system throughput.}
+
+\textcolor{blue}{Figure~\ref{fig:exp2a} shows the MAC HARQ RTT under different offered loads. The proposed adaptive method maintains better Round-Trip Time (RTT) efficiency compared to static baselines while ensuring minimal packet loss. Figure~\ref{fig:exp2b} demonstrates the throughput optimization, confirming that the adaptive mechanism achieves the best throughput performance at peak loading, effectively eliminating the rare missing subframe errors caused by server OS preemption even in low-jitter environments.}
+
+\begin{figure}[!htbp]
+  \centering
+  \subfloat[MAC Latency \& Reliability]{\includegraphics[width=0.48\textwidth]{figures/exp2a.png}\label{fig:exp2a}}
+  \hfill
+  \subfloat[Throughput Optimization]{\includegraphics[width=0.48\textwidth]{figures/exp2b.png}\label{fig:exp2b}}
+  \caption{Performance evaluation: MAC RTT efficiency and system throughput.}
+  \label{fig:exp2}
+\end{figure}
+
+\section{Scenario III: Stability under Network Congestion}
+\label{subsec:scenario_3}
+
+\textcolor{blue}{To test the robustness of the system, we injected artificial network congestion using Linux TC, varying the one-way delay (OWD) and jitter at the $T_2-T_1$ and $T_5-T_4$ segments. As depicted in Figure~\ref{fig:exp3}, while the static configuration experienced catastrophic throughput drops and frequent connection resets when latency exceeded the fixed window, the proposed adaptive timing control dynamically expanded the slot-ahead ($S_{ahead}$). This expansion allowed the MAC scheduler to pre-trigger messages, ensuring they arrived at the PNF within the valid window despite the increased transport delay. Consequently, the system maintained stable throughput even under congestion levels that previously caused complete synchronization failure.}
+
+\begin{figure}[!htbp]
+  \centering
+  \includegraphics[width=0.8\textwidth]{figures/exp3.png}
+  \caption{System stability and throughput performance under varying network congestion.}
+  \label{fig:exp3}
+\end{figure}
 
 \section{Functional Deployment Demonstration}
 \label{subsec:demo}
 
-\textcolor{blue}{To verify the end-to-end operational readiness of the proposed dual-loop timing control architecture, a functional demonstration was conducted within an SMO-integrated environment. The demonstration, captured in the accompanying video, highlights the automated lifecycle management of the rApp, real-time latency tracking, and the dynamic synchronization of the VNF timing actuator in response to network fluctuations. This demonstration confirms that the proposed system is fully functional and ready for deployment in realistic O-RAN scenarios.}
-
-%     X axis: 
-%     Y axis:
+\textcolor{blue}{To verify the end-to-end operational readiness of the proposed dual-loop timing control architecture, a functional demonstration was conducted within an SMO-integrated environment. The demonstration confirms the automated lifecycle management of the rApp, real-time latency tracking, and the dynamic synchronization of the VNF timing actuator in response to network fluctuations. This validates that the proposed system is fully functional and ready for deployment in realistic O-RAN scenarios.}
 
 \end{document}

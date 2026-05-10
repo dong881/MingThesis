@@ -10,7 +10,7 @@
 
 \textcolor{blue}{The timing control of this system adopts a ``policy-execution separation'' dual-loop architecture, ensuring that the timing advancement on the VNF side can flexibly cope with network jitter without inducing unexpected oscillations:
 \begin{enumerate}
-    \item \textbf{Convergence Optimization Loop (Policy):} Dynamically analyzes the statistical data reported by the PNF through the convergence optimization algorithm to determine the global target slot-ahead $s_{\text{ahead}}$.
+    \item \textbf{Convergence Optimization Loop (Policy):} Dynamically analyzes the statistical data reported by the PNF through the convergence optimization algorithm to determine the global target slot-ahead $S_{\text{ahead}}$.
     \item \textbf{Timing Actuator Loop (Execution):} Executed by an independent VNF timing thread. This thread is the only unit in the system capable of altering the absolute sleep time and slot propagation, translating the upper-layer policy target and low-layer microsecond phase deviations into actual timing advancement.
 \end{enumerate}}
 
@@ -43,6 +43,7 @@ Before receiving the initial timing anchor from the PNF, the actuator thread blo
 \Statex $offset$ (Inst. timing offset), $\mu_{offset}$ (EWMA mean offset)
 \Statex $dev_{offset}$ (EWMA mean abs. dev. / Jitter)
 \Statex $Threshold$ (Dyn. sync threshold), $\alpha, \beta$ (Smoothing factors)
+\Statex $\text{slot\_duration}$ (Slot duration in \textmu s)
 
 \Statex \textbf{Phase I: Timestamp Processing and Wrap-around Protection}
 \State $d_1 \gets t_2 - t_1$
@@ -68,41 +69,39 @@ Before receiving the initial timing anchor from the PNF, the actuator thread blo
 \end{algorithmic}
 \end{algorithm}
 
-\section{Trigger Timing Control (Convergence Optimization)}
-\label{subsec:convergence_optimization}
+\textcolor{blue}{To counteract fluctuating network latency and maintain scheduling robustness, this paper proposes a dynamic trigger timing control policy. Upon receiving timing statistics, specifically the worst-case late arrival offset ($\Delta t_{arrive}$) reported by the PNF, the system computes the deviation ($error$) and incorporates an EWMA model inspired by the Jacobson/Karels TCP RTT algorithm to estimate the mean latency ($\mu_{delay}$) and jitter deviation ($dev_{delay}$), utilizing smoothing factors $\alpha$ and $\beta$.}
 
-\textcolor{blue}{To counteract fluctuating network latency and maintain scheduling robustness, this paper proposes a dynamic trigger timing control policy. Upon receiving timing statistics, specifically the worst-case late arrival ($t_{arrive}$) reported by the PNF, the system computes the deviation ($error$) and incorporates an EWMA model inspired by the Jacobson/Karels TCP RTT algorithm to estimate the mean latency ($\mu_{delay}$) and jitter deviation ($dev_{delay}$), utilizing smoothing factors $\alpha$ and $\beta$.}
+\textcolor{blue}{Before making tracking adjustments, the algorithm establishes multiple \textbf{Panic Criteria}. A statistical anomaly is detected if the absolute $error$ exceeds $3 \cdot dev_{delay}$, indicating a sudden latency spike. A strict violation occurs if $\Delta t_{arrive} > \text{slot\_duration}$, meaning the packet is late beyond the slot boundary. Either condition triggers a \textbf{Fast Attack Panic Mode}, radically incrementing the current trigger timing ($S_{curr}$) by 1 slot to calculate the next trigger timing ($S_{next}$) to ensure connection continuity and mitigate catastrophic deadline violations.}
 
-\textcolor{blue}{Before making tracking adjustments, the algorithm establishes multiple \textbf{Panic Criteria}. A statistical anomaly is detected if the absolute $error$ exceeds $3 \cdot dev_{delay}$, indicating a sudden latency spike. A strict violation occurs if $t_{arrive} > \text{slot\_duration}$, meaning the packet is late beyond the slot boundary. Either condition triggers a \textbf{Fast Attack Panic Mode}, radically incrementing the current trigger timing ($S_{curr}$) by 1 slot to calculate the next trigger timing ($S_{next}$) to ensure connection continuity and mitigate catastrophic deadline violations.}
-
-\textcolor{blue}{Conversely, to maximize low-latency operation in safe zones, a \textbf{Proactive Latency Reduction} mechanism is used. When the latency operates safely below an absolute boundary ($t_{arrive} \le \text{Safe\_Margin}$), a stability counter ($count_{stable}$) increments. Once this counter exceeds an adaptive stability threshold ($N_{stable}$) which scales dynamically by $dev_{delay}$, the system cautiously drops $S_{curr}$ by 1 to determine $S_{next}$. This asymmetric response (fast expansion, slow decay) prevents ping-pong oscillation while minimizing round-trip time. Finally, $S_{next}$ is limited within the allowable nFAPI timing window. The adjustment strategy is condensed in Algorithm~\ref{alg:delay_manager_simplified}.}
+\textcolor{blue}{Conversely, to maximize low-latency operation in safe zones, a \textbf{Proactive Latency Reduction} mechanism is used. When the latency operates safely below an absolute boundary ($\Delta t_{arrive} \le \text{Safe\_Margin}$), a stability counter ($count_{stable}$) increments. Once this counter exceeds an adaptive stability threshold ($N_{stable}$) which scales dynamically by $dev_{delay}$, the system cautiously drops $S_{curr}$ by 1 to determine $S_{next}$. This asymmetric response (fast expansion, slow decay) prevents ping-pong oscillation while minimizing round-trip time. Finally, $S_{next}$ is limited within the allowable nFAPI timing window. The adjustment strategy is condensed in Algorithm~\ref{alg:delay_manager_simplified}.}
 
 \begin{algorithm}[H]
 \caption{Trigger Timing Control}
 \label{alg:delay_manager_simplified}
 \small
 \begin{algorithmic}[1]
-\Require $t_{arrive}$ (Timing info from PNF)
+\Require $\Delta t_{arrive}$ (Timing offset info from PNF)
 \Ensure $S_{next}$ (Trigger timing for the next MAC scheduling)
 
 \Statex \textbf{Notation:} 
 \Statex $S_{curr}$ (Current trigger timing), $\mu_{delay}$ (EWMA mean delay)
 \Statex $dev_{delay}$ (EWMA mean dev.), $count_{stable}$ (Stable arrivals counter)
 \Statex $N_{stable}$ (Adaptive threshold), $\alpha, \beta$ (Smoothing factors)
+\Statex $\text{Safe\_Margin}$ (Target safety margin), $\text{slot\_duration}$ (Slot duration)
 
 \Statex \textbf{Phase I: Delay Statistics Update}
-\State $error \gets t_{arrive} - \mu_{delay}$
+\State $error \gets \Delta t_{arrive} - \mu_{delay}$
 \State $\mu_{delay} \gets \mu_{delay} + \alpha \cdot error$
 \State $dev_{delay} \gets dev_{delay} + \beta(|error| - dev_{delay})$
 
 \Statex \textbf{Phase II: Anomaly Detection}
-\State $IsAnomaly \gets (|error| > 3 \cdot dev_{delay}) \lor (t_{arrive} > \text{slot\_duration})$
+\State $IsAnomaly \gets (|error| > 3 \cdot dev_{delay}) \lor (\Delta t_{arrive} > \text{slot\_duration})$
 
 \Statex \textbf{Phase III: Timing Adjustment}
 \If{$IsAnomaly$}
     \State $S_{next} \gets S_{curr} + 1$
     \State $count_{stable} \gets 0$
-\ElsIf{$t_{arrive} \le \text{Safe\_Margin}$}
+\ElsIf{$\Delta t_{arrive} \le \text{Safe\_Margin}$}
     \State $count_{stable} \gets count_{stable} + 1$
     \If{$count_{stable} \ge N_{stable}$}
         \State $S_{next} \gets S_{curr} - 1$

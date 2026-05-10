@@ -97,7 +97,7 @@ nFAPI, O-RAN, Functional Split, Adaptive Control.
 \textcolor{blue}{Within the Media Access Control (MAC) layer of the O-DU High, the core components handling timing mechanisms include the Scheduler and the nFAPI Delay Manager:
 \begin{itemize}
 \item \textbf{Scheduler:} Critical for allocating the available radio resources (such as time-frequency resource blocks) and determining the exact priority and timing of downlink/uplink data transmissions.
-\item \textbf{nFAPI Delay Manager:} This resides as the crucial control unit of this delay-aware architecture. Because unpredictable, unstable latency exists in the switch between the VNF and PNF, the Delay Manager continuously receives timing feedback from the lower physical layer. It uses this to dynamically calculate network jitter and proactively trigger the scheduler. This calculation guarantees that the scheduling instructions (\texttt{Sched data}) are generated ahead of time to account for network delays.
+\item \textbf{nFAPI Delay Manager:} This resides as the crucial control unit of this delay-aware architecture. Because unpredictable, unstable latency exists in the switch between the VNF and PNF, the Delay Manager continuously receives timing feedback from the lower physical layer. It uses this to dynamically calculate network jitter and proactively adjust the \textbf{slot-ahead} ($S_{ahead}$) to trigger the scheduler. This calculation guarantees that the scheduling instructions (\texttt{Sched data}) are generated ahead of time to account for network delays.
 \end{itemize}}
 
 \subsection{O-DU Low: High PHY and Timing Window}
@@ -105,7 +105,7 @@ nFAPI, O-RAN, Functional Split, Adaptive Control.
 \textcolor{blue}{The O-DU Low manages the higher-level baseband processing of the physical layer (High PHY). At this level, the most critical synchronization mechanism is the nFAPI PNF Timing Window:
 \begin{itemize}
 \item \textbf{Timing Window:} A predefined, strict time duration. When the scheduling message (specifically the \texttt{DL\_TTI.request}) sent by the O-DU High propagates across the network, it must accurately arrive and fall exactly within this Window. Otherwise, the High PHY will reject the message and fail to process the subframe data.
-\item \textbf{Timing Info:} The PNF continuously monitors the exact arrival timestamp of these control messages and periodically sends this ``Timing Info'' back to the Delay Manager in the MAC layer. This establishes a closed-loop feedback control system, compensating for the unpredictable transmission latency variations between the VNF and PNF machines.
+\item \textbf{Timing Info ($\Delta t_{arrive}$):} The PNF continuously monitors the exact arrival offset of control messages relative to the transmission deadline. This offset, denoted as $\Delta t_{arrive}$, represents the remaining time margin within the timing window. The PNF periodically sends this information back to the Delay Manager in the MAC layer. This establishes a closed-loop feedback control system, compensating for the unpredictable transmission latency variations between the VNF and PNF machines.
 \end{itemize}}
 
 \subsection{Key Validation Metrics}
@@ -133,14 +133,22 @@ Note that RTT denotes the Round-Trip Time. To validate the split-architecture st
 
 \textcolor{blue}{The timing control of this system adopts a ``policy-execution separation'' dual-loop architecture, ensuring that the timing advancement on the VNF side can flexibly cope with network jitter without inducing unexpected oscillations:
 \begin{enumerate}
-    \item \textbf{Convergence Optimization Loop (Policy):} Dynamically analyzes the statistical data reported by the PNF through the convergence optimization algorithm to determine the global target slot-ahead $s_{\text{ahead}}$.
-    \item \textbf{Timing Actuator Loop (Execution):} Executed by an independent VNF timing thread. This thread is the only unit in the system capable of altering the absolute sleep time and slot propagation, translating the upper-layer policy target and low-layer microsecond phase deviations into actual timing advancement.
+    \item \textbf{Convergence Optimization Loop (Policy):} Dynamically analyzes the statistical data reported by the PNF through the convergence optimization algorithm to determine the target slot-ahead $S_{next}$.
+    \item \textbf{Timing Actuator Loop (Execution):} Executed by an independent VNF timing thread. This thread is the only unit in the system capable of altering the absolute sleep time and slot propagation, translating the upper-layer policy target ($S_{next}$) and low-layer microsecond phase deviations into actual timing advancement.
 \end{enumerate}}
 
 \subsection{VNF Timing Actuator}
 \label{subsec:vnf_timing_actuator}
 
-\textcolor{blue}{The core function of the \textbf{VNF Timing Actuator} is isolation and precise phase execution. Let $\text{slot\_duration}$ denote the slot duration. The target slot-ahead value, $S_{next}$, is determined by the policy loop. For microsecond-level phase correction, the actuator calculates the next absolute wake-up time, operating within a mutex-locked environment to mitigate long-term error accumulation. By adjusting the absolute wake-up time, it accurately translates the upper-layer policy target and low-layer microsecond phase deviations into actual timing advancement.}
+\textcolor{blue}{The core function of the \textbf{VNF Timing Actuator} is isolation and precise phase execution. Initially, we define the basic parameters. Let $\mu$ denote the Numerology, and the slot duration (in \textmu s) is defined as:
+\begin{equation} \label{eq:tslot}
+\text{slot\_duration} = \frac{1000}{2^\mu} 
+\end{equation}
+The target slot-ahead value, $S_{next}$, is determined by the policy loop. For microsecond-level phase correction, the actuator calculates the next absolute wake-up time $T_{\text{next}}$:
+\begin{equation} \label{eq:tnext}
+T_{\text{next}}^{(k)} = T_{\text{next}}^{(k-1)} + \text{slot\_duration} + \Delta_{\text{pending}}
+\end{equation}
+where $\Delta_{\text{pending}}$ is the sub-slot phase deviation. By adjusting the absolute wake-up time, it translates $S_{next}$ and phase deviations into actual timing advancement.}
 
 \subsection{Adaptive Node Synchronization}
 \label{subsec:node_sync}
@@ -158,6 +166,7 @@ Note that RTT denotes the Round-Trip Time. To validate the split-architecture st
 \Statex $dev_{offset}$ (EWMA mean absolute deviation / Jitter)
 \Statex $Threshold$ (Dynamic synchronization threshold)
 \Statex $\alpha, \beta$ (Smoothing factors, where $\alpha=1/8, \beta=1/4$)
+\Statex $\text{slot\_duration}$ (Slot duration in \textmu s)
 
 \Statex \textbf{Phase I: Timestamp Processing and Wrap-around Protection}
 \State $d_1 \gets t_2 - t_1$
@@ -186,17 +195,17 @@ Note that RTT denotes the Round-Trip Time. To validate the split-architecture st
 \subsection{Trigger Timing Control (Convergence Optimization)}
 \label{subsec:convergence_optimization}
 
-\textcolor{blue}{To counteract fluctuating network latency and maintain scheduling robustness, this paper proposes a dynamic trigger timing control policy. Upon receiving timing statistics, specifically the worst-case late arrival ($t_{arrive}$) reported by the PNF, the system computes the deviation ($error$) and incorporates an EWMA model inspired by the Jacobson/Karels TCP RTT algorithm to estimate the mean latency ($\mu_{delay}$) and jitter deviation ($dev_{delay}$), utilizing smoothing factors $\alpha$ and $\beta$.}
+\textcolor{blue}{To counteract fluctuating network latency and maintain scheduling robustness, this paper proposes a dynamic trigger timing control policy. Upon receiving timing statistics, specifically the worst-case late arrival offset ($\Delta t_{arrive}$) reported by the PNF, the system computes the deviation ($error$) and incorporates an EWMA model inspired by the Jacobson/Karels TCP RTT algorithm to estimate the mean latency ($\mu_{delay}$) and jitter deviation ($dev_{delay}$), utilizing smoothing factors $\alpha$ and $\beta$.}
 
-\textcolor{blue}{Before making tracking adjustments, the algorithm establishes multiple \textbf{Panic Criteria}. A statistical anomaly is detected if the absolute $error$ exceeds $3 \cdot dev_{delay}$, indicating a sudden latency spike. A strict violation occurs if $t_{arrive} > \text{slot\_duration}$, meaning the packet is late beyond the slot boundary. Either condition triggers a \textbf{Fast Attack Panic Mode}, radically incrementing the current trigger timing ($S_{curr}$) by 1 slot to calculate the next trigger timing ($S_{next}$) to ensure connection continuity and mitigate catastrophic deadline violations.}
+\textcolor{blue}{Before making tracking adjustments, the algorithm establishes multiple \textbf{Panic Criteria}. A statistical anomaly is detected if the absolute $error$ exceeds $3 \cdot dev_{delay}$, indicating a sudden latency spike. A strict violation occurs if $\Delta t_{arrive} > \text{slot\_duration}$, meaning the packet is late beyond the slot boundary. Either condition triggers a \textbf{Fast Attack Panic Mode}, radically incrementing the current trigger timing ($S_{curr}$) by 1 slot to calculate the next trigger timing ($S_{next}$) to ensure connection continuity and mitigate catastrophic deadline violations.}
 
-\textcolor{blue}{Conversely, to maximize low-latency operation in safe zones, a \textbf{Proactive Latency Reduction} mechanism is used. When the latency operates safely below an absolute boundary ($t_{arrive} \le \text{Safe\_Margin}$), a stability counter ($count_{stable}$) increments. Once this counter exceeds an adaptive stability threshold ($N_{stable}$) which scales dynamically by $dev_{delay}$, the system cautiously drops $S_{curr}$ by 1 to determine $S_{next}$. This asymmetric response (fast expansion, slow decay) prevents ping-pong oscillation while minimizing round-trip time. Finally, $S_{next}$ is limited within the allowable nFAPI timing window. The adjustment strategy is condensed in Algorithm~\ref{alg:delay_manager_simplified}.}
+\textcolor{blue}{Conversely, to maximize low-latency operation in safe zones, a \textbf{Proactive Latency Reduction} mechanism is used. When the latency operates safely below an absolute boundary ($\Delta t_{arrive} \le \text{Safe\_Margin}$), a stability counter ($count_{stable}$) increments. Once this counter exceeds an adaptive stability threshold ($N_{stable}$) which scales dynamically by $dev_{delay}$, the system cautiously drops $S_{curr}$ by 1 to determine $S_{next}$. This asymmetric response (fast expansion, slow decay) prevents ping-pong oscillation while minimizing round-trip time. Finally, $S_{next}$ is limited within the allowable nFAPI timing window. The adjustment strategy is condensed in Algorithm~\ref{alg:delay_manager_simplified}.}
 
 \begin{algorithm}
 \caption{Trigger Timing Control}
 \label{alg:delay_manager_simplified}
 \begin{algorithmic}[1]
-\Require $t_{arrive}$ (Timing info from PNF)
+\Require $\Delta t_{arrive}$ (Timing offset info from PNF)
 \Ensure $S_{next}$ (Trigger timing for the next MAC scheduling)
 
 \Statex \textbf{Notation:} 
@@ -205,20 +214,21 @@ Note that RTT denotes the Round-Trip Time. To validate the split-architecture st
 \Statex $count_{stable}$ (Consecutive stable arrivals counter)
 \Statex $N_{stable}$ (Adaptive stability threshold, dynamically scaled by $dev_{delay}$)
 \Statex $\alpha, \beta$ (Smoothing factors, where $\alpha=1/8, \beta=1/4$)
+\Statex $\text{Safe\_Margin}$ (Target safety margin), $\text{slot\_duration}$ (Slot duration)
 
 \Statex \textbf{Phase I: Delay Statistics Update}
-\State $error \gets t_{arrive} - \mu_{delay}$
+\State $error \gets \Delta t_{arrive} - \mu_{delay}$
 \State $\mu_{delay} \gets \mu_{delay} + \alpha \cdot error$
 \State $dev_{delay} \gets dev_{delay} + \beta(|error| - dev_{delay})$
 
 \Statex \textbf{Phase II: Anomaly Detection}
-\State $IsAnomaly \gets (|error| > 3 \cdot dev_{delay}) \lor (t_{arrive} > \text{slot\_duration})$
+\State $IsAnomaly \gets (|error| > 3 \cdot dev_{delay}) \lor (\Delta t_{arrive} > \text{slot\_duration})$
 
 \Statex \textbf{Phase III: Timing Adjustment}
 \If{$IsAnomaly$}
     \State $S_{next} \gets S_{curr} + 1$
     \State $count_{stable} \gets 0$
-\ElsIf{$t_{arrive} \le \text{Safe\_Margin}$}
+\ElsIf{$\Delta t_{arrive} \le \text{Safe\_Margin}$}
     \State $count_{stable} \gets count_{stable} + 1$
     \If{$count_{stable} \ge N_{stable}$}
         \State $S_{next} \gets S_{curr} - 1$
@@ -238,14 +248,14 @@ Note that RTT denotes the Round-Trip Time. To validate the split-architecture st
 \section{Experimental Results}
 \label{sec:experiments}
 
-\textcolor{blue}{Experiments were conducted to verify the proposed delay management method in an OpenAirInterface (OAI) nFAPI End-to-End environment. Each reported throughput value represents the average of 180 data points (3 independent trials $\times$ 60 samples per trial). We structure the evaluation into three parts: benchmarking peak throughput and MAC Round-Trip Time (RTT) against static baselines (Section~\ref{subsec:scenario_1}), evaluating stability under network congestion (Section~\ref{subsec:scenario_2}), and confirming the end-to-end functional deployment through an rApp demonstration video.}
+\textcolor{blue}{Experiments were conducted to verify the proposed delay management method in an OpenAirInterface (OAI) nFAPI End-to-End environment. Each reported throughput value represents the average of 180 data points (3 independent trials $\times$ 60 samples per trial). We structure the evaluation into three parts: validating the EWMA mechanism (Section~\ref{subsec:scenario_1}), benchmarking peak throughput and MAC Round-Trip Time (RTT) against static baselines (Section~\ref{subsec:scenario_2}), evaluating stability under network congestion (Section~\ref{subsec:scenario_3}), and confirming the end-to-end functional deployment through an rApp demonstration video.}
 
 \subsection{Experimental Scenario and rApp Framework}
 \label{subsec:experimental_scenario}
 
 \textcolor{blue}{The testbed environment connects a series of high-performance servers, radio units, and a commercial smartphone. The detailed software and hardware configurations for the end-to-end network deployment are outlined below.}
 
-\begin{table}[!t]
+\begin{table}[!htbp]
 \caption{Testbed Node Configuration}
 \label{tab:node_config}
 \centering
@@ -263,7 +273,7 @@ COTS UE & Samsung Galaxy S20 \\
 \end{tabular}
 \end{table}
 
-\begin{table}[!t]
+\begin{table}[!htbp]
 \caption{Wireless System Parameters}
 \label{tab:wireless_params}
 \centering
@@ -281,31 +291,59 @@ Fronthaul & O-RAN F release \\
 
 \textcolor{blue}{To ensure repeatable validation, an automated evaluation framework (rApp) was developed, as shown in Fig.~\ref{fig:rapp_architecture}. This rApp automates end-to-end experiments, data collection, and chart generation. Crucially, it manages the network latency simulation at $T_5-T_4$ and $T_2-T_1$ via Linux Traffic Control (TC) to systematically validate the split-architecture stability.}
 
-\begin{figure}[!t]
+\begin{figure}[!htbp]
   \centering
   \includegraphics[width=0.9\columnwidth]{figures/rapp.png}
   \caption{Architecture of the rApp automated evaluation framework.}
   \label{fig:rapp_architecture}
 \end{figure}
 
-\subsection{Scenario I: Performance Benchmark}
+\subsection{Scenario I: Validation of EWMA for PNF Timing Info}
 \label{subsec:scenario_1}
 
-\textcolor{blue}{We benchmark the peak throughput and MAC HARQ RTT against a static baseline. Under stable fronthaul conditions, the adaptive algorithm maintains line-rate throughput while ensuring a consistent timing margin, successfully mitigating transient jitter from the server operating system.}
+\textcolor{blue}{This scenario validates the application of an Exponentially Weighted Moving Average (EWMA) to smooth the PNF Timing Info. Without EWMA processing, the raw timing information exhibits high variance due to network jitter, as shown in Fig.~\ref{fig:exp1}(a). Applying EWMA effectively filters out this high-frequency jitter (Fig.~\ref{fig:exp1}(b)), providing a stable baseline for the dynamic timing adjustment algorithm.}
 
-\subsection{Scenario II: Stability under Network Congestion}
+\begin{figure}[!htbp]
+  \centering
+  \subfigure[Non-applied EWMA]{\includegraphics[width=0.48\columnwidth]{figures/exp1a.png}\label{fig:exp1a}}
+  \hfill
+  \subfigure[Applied EWMA]{\includegraphics[width=0.48\columnwidth]{figures/exp1b.png}\label{fig:exp1b}}
+  \caption{Validation of EWMA processing on PNF Timing Info.}
+  \label{fig:exp1}
+\end{figure}
+
+\subsection{Scenario II: Performance Benchmark}
 \label{subsec:scenario_2}
 
-\textcolor{blue}{Under simulated network congestion, the adaptive control dynamically adjusts the trigger timing to compensate for increased one-way delay. Unlike static methods that fail when jitter exceeds the timing window, our approach maintains synchronization and stable throughput by proactively advancing the scheduling cycle.}
+\textcolor{blue}{We benchmark the peak throughput and MAC HARQ RTT against a static baseline. Under stable fronthaul conditions, as shown in Fig.~\ref{fig:exp2}(a), the adaptive method maintains better RTT efficiency across different offered loads with minimal packet loss. Furthermore, Fig.~\ref{fig:exp2}(b) demonstrates that the adaptive mechanism achieves the best throughput performance at peak loading by mitigating transient jitter from the server operating system.}
+
+\begin{figure}[!htbp]
+  \centering
+  \subfigure[MAC Latency \& Reliability]{\includegraphics[width=0.48\columnwidth]{figures/exp2a.png}\label{fig:exp2a}}
+  \hfill
+  \subfigure[Throughput Optimization]{\includegraphics[width=0.48\columnwidth]{figures/exp2b.png}\label{fig:exp2b}}
+  \caption{Performance evaluation: MAC RTT efficiency and system throughput.}
+  \label{fig:exp2}
+\end{figure}
+
+\subsection{Scenario III: Stability under Network Congestion}
+\label{subsec:scenario_3}
+
+\textcolor{blue}{Under simulated network congestion, the adaptive control dynamically adjusts the trigger timing to compensate for increased one-way delay. Fig.~\ref{fig:exp3} illustrates that while static methods fail when jitter exceeds the timing window, our approach maintains synchronization and stable throughput by proactively advancing the scheduling cycle.}
+
+\begin{figure}[!htbp]
+  \centering
+  \includegraphics[width=0.9\columnwidth]{figures/exp3.png}
+  \caption{System stability and throughput performance under varying network congestion.}
+  \label{fig:exp3}
+\end{figure}
 
 \subsection{Functional Deployment Demonstration}
 \label{subsec:demo}
 
-\textcolor{blue}{To confirm the functional deployment of the proposed system, a demonstration video showcases the automated rApp lifecycle, including real-time latency monitoring and dynamic timing adjustment. The verification confirms that the adaptive algorithm successfully maintains link stability in a virtualized environment.}
-%     X axis: 
-%     Y axis:
+\textcolor{blue}{To confirm the functional deployment of the proposed system, a demonstration video showcases the automated rApp lifecycle, including real-time latency monitoring and dynamic timing adjustment. This verification confirms that the adaptive algorithm successfully maintains link stability in a virtualized environment.}
+\end{CJK}
 \bibliographystyle{IEEEtran}
 \bibliography{references}
-\end{CJK}
 \end{document}
 
