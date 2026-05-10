@@ -16,7 +16,7 @@
 
 \begin{document}
 \begin{CJK}{UTF8}{bsmi}
-\title{Adaptive Advance-Time Control for nFAPI Split under Unpredictable Latency}
+\title{Adaptive Slots Ahead for nFAPI Split under Unpredictable network congestion}
 \author{
   \IEEEauthorblockN{Ming-Hong HSU\IEEEauthorrefmark{1}, Ray-Guang Cheng\IEEEauthorrefmark{1}, and Co-author 1\IEEEauthorrefmark{2}}
   \IEEEauthorblockA{\IEEEauthorrefmark{1}Dept. of Electronic and Computer Engineering, National Taiwan University of Science and Technology, Taiwan}
@@ -276,7 +276,7 @@ Fronthaul & O-RAN F release \\
 \end{tabular}
 \end{table}
 
-\textcolor{blue}{To ensure automated measurement and analysis with consistent data quality, an automated evaluation rApp was developed based on the O-RAN Service Management and Orchestration (SMO) non-real-time platform, as shown in Fig.~\ref{fig:rapp_architecture}. This rApp automates the start-up of the VNF and PNF. Once the gNB is established, it automatically connects to the control PC via SSH to toggle the UE's airplane mode using Android Debug Bridge (ADB), and subsequently uses SSH to launch the iPerf server on the Core Network (CN) server. It then executes a series of pre-scheduled iPerf tests automatically. Finally, the rApp collects all log files via O1 SFTP and utilizes Python scripts to plot the following data analysis charts. Crucially, it manages the network latency simulation at $T_5-T_4$ and $T_2-T_1$ via Linux Traffic Control (TC) to systematically validate the split-architecture stability.}
+\textcolor{blue}{To ensure automated measurement and analysis with consistent data quality, an automated evaluation rApp was developed to operate on the Non-Real-Time RAN Intelligent Controller (Non-RT RIC) within the O-RAN Service Management and Orchestration (SMO) framework \cite{oran_architecture}. As shown in Fig.~\ref{fig:rapp_architecture}, this rApp automates the start-up of the VNF and PNF. Once the gNB is established, it automatically connects to the control PC via SSH to toggle the UE's airplane mode using Android Debug Bridge (ADB), and subsequently uses SSH to launch the iPerf server on the Core Network (CN) server. It then executes a series of pre-scheduled iPerf tests automatically. Finally, the rApp collects all log files via O1 SFTP and utilizes Python scripts to plot the following data analysis charts. Crucially, it manages the network latency simulation at $T_5-T_4$ and $T_2-T_1$ via Linux Traffic Control (TC) to systematically validate the split-architecture stability.}
 
 \begin{figure}[!htbp]
   \centering
