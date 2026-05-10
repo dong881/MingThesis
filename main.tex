@@ -126,29 +126,16 @@ Note that RTT denotes the Round-Trip Time. To validate the split-architecture st
 \section{Proposed Method}
 \label{sec:proposed_method}
 
-\textcolor{blue}{This section details the proposed dynamic timing adjustment algorithm. To resolve the unstable latency during packet transmission between the PNF and VNF, we propose a Dual-Loop Timing Control Architecture.}
+\textcolor{blue}{This section details the proposed dynamic timing adjustment algorithm. To resolve the unstable latency during packet transmission between the PNF and VNF, we propose an Adaptive Timing Control Architecture.}
 
-\subsection{Dual-Loop Architecture}
-\label{subsec:dual_loop_architecture}
+\subsection{Adaptive Timing Control Architecture}
+\label{subsec:timing_control_architecture}
 
-\textcolor{blue}{The timing control of this system adopts a ``policy-execution separation'' dual-loop architecture, ensuring that the timing advancement on the VNF side can flexibly cope with network jitter without inducing unexpected oscillations:
+\textcolor{blue}{The timing control of this system focuses on the logical aspects of synchronization and delay management, ensuring that the timing advancement on the VNF side can flexibly cope with network jitter without inducing unexpected oscillations. The architecture operates through two primary logical components that interact seamlessly:
 \begin{enumerate}
-    \item \textbf{Convergence Optimization Loop (Policy):} Dynamically analyzes the statistical data reported by the PNF through the convergence optimization algorithm to determine the target slot-ahead $S_{next}$.
-    \item \textbf{Timing Actuator Loop (Execution):} Executed by an independent VNF timing thread. This thread is the only unit in the system capable of altering the absolute sleep time and slot propagation, translating the upper-layer policy target ($S_{next}$) and low-layer microsecond phase deviations into actual timing advancement.
+    \item \textbf{Adaptive Node Synchronization:} Focuses on microsecond-level phase alignment. It continuously monitors the timing offset from the PNF and ensures the VNF's clock precisely tracks the PNF's clock, absorbing low-level transport jitter.
+    \item \textbf{Trigger Timing Control:} Focuses on slot-level delay management. It dynamically analyzes the statistical data reported by the PNF through the convergence optimization algorithm to determine the target slot-ahead ($S_{next}$), guaranteeing that scheduling instructions always meet the PNF's strict timing window constraints.
 \end{enumerate}}
-
-\subsection{VNF Timing Actuator}
-\label{subsec:vnf_timing_actuator}
-
-\textcolor{blue}{The core function of the \textbf{VNF Timing Actuator} is isolation and precise phase execution. Initially, we define the basic parameters. Let $\mu$ denote the Numerology, and the slot duration (in \textmu s) is defined as:
-\begin{equation} \label{eq:tslot}
-\text{slot\_duration} = \frac{1000}{2^\mu} 
-\end{equation}
-The target slot-ahead value, $S_{next}$, is determined by the policy loop. For microsecond-level phase correction, the actuator calculates the next absolute wake-up time $T_{\text{next}}$:
-\begin{equation} \label{eq:tnext}
-T_{\text{next}}^{(k)} = T_{\text{next}}^{(k-1)} + \text{slot\_duration} + \Delta_{\text{pending}}
-\end{equation}
-where $\Delta_{\text{pending}}$ is the sub-slot phase deviation. By adjusting the absolute wake-up time, it translates $S_{next}$ and phase deviations into actual timing advancement.}
 
 \subsection{Adaptive Node Synchronization}
 \label{subsec:node_sync}
@@ -248,7 +235,7 @@ where $\Delta_{\text{pending}}$ is the sub-slot phase deviation. By adjusting th
 \section{Experimental Results}
 \label{sec:experiments}
 
-\textcolor{blue}{Experiments were conducted to verify the proposed delay management method in an OpenAirInterface (OAI) nFAPI End-to-End environment. Each reported throughput value represents the average of 180 data points (3 independent trials $\times$ 60 samples per trial). We structure the evaluation into three parts: validating the EWMA mechanism (Section~\ref{subsec:scenario_1}), benchmarking peak throughput and MAC Round-Trip Time (RTT) against static baselines (Section~\ref{subsec:scenario_2}), evaluating stability under network congestion (Section~\ref{subsec:scenario_3}), and confirming the end-to-end functional deployment through an rApp demonstration video.}
+\textcolor{blue}{Experiments were conducted to verify the proposed delay management method in an OpenAirInterface (OAI) nFAPI End-to-End environment. Each reported throughput value represents the average of 180 data points (3 independent trials $\times$ 60 samples per trial). We structure the evaluation into three parts: validating the EWMA mechanism (Section~\ref{subsec:scenario_1}), benchmarking peak throughput and MAC Round-Trip Time (RTT) against static baselines (Section~\ref{subsec:scenario_2}), and evaluating stability under network congestion (Section~\ref{subsec:scenario_3}).}
 
 \subsection{Experimental Scenario and rApp Framework}
 \label{subsec:experimental_scenario}
@@ -289,7 +276,7 @@ Fronthaul & O-RAN F release \\
 \end{tabular}
 \end{table}
 
-\textcolor{blue}{To ensure repeatable validation, an automated evaluation framework (rApp) was developed, as shown in Fig.~\ref{fig:rapp_architecture}. This rApp automates end-to-end experiments, data collection, and chart generation. Crucially, it manages the network latency simulation at $T_5-T_4$ and $T_2-T_1$ via Linux Traffic Control (TC) to systematically validate the split-architecture stability.}
+\textcolor{blue}{To ensure automated measurement and analysis with consistent data quality, an automated evaluation rApp was developed based on the O-RAN Service Management and Orchestration (SMO) non-real-time platform, as shown in Fig.~\ref{fig:rapp_architecture}. This rApp automates the start-up of the VNF and PNF. Once the gNB is established, it automatically connects to the control PC via SSH to toggle the UE's airplane mode using Android Debug Bridge (ADB), and subsequently uses SSH to launch the iPerf server on the Core Network (CN) server. It then executes a series of pre-scheduled iPerf tests automatically. Finally, the rApp collects all log files via O1 SFTP and utilizes Python scripts to plot the following data analysis charts. Crucially, it manages the network latency simulation at $T_5-T_4$ and $T_2-T_1$ via Linux Traffic Control (TC) to systematically validate the split-architecture stability.}
 
 \begin{figure}[!htbp]
   \centering
@@ -315,7 +302,7 @@ Fronthaul & O-RAN F release \\
 \subsection{Scenario II: Performance Benchmark}
 \label{subsec:scenario_2}
 
-\textcolor{blue}{We benchmark the peak throughput and MAC HARQ RTT against a static baseline. Under stable fronthaul conditions, as shown in Fig.~\ref{fig:exp2}(a), the adaptive method maintains better RTT efficiency across different offered loads with minimal packet loss. Furthermore, Fig.~\ref{fig:exp2}(b) demonstrates that the adaptive mechanism achieves the best throughput performance at peak loading by mitigating transient jitter from the server operating system.}
+\textcolor{blue}{We benchmark the peak throughput and MAC HARQ RTT against a static baseline. Under stable fronthaul conditions, as shown in Fig.~\ref{fig:exp2}, the proposed algorithm prioritizes guaranteeing the optimal throughput under different offered loads, consistently maintaining the best throughput performance. Simultaneously, while ensuring this optimal throughput, the algorithm also maximizes the selection of the best slot-ahead to optimize the MAC layer HARQ Round-Trip Time (RTT), effectively avoiding unnecessary overhead.}
 
 \begin{figure}[!htbp]
   \centering
@@ -338,10 +325,6 @@ Fronthaul & O-RAN F release \\
   \label{fig:exp3}
 \end{figure}
 
-\subsection{Functional Deployment Demonstration}
-\label{subsec:demo}
-
-\textcolor{blue}{To confirm the functional deployment of the proposed system, a demonstration video showcases the automated rApp lifecycle, including real-time latency monitoring and dynamic timing adjustment. This verification confirms that the adaptive algorithm successfully maintains link stability in a virtualized environment.}
 \end{CJK}
 \bibliographystyle{IEEEtran}
 \bibliography{references}

@@ -5,7 +5,7 @@
 
 \textcolor{blue}{Experiments were conducted to verify the proposed delay management method within an OpenAirInterface (OAI) nFAPI End-to-End environment. To ensure the statistical reliability of the evaluations, each reported throughput value represents the average of 180 data points (3 independent trials $\times$ 60 samples per trial).}
 
-\textcolor{blue}{To validate the hypothesis and the effectiveness of the proposed dynamic trigger scheduler algorithm, the experimental scenarios are structured as follows: Section~\ref{subsec:experimental_scenario} outlines the software, hardware environment, and the automated evaluation framework. Section~\ref{subsec:scenario_1} validates the Exponentially Weighted Moving Average (EWMA) mechanism for the PNF arrival offset ($\Delta t_{arrive}$). Section~\ref{subsec:scenario_2} benchmarks the performance in terms of peak throughput and MAC Round-Trip Time (RTT) against static baselines. Section~\ref{subsec:scenario_3} evaluates the stability of the proposed method under varying levels of network congestion. Finally, an rApp demonstration video is provided to confirm the end-to-end functional deployment.}
+\textcolor{blue}{To validate the hypothesis and the effectiveness of the proposed dynamic trigger scheduler algorithm, the experimental scenarios are structured as follows: Section~\ref{subsec:experimental_scenario} outlines the software, hardware environment, and the automated evaluation framework. Section~\ref{subsec:scenario_1} validates the Exponentially Weighted Moving Average (EWMA) mechanism for the PNF arrival offset ($\Delta t_{arrive}$). Section~\ref{subsec:scenario_2} benchmarks the performance in terms of peak throughput and MAC Round-Trip Time (RTT) against static baselines. Section~\ref{subsec:scenario_3} evaluates the stability of the proposed method under varying levels of network congestion.}
 
 \section{Experimental Scenario}
 \label{subsec:experimental_scenario}
@@ -46,7 +46,7 @@ Fronthaul & O-RAN F release \\
 \end{tabular}
 \end{table}
 
-\textcolor{blue}{To execute these scenarios rigorously, an automated evaluation framework was developed as an rApp, as illustrated in Figure~\ref{fig:rapp_architecture}. This rApp automates the entire end-to-end experimental process, including test execution, data collection, and performance chart generation. A key capability of this rApp is the automated configuration of network latency simulation via Linux Traffic Control (TC) at both the MAC feedback link ($T_5-T_4$) and the fronthaul segment ($T_2-T_1$). This controlled latency injection is essential to validate the split-architecture stability under non-deterministic latency.}
+\textcolor{blue}{To ensure automated measurement and analysis with consistent data quality, an automated evaluation rApp was developed based on the O-RAN Service Management and Orchestration (SMO) non-real-time platform, as illustrated in Figure~\ref{fig:rapp_architecture}. This rApp automates the start-up of both the VNF and PNF. Once the gNB is successfully established, the rApp automatically connects to the control PC via SSH to toggle the UE's airplane mode using Android Debug Bridge (ADB), and subsequently uses SSH to launch the iPerf server on the CN server. It then executes a series of pre-scheduled iPerf test cases automatically. Finally, the rApp collects all log files via O1 SFTP and utilizes Python scripts to automatically plot the subsequent data analysis charts. A key capability of this framework is the automated configuration of network latency simulation via Linux Traffic Control (TC) at both the MAC feedback link ($T_5-T_4$) and the fronthaul segment ($T_2-T_1$), which is essential to validate the split-architecture stability under non-deterministic latency.}
 
 \begin{figure}[!htbp]
   \centering
@@ -74,7 +74,7 @@ Fronthaul & O-RAN F release \\
 
 \textcolor{blue}{In this scenario, we evaluate the baseline performance of the proposed adaptive timing mechanism compared to standard static slot-ahead configurations. Figure~\ref{fig:exp2} presents the performance evaluation in terms of MAC layer latency and system throughput.}
 
-\textcolor{blue}{Figure~\ref{fig:exp2a} shows the MAC HARQ RTT under different offered loads. The proposed adaptive method maintains better Round-Trip Time (RTT) efficiency compared to static baselines while ensuring minimal packet loss. Figure~\ref{fig:exp2b} demonstrates the throughput optimization, confirming that the adaptive mechanism achieves the best throughput performance at peak loading, effectively eliminating the rare missing subframe errors caused by server OS preemption even in low-jitter environments.}
+\textcolor{blue}{Figure~\ref{fig:exp2} presents the performance evaluation under different offered loads. The proposed algorithm prioritizes guaranteeing the optimal throughput, consistently maintaining the best throughput performance across all load conditions. Simultaneously, while ensuring this optimal throughput, the algorithm also maximizes the selection of the best slot-ahead to optimize the MAC layer HARQ Round-Trip Time (RTT), effectively avoiding unnecessary overhead.}
 
 \begin{figure}[!htbp]
   \centering
@@ -96,10 +96,5 @@ Fronthaul & O-RAN F release \\
   \caption{System stability and throughput performance under varying network congestion.}
   \label{fig:exp3}
 \end{figure}
-
-\section{Functional Deployment Demonstration}
-\label{subsec:demo}
-
-\textcolor{blue}{To verify the end-to-end operational readiness of the proposed dual-loop timing control architecture, a functional demonstration was conducted within an SMO-integrated environment. The demonstration confirms the automated lifecycle management of the rApp, real-time latency tracking, and the dynamic synchronization of the VNF timing actuator in response to network fluctuations. This validates that the proposed system is fully functional and ready for deployment in realistic O-RAN scenarios.}
 
 \end{document}
