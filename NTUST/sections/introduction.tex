@@ -95,7 +95,11 @@ L_{total} = L_{prop} + L_{trans} + L_{proc}^{DU} + L_{proc}^{RU} + L_{queue}
 \section{相關研究}
 \label{sec:related_works}
 
-目前學界對 O-RAN 延遲管理的研究可分為規劃、編排與排程三個層次。如表~\ref{tab:related_works_detailed} 所示，現有文獻 \cite{Mohammed2026Fronthaul, Adamuz2024ORANUS, chen2022m3, Lv2024QoS} 雖然在各層次提出了優化方案，但大多聚焦於長時尺度的編排或特定硬體加速。本論文則專注於解決 Option 6 固有的微秒級相位同步挑戰。
+近年來，開放式無線接取網路（O-RAN）架構的快速發展，促使許多研究致力於優化拆分架構（Split Architecture）的效能與網路延遲管理。例如，Villa 等人提出的 X5G 測試平台 \cite{11039666} 展示了一種基於硬體加速的先進 5G O-RAN 部署方案。該研究透過將實體層（PHY）的龐大運算卸載至專用的 NVIDIA GPU 與 Mellanox 智慧網卡（SmartNICs），成功實現了商用級的峰值吞吐量（下行鏈路高達 1.65 Gbps）。然而，這種追求極致效能的架構高度依賴昂貴的專屬硬體設備，且前提是必須運行於具備硬體級精確時間協定（PTP）同步的理想網路環境中。這些嚴苛的條件，大幅限制了其在充滿不可預測延遲與抖動的一般封包交換網路（Packet-switched networks）中的適用性與部署彈性。
+
+為了解決上述高硬體成本與嚴苛網路要求的限制，本論文針對非理想前傳網路（Non-ideal Fronthaul）環境，提出了一種具備高普適性的軟體解決方案。不同於 X5G 依賴硬體加速來克服延遲問題，本論文針對 nFAPI（Split Option 6）架構，設計了基於指數加權移動平均（EWMA）延遲管理的「適應性提前時槽控制機制」。該機制能夠在一般商用現成（COTS）伺服器上運行，動態追蹤並過濾網路抖動，主動適應不可預測的網路壅塞。實驗結果表明，本論文的方法無需仰賴高階專屬硬體或精準的時鐘同步設備，即可有效穩定 HARQ 的循環延遲（RTT）並維持系統吞吐量，為 O-RAN 的部署提供了更具成本效益且靈活的替代方案。
+
+此外，目前學界對 O-RAN 延遲管理的研究也可分為規劃、編排與排程三個層次。如表~\ref{tab:related_works_detailed} 所示，現有文獻 \cite{Mohammed2026Fronthaul, Adamuz2024ORANUS, chen2022m3, Lv2024QoS} 雖然在各層次提出了優化方案，但大多聚焦於長時尺度的編排或特定硬體加速。本論文則專注於解決 Option 6 固有的微秒級相位同步挑戰。
 
 \begin{table}[htbp]
 \centering
@@ -109,6 +113,7 @@ L_{total} = L_{prop} + L_{trans} + L_{proc}^{DU} + L_{proc}^{RU} + L_{queue}
 \cite{Adamuz2024ORANUS} 2024 & O-RAN (基於 RIC) & URLLC 佇列延遲 & 10ms - 1s & 資源編排 & 系統模擬 \\
 \cite{chen2022m3} 2022 & C-RAN (BBU-RRH) & 基頻處理延遲 & $<$ 1ms & GPU 聯合排程 & GPU + 模擬 \\
 \cite{Lv2024QoS} 2024 & 5G vRAN (CU-DU) & 伺服器非確定性計算 & 跨時間尺度 & 聯合排程編排 & OAI 原型 \\
+\cite{11039666} 2025 & O-RAN (軟硬整合) & 實體層處理延遲 & 硬體同步 (PTP) & GPU 與 SmartNIC 卸載 & X5G (OAI 平台) \\
 \textbf{本論文} & \textbf{O-RAN Split 6} & \textbf{非確定性前傳抖動} & \textbf{微秒級} & \textbf{自適應提前控制} & \textbf{OAI 商用平台} \\ \bottomrule
 \end{tabularx}
 \end{table}
