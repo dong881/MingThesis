@@ -58,14 +58,18 @@ MIMO / 埠數 (MIMO / Ports) & 4-layer / 4T4R \\
 \section{情境 I：PNF 到達偏移量 ($\Delta t_{arrive}$) 之 EWMA 驗證}
 \label{subsec:scenario_1}
 
-\textcolor{blue}{此情境驗證了應用指數加權移動平均 (EWMA) 來平滑 PNF 到達偏移量 ($\Delta t_{arrive}$) 的有效性。由於網路抖動與處理延遲，從 PNF 接收到的原始定時偏移量可能會展現出高變異性。圖~\ref{fig:exp1} 展示了 EWMA 處理的影響。在不使用 EWMA 的情況下（圖~\ref{fig:exp1a}），到達偏移量波動劇烈，這可能導致不穩定的排程決策。透過應用 EWMA（圖~\ref{fig:exp1b}），高頻抖動被有效過濾，為定時調整演算法提供了一個穩定的基準。}
+\textcolor{blue}{此情境驗證了應用指數加權移動平均 (EWMA) 來平滑 PNF 到達偏移量 ($\Delta t_{arrive}$) 的有效性。由於網路抖動與處理延遲，從 PNF 接收到的原始定時偏移量可能會展現出高變異性。圖~\ref{fig:exp1} 展示了 EWMA 處理的影響。在不使用 EWMA 的情況下（圖~\ref{fig:exp1a}），到達偏移量波動劇烈，這可能導致不穩定的排程決策。透過應用 EWMA（圖~\ref{fig:exp1b}），高頻抖動被有效過濾，為定時調整演算法提供了一個穩定的基準。此外，如圖~\ref{fig:exp1c} 與圖~\ref{fig:exp1d} 所示，平滑後的數據使系統能夠相對穩定地進行判斷。當 $\Delta t_{arrive}$ 開始呈現下降趨勢時，演算法能夠穩定地識別此趨勢，並主動提前更多的時間 ($S_{ahead}$)，以維持同步的穩定性。}
 
 \begin{figure}[!htbp]
   \centering
   \subfloat[未應用 EWMA]{\includegraphics[width=0.7\textwidth]{figures/exp1a.png}\label{fig:exp1a}} \\
   \vspace{0.5cm}
-  \subfloat[已應用 EWMA]{\includegraphics[width=0.7\textwidth]{figures/exp1b.png}\label{fig:exp1b}}
-  \caption{PNF 到達偏移量 ($\Delta t_{arrive}$) 之 EWMA 處理驗證。}
+  \subfloat[已應用 EWMA]{\includegraphics[width=0.7\textwidth]{figures/exp1b.png}\label{fig:exp1b}} \\
+  \vspace{0.5cm}
+  \subfloat[趨勢觀察]{\includegraphics[width=0.7\textwidth]{figures/exp1c.png}\label{fig:exp1c}} \\
+  \vspace{0.5cm}
+  \subfloat[主動提前調整]{\includegraphics[width=0.7\textwidth]{figures/exp1d.png}\label{fig:exp1d}}
+  \caption{PNF 到達偏移量 ($\Delta t_{arrive}$) 之 EWMA 處理驗證與主動調整。}
   \label{fig:exp1}
 \end{figure}
 
