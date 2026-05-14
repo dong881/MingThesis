@@ -1,0 +1,1614 @@
+1
+
+Adaptive Slots Ahead for nFAPI Split
+under Unpredictable network congestion
+應用於 nFAPI 拆分架構在不可預測網路壅塞下之
+自適應提前時槽機制
+Student: 徐銘鴻 (Ming Hong HSU)
+Supervisor: 鄭瑞光 (Ray-Guang Cheng)
+
+Introduction
+
+System Architecture
+
+Proposed Method
+
+Experimental Results
+
+Conclusion
+
+2
+
+Introduction
+System Architecture
+Proposed Method
+Experimental Results
+Conclusion
+
+Introduction
+
+System Architecture
+
+Proposed Method
+
+Experimental Results
+
+Conclusion
+
+3
+
+5G O-RAN Split Options
+
+O-CU
+O-RAN
+
+O-DU High
+O-DU Low
+O-RU
+
+Option 2
+Option 6
+Option 7.2
+
+Split Option
+
+Sync level
+
+Core Management
+
+Deployment Environment
+
+Option 2
+(O-CU/O-DU Split)
+
+Sequence
+Number
+
+Flow control &
+Deep Buffering
+
+General packet-switched
+networks
+
+Option 6 nFAPI
+(O-DU High/Low split)
+
+Frame/
+Slot
+
+Delay
+management
+
+General packet-switched
+networks
+
+Option 7.2
+(O-DU/O-RU Split)
+
+Phase/
+Symbol
+
+Hardware PTP
+
+Time-Sensitive Networking
+
+reference: 3GPP 38.801 (p.59),[Small Cell Forum] SCF225_5G_nFAPI_specification Table 3-21 (p.53), O-RAN.WG4.CUS.0 Section 4.4.2 (P42)
+
+Introduction
+
+System Architecture
+
+Proposed Method
+
+Experimental Results
+
+Conclusion
+
+nFAPI: network Functional API
+Advantages
+
+O-CU
+
+●
+
+O-DU High
+
+VNF
+machine
+
+Split option 6 nFAPI
+
+PNF
+machine
+
+C-RAN)
+
+RLC
+MAC
+
+Disaggregated in Inter-machine (Multi-vendor,
+
+scheduler
+
+●
+
+Standard: SCF225 explicitly supports Non-ideal
+Fronthaul to enable low-cost deployments
+
+Switch
+(Non-deterministic Latency)
+O-DU Low
+
+High PHY
+O-RU
+
+Low PHY
+
+Challenges
+●
+
+Slot-level synchronization is mandatory
+
+●
+
+VNF-PNF latency under different traffic loads
+
+●
+
+Unpredictable latency from the non-ideal environment
+
+reference: Small Cell Forum [SCF]225_5G_nFAPI_specification Executive summary (p.5)
+
+4
+
+Introduction
+
+System Architecture
+
+Proposed Method
+
+Experimental Results
+
+Conclusion
+
+nFAPI: Node Sync & Delay management
+VNF
+
+Node Sync
+
+PNF
+
+Mechanism: VNF Slots Ahead & PNF discarded
+●
+
+VNF Slots Ahead:
+VNF schedules and transmits packets in advance.
+
+●
+
+PNF discarded:
+Strictly enforced timing window. Packets outside this
+window are discarded.
+
+Delay management
+
+DL_TTI: Downlink Transmission Time Interval
+reference: SCF225_5G_nFAPI_specification Figure 2–12 Delay management timing sequence with DL_TTI example (p.26)
+
+5
+
+Introduction
+
+System Architecture
+
+Proposed Method
+
+Introduce FAPI / nFAPI
+
+Experimental Results
+
+Conclusion
+
+DL_TTI: Downlink Transmission Time Interval
+
+FAPI（Intra-machine Shared Memory）
+
+nFAPI（Inter-machine Socket Communication）
+
+Current-slot DL_TTI triggered by SLOT.indication
+
+Slots-ahead DL_TTI optimized by Timing Info
+
+VNF
+
+PNF
+
+VNF
+
+PNF
+
+reference: [Small Cell Forum] SCF222_5G_FAPI_specification (p.26) , SCF225_5G_nFAPI_specification Table 3-21 (p.53)
+
+6
+
+Introduction
+
+System Architecture
+
+Proposed Method
+
+OAI Implement nFAPI
+
+Experimental Results
+
+OAI: OpenAirInterface
+DL_TTI: Downlink Transmission Time Interval
+
+PNF
+
+VNF
+
+DL_TTI.request(SFN/SL=M + Static Slots Ahead)
+
+Unable to handle unpredictable network congestion
+
+reference: OAI Gitlab
+
+Conclusion
+
+7
+
+Introduction
+
+System Architecture
+
+Proposed Method
+
+Experimental Results
+
+Congestion Avoidance and Control
+Adapting RFC 6298 to O-RAN Fronthaul
+Problem Equivalence Proof:
+●
+
+Non-ideal Fronthaul: nFAPI Split Option 6 runs over
+packet-switched networks, introducing non-deterministic queueing
+jitter.
+
+●
+
+Core Challenge: Dynamic calculation of a "Safety Margin" in noisy
+networks.
+
+Parameter Adaptation (Verified on Slide 38):
+●
+
+Sensitivity Analysis: Proved that α=1/8 and β=1/4 provide the
+Optimal Balance between noise stability and congestion response
+in micro-level O-RAN latency.
+
+St = αXt + (1 - α)St-1
+
+reference: RFC 6298、Congestion Avoidance and Control (p.18)
+
+Conclusion
+
+8
+
+Introduction
+
+System Architecture
+
+Proposed Method
+
+Experimental Results
+
+Conclusion
+
+X5G: Multi-Vendor,End-to-End, Private 5G O-RAN
+Testbed With NVIDIA ARC and OpenAirInterface [1]
+
+9
+
+Contributions:
+●
+
+Hardware-accelerated private 5G O-RAN testbed
+
+●
+
+PHY layer offloaded to dedicated NVIDIA GPUs and Mellanox NICs
+
+Paper
+
+Solution Approach
+
+Hardware Dependency
+
+[1]
+
+Hardware acceleration
+
+High (NVIDIA hardware)
+
+This
+thesis
+
+Software algorithm
+
+Low (General)
+
+reference:
+[1] D. Villa et al., "X5G: An Open, Programmable, Multi-Vendor, End-to-End, Private 5G O-RAN Testbed With NVIDIA ARC and OpenAirInterface," in IEEE
+Transactions on Mobile Computing, vol. 24, no. 11, pp. 11305-11322, Nov. 2025
+
+Introduction
+
+System Architecture
+
+Proposed Method
+
+Experimental Results
+
+Conclusion
+
+OAI: OpenAirInterface
+
+10
+
+SCF: Small Cell Forum
+
+Problem: Distributed Deployment
+●
+
+Unpredictable network congestion necessitates slot synchronization and advance scheduling
+
+Challenges: Static Scheduling Rigidity
+●
+
+Static slots ahead fail to adapt to network congestion
+
+Contributions: Delay Management Algorithm
+●
+
+Adaptive slots ahead control based on unpredictable network congestion
+
+Introduction
+
+System Architecture
+
+Proposed Method
+
+Experimental Results
+
+Conclusion
+
+11
+
+Introduction
+
+System Architecture
+Proposed Method
+Experimental Results
+Conclusion
+
+Introduction
+
+System Architecture
+
+Proposed Method
+
+Experimental Results
+
+Conclusion
+
+12
+
+System Architecture
+CoreNetwork
+
+Note: RTT = Round-Trip Time
+HARQ = Hybrid Automatic Repeat Request
+
+O-CU
+O-DU High
+
+VNF
+machine
+T1
+
+Split6 nFAPI
+PNF
+machine
+
+Trigger Scheduler
+
+RLC
+MAC
+
+T5
+
+MAC
+
+Switch
+
+Delay Manager
+Timing info
+
+(Non-deterministic Latency)
+
+scheduler
+
+Sched data
+
+O-DU Low
+T2
+
+Split7.2
+
+High PHY
+
+T4
+
+High PHY
+
+Timing window
+
+Fronthaul switch
+O-RU
+
+T3
+
+Key Validation Metrics
+
+Low PHY
+
+1.
+
+MAC Layer HARQ RTT: T5 - T1
+
+COTS UE
+
+2.
+
+VNF-PNF Latency: T2 - T1, T5-T4
+
+Introduction
+
+System Architecture
+
+Proposed Method
+
+Experimental Results
+
+Conclusion
+
+13
+
+Introduction
+System Architecture
+
+Proposed Method
+Experimental Results
+Conclusion
+
+Introduction
+
+System Architecture
+
+Proposed Method
+
+Experimental Results
+
+Conclusion
+
+Node Sync & Delay management
+DL_TTI: Downlink Transmission Time Interval
+
+VNF
+
+PNF
+
+Node Sync
+
+Delay management
+
+reference: SCF225_5G_nFAPI_specification Figure 2–12 Delay management timing sequence with DL_TTI example (p.26)
+
+14
+
+Introduction
+
+System Architecture
+
+Proposed Method
+
+Conclusion
+
+15
+
+Node Sync
+
+: one-way-delay
+
+Δ𝒕offset
+
+O-DU High (VNF)
+
+O-DU Low (PNF)
+
+𝒕1
+DL Node Sync
+
+𝒕2 + Δ𝒕offset
+
+Experimental Results
+
+𝒕2 - Δ𝒕offset
+𝒕3
+
+UL Node Sync
+
+reference: SCF225_5G_nFAPI_specification , IEEE
+
+Input: 𝒕1 𝒕2 𝒕3 𝒕4
+Output:Δ𝒕offset
+
+Introduction
+
+System Architecture
+
+Proposed Method
+
+Experimental Results
+
+Conclusion
+
+16
+
+Delay Management
+O-DU High (VNF)
+
+Input: Timing Info
+Output: Scheduler timing
+
+O-DU Low (PNF)
+
+Sched data
+Timing window
+
+deadline
+
+Delay
+Management
+
+Timing Info(
+
+)
+: VNF sched data arrive PNF deadline offset
+
+reference: SCF225_5G_nFAPI_specification
+
+Introduction
+
+System Architecture
+
+Proposed Method
+
+Delay Management
+
+Experimental Results
+
+Conclusion
+
+17
+
+devarrive: EWMA jitter
+
+μarrive: EWMA mean latency
+
+devarrive,
+
+μarrive
+
+Step 1. Pre-processing
+
+Slots
+ahead
+
+EWMA is used to smooth the
+
+and to compute devarrive , μarrive
+
+Step 3. Adaptive Slots ahead
+
+True/False
+
+Anomaly: Increase slots ahead /
+Stable: Decrease slots ahead (Optimize RTT)
+
+|
+
+Step 2. Detection
+- μarrive| > 3*devarrive
+
+Introduction
+
+System Architecture
+
+Auto-testing rApp
+
+Proposed Method
+
+Experimental Results
+
+18
+SMO
+SME
+SMOS
+
+Deployment & Control
+●
+●
+
+Automated gNB E2E Startup (SSH)
+ADB Control for COTS UE (SSH)
+
+Conclusion
+
+Non-RT RIC
+rApp
+
+RAN NF OAM
+
+O1
+
+Open5gs
+
+CN iperf data SSH/SFTP
+
+O-CU
+
+Testing & Analysis
+●
+●
+
+iPerf and Ping Testing (SSH)
+Analytical Chart Generation
+
+O-DU High
+
+Log files
+
+ON/OFF VNF
+
+MAC
+Switch
+
+Data
+●
+
+RLC
+
+(Non-deterministic Latency)
+
+Data Collection (O1/SFTP: gNB logs)
+Log files
+
+O-DU Low
+
+ON/OFF PNF
+
+High PHY
+Fronthaul switch
+
+Automated Self-Healing
+●
+●
+●
+
+O-RU M-plane (Open FH M-plane)
+Reboot (SSH)
+NIC Reset (SSH)
+
+O-RU
+
+Open FH
+M-plane
+
+OFF/ON UE airplane mode
+UE iperf data
+
+Low PHY
+COTS UE
+
+ADB
+
+Control PC
+
+Introduction
+
+System Architecture
+
+Proposed Method
+
+Experimental Results
+
+Conclusion
+
+19
+
+Introduction
+System Architecture
+Proposed Method
+
+Experimental Results
+Conclusion
+
+Introduction
+
+System Architecture
+
+Proposed Method
+
+Experimental Results
+
+Conclusion
+
+Overview of Experiments
+
+20
+
+Experiments were conducted to verify the proposed delay management method in an OAI nFAPI End-to-End
+environment. Each reported throughput value represents the average of 180 data points (3 independent trials ×
+60 samples per trial).
+
+●
+
+Experimental 1:
+Validation of EWMA for PNF Timing Info
+
+●
+
+Experimental 2:
+Throughput & MAC RTT efficiency against static baselines.
+
+●
+
+Experimental 3:
+Stability under Network Congestion
+
+●
+
+Demo:
+Confirm end-to-end functional deployment through a rApp demonstration video.
+
+Introduction
+
+System Architecture
+
+Proposed Method
+
+Experimental Results
+
+Experiment & Validation
+Experimental Scenario
+● Exp 1: Validation of EWMA for PNF Timing Info
+● Exp 2: Performance: Throughput & MAC HARQ RTT
+● Exp 3: Stability under Network Congestion
+● Demo rApp video
+
+Conclusion
+
+21
+
+Introduction
+
+System Architecture
+
+Proposed Method
+
+Experimental Scenario
+
+Experimental Results
+
+22
+SMO
+
+Non-RT RIC
+rApp
+
+SME
+SMOS
+
+Software
+○ OAI (VNF,PNF) branch: 2026.w13
+○ 30kHz, 3D1S1U, 4 Layer MIMO, 4T4R
+Hardware
+○ VNF server: Intel(R) Xeon(R) Gold 6226R
+○ PNF server: Intel(R) Xeon(R) Gold 6433N
+
+●
+
+●
+
+Conclusion
+
+RAN NF OAM
+
+O1
+
+SSH/SFTP
+
+Open5gs
+O-CU
+
+O-DU High
+
+RLC
+T1
+
+MAC
+
+T5
+
+VNF
+machine
+
+Network latency simulation at T5-T4 and T2-T1 via Linux
+Switch
+
+TC to validate split-architecture stability.
+
+(Non-deterministic Latency)
+
+O-DU Low
+T2
+
+Key Validation Metrics
+●
+
+MAC Layer HARQ RTT: T5 - T1
+
+●
+
+VNF-PNF DL Latency: T2 - T1
+
+Note: TC=Traffic Control
+
+High PHY
+
+T4
+
+PNF
+machine
+
+Fronthaul switch
+O-RU
+
+Open FH
+M-plane
+
+Low PHY
+T3
+
+COTS UE
+
+ADB
+
+Control PC
+
+Introduction
+
+System Architecture
+
+Proposed Method
+
+Experimental Results
+
+Experiment & Validation
+Experimental Scenario
+● Exp 1: Validation of EWMA for PNF Timing Info
+● Exp 2: Performance: Throughput & MAC HARQ RTT
+● Exp 3: Stability under Network Congestion
+● Demo rApp video
+
+Conclusion
+
+23
+
+Introduction
+
+System Architecture
+
+Proposed Method
+
+Experimental Results
+
+Exp 1: Non-applied EWMA for PNF Timing Info (
+
+Conclusion
+
+)
+
+24
+
+Introduction
+
+System Architecture
+
+Proposed Method
+
+Experimental Results
+
+Exp 1: Applied EWMA for PNF Timing Info (
+
+Conclusion
+
+)
+
+25
+
+Introduction
+
+System Architecture
+
+Proposed Method
+
+Experimental Results
+
+Experiment & Validation
+Experimental Scenario
+● Exp 1: Validation of EWMA for PNF Timing Info
+● Exp 2: Performance: Throughput & MAC HARQ RTT
+● Exp 3: Stability under Network Congestion
+● Demo rApp video
+
+Conclusion
+
+26
+
+Introduction
+
+System Architecture
+
+Proposed Method
+
+Experimental Results
+
+Conclusion
+
+Exp 2: Performance: Throughput & MAC HARQ RTT
+Proposed Benefits
+
+Throughput Optimization
+The best throughput performance at peak loading.
+
+MAC HARQ Round-trip-time
+Better RTT under different Offered loads while
+ensuring minimal loss.
+
+27
+
+Introduction
+
+System Architecture
+
+Proposed Method
+
+Experimental Results
+
+Experiment & Validation
+Experimental Scenario
+● Exp 1: Validation of EWMA for PNF Timing Info
+● Exp 2: Performance: Throughput & MAC HARQ RTT
+● Exp 3: Stability under Network Congestion
+● Demo rApp video
+
+Conclusion
+
+28
+
+Introduction
+
+System Architecture
+
+Proposed Method
+
+Experimental Results
+
+Conclusion
+
+Exp 3: Stability under Network Congestion
+
+Proposed method adapts to any latency to keep both connection and throughput stable.
+
+29
+
+Introduction
+
+System Architecture
+
+Proposed Method
+
+Experimental Results
+
+Experiment & Validation
+
+Conclusion
+
+30
+
+Experimental Scenario
+● Exp 1: Validation of EWMA for PNF Timing Info
+● Exp 2: Performance Benchmarking: Throughput & MAC RTT Efficiency
+● Exp 3: Stability Assessment under Network Latency
+● Demo rApp video
+
+Introduction
+
+System Architecture
+
+Demo video
+
+Proposed Method
+
+Experimental Results
+
+Conclusion
+
+31
+
+Introduction
+
+System Architecture
+
+Proposed Method
+
+Experimental Results
+
+Conclusion
+
+32
+
+Introduction
+System Architecture
+Proposed Method
+Experimental Results
+
+Conclusion
+
+Introduction
+
+System Architecture
+
+Proposed Method
+
+Experimental Results
+
+Conclusion
+
+33
+
+Conclusion
+
+This paper presented a delay management framework for disaggregated RAN
+architectures, specifically focusing on the nFAPI-based Split Option 6
+overnon-ideal packet-switched networks.
+Problem
+
+Distributed Deployment
+●
+
+Unpredictable network
+congestion
+necessitates slot
+synchronization and
+advance scheduling.
+
+Challenges
+
+Contributions
+
+Static Scheduling Rigidity
+
+Delay Management Algorithm
+
+●
+
+Static slot-ahead fail
+to adapt to network
+congestion.
+
+●
+
+Adaptive slot-ahead
+control based on
+unpredictable network
+congestion.
+
+Thank You
+
+34
+
+Thank You
+
+35
+
+Introduction
+
+System Architecture
+
+Proposed Method
+
+Related Works (paper):
+
+Experimental Results
+
+Conclusion
+
+E2E: End-to-end
+EMANE: Extendable Mobile Ad-hoc Network Emulator
+HARQ: Hybrid Automatic Repeat Request
+
+36
+
+Paper
+
+Environment
+
+Interface
+
+spec.
+Compliance
+
+Verify
+
+E2E
+
+Proposed Methods
+
+[1]
+
+Mavenir
+
+Fronthaul
+(split 7.2)
+
+O
+
+Throughput
+
+O
+
+Only Feasibility
+verification
+
+[2]
+
+OAI
+
+nFAPI (split 6)
+
+X
+
+X
+
+X
+
+emulator「5G‑EMANE」
+
+[3]
+
+No
+implement
+
+FAPI (split 6)
+
+X
+
+X
+
+X
+
+Sub scheduler in Layer1
+
+This
+thesis
+
+OAI
+
+nFAPI (split 6)
+
+O
+
+Throughput/
+HARQ RTT
+
+O
+
+Delay manager for
+os/network latency
+
+reference:
+[1] F. Mehran and R. MacKenzie, “Experimental evaluation of multi- vendor virtualized ran using non-ideal fronthaul,” in 2020 IEEE 31st Annual International
+Symposium on Personal, Indoor and Mobile Radio Communications, 2020.
+[2] B. Ryu, R. Knopp, M. Elkadi, D. Kim, and A. Le, “5g-emane: Scalable open-source real-time 5g new radio network emulator with emane,” in MILCOM 2022 2022 IEEE Military Communications Conference (MILCOM), 2022.
+[3] S.-Q. Lee and M.-S. Lee, “A method of adaptive low-latency downlink transmission on fapi based 5g nr gnb,” in 2022 13th International Con- ference on
+Information and Communication Technology Convergence (ICTC), 2022.
+
+Introduction
+
+System Architecture
+
+Proposed Method
+
+Related Works (paper):
+
+Experimental Results
+
+Conclusion
+
+37
+
+E2E: End-to-end
+HARQ: Hybrid Automatic Repeat Request
+
+Paper
+
+Core Strategy
+
+Congestion
+Handling
+
+Evaluation Metrics
+
+Level of
+Validation
+
+[1]
+
+Queuing Model
+
+X (Predict only)
+
+Latency
+
+C++ Simulator
+
+[2]
+
+HARQ Pre-allocation
+
+Reactive
+retransmissions
+
+Throughput
+
+MATLAB
+Simulator
+
+This
+thesis
+
+Delay management
+
+Proactive tracking
+
+Throughput, Latency
+
+End-to-end
+
+reference:
+[1] L. Diez, A. M. Alba, W. Kellerer and R. Agüero, "Flexible Functional Split and Fronthaul Delay: A Queuing-Based Model," in IEEE Access, vol. 9, pp.
+151049-151066, 2021
+[2] M. Elfiky, Z. Becvar and P. Mach, "Allocation of Resources for HARQ Retransmission in Mobile Networks Based on C-RAN," in IEEE Systems Journal, vol. 18,
+no. 1, pp. 450-461, March 2024
+
+Introduction
+
+System Architecture
+
+Proposed Method
+
+Experimental Results
+
+Conclusion
+
+38
+
+Exp 1: Performance:
+EWMA (𝞪=1/16, β=1/16)
+
+EWMA (𝞪=⅛, β=¼)
+
+EWMA (𝞪=½, β=½)
+
+Adopt the parameter settings defined in RFC 6298
+
+Introduction
+
+System Architecture
+
+Proposed Method
+
+Experimental Results
+Trigger Scheduler
+
+Delay Management MAC
+
+scheduler
+
+Conclusion
+Timing info
+
+Delay Manager
+
+t_arrive
+t_arrive: PNF report timing info
+
+Delay Management Algorithm
+
+EWMA Formula & Definitions
+
+1. Pre-processing
+
+Formula:
+
+EWMA: 𝞪 (Stability), β (Response)
+
+devdelay = (1 - β) * devdelay + β * |μdelay - μdelay'|
+
+2. Anomaly Detection
+
+μdelay = (1 - 𝞪) * μdelay + 𝞪 * μdelay'
+
+• IsAnomaly: (|t_arrive - μdelay| > 3*devdelay)
+∨ (t_arrive > slot_duration)
+
+Symbol Definitions:
+
+• Goal: Filter noise via Normal Distribution
+
+●
+
+μdelay: Smoothed Arrive Time
+μdelay': Recent measurement arrive time
+
+3. Adaptive Timing Adjustment
+
+●
+
+devdelay : Round Trip Time Variation
+
+• Anomaly: Increase slot ahead
+• Stable: Decrease slot ahead (Optimize
+RTT)
+reference: RFC 6298 (p.3)
+
+●
+
+Adopt RFC 6298 settings for EWMA filter:
+●
+●
+
+Stability (𝞪=1/8): Avoids sway from packet spikes
+Response (β=1/4): Quick reaction to delay variations
+
+39
+
+Introduction
+
+System Architecture
+
+Proposed Method
+
+Delay Management MAC
+Delay Management Algorithm
+1. Pre-processing
+EWMA: 𝞪 (Stability), β (Response)
+
+2. Anomaly Detection
+• IsAnomaly: (|t_arrive - μdelay| > 3*devdelay)
+∨ (t_arrive > slot_duration)
+• Goal: Filter noise via Normal Distribution
+3. Adaptive Timing Adjustment
+• Anomaly: Increase slot ahead
+• Stable: Decrease slot ahead (Optimize
+RTT)
+reference: RFC 6298 (p.3)
+
+Experimental Results
+Trigger Scheduler
+
+scheduler
+
+Conclusion
+Timing info
+
+40
+
+Delay Manager
+
+Normal Distribution Logic:
+3σ covers 99.7% of data. Ensures robust anomaly filtering.
+
+Introduction
+
+System Architecture
+
+Proposed Method
+
+Experimental Results
+
+Delay Management: Node Sync
+
+Conclusion
+
+41
+
+Introduction
+
+System Architecture
+
+Proposed Method
+
+Experimental Results
+
+Conclusion
+
+42
+
+Delay Management: Node Sync
+
+Δ𝒕offset
+
+O-DU High (VNF)
+
+O-DU Low (PNF)
+
+𝒕1
+
+𝚃owd + Δ𝒕offset
+DL Node Sync
+
+𝒕4
+𝚃owd - Δ𝒕offset
+UL Node Sync
+
+𝒕2
+𝒕3
+
+Introduction
+
+System Architecture
+
+Proposed Method
+
+Experimental Results
+
+Delay Management: Node Sync
+
+Conclusion
+
+43
+
+Introduction
+
+System Architecture
+
+Proposed Method
+
+Delay Management MAC
+
+Experimental Results
+Trigger Scheduler
+
+scheduler
+
+Delay Manager
+
+Conclusion
+Timing info
+
+44
+
+Introduction
+
+System Architecture
+
+Proposed Method
+
+Delay Management MAC
+
+Experimental Results
+Trigger Scheduler
+
+scheduler
+
+Delay Manager
+
+Conclusion
+Timing info
+
+45
+
+Introduction
+
+System Architecture
+
+Proposed Method
+
+Delay Management MAC
+
+Experimental Results
+Trigger Scheduler
+
+scheduler
+
+Delay Manager
+
+Conclusion
+Timing info
+
+46
+
+Introduction
+
+System Architecture
+
+Proposed Method
+
+Experimental Results
+
+Downlink Data Delivery Status (DDDS)
+
+reference: TS 138 425 V19.1.0 (p.11)
+
+Conclusion
+
+47
+
+Introduction
+
+System Architecture
+
+Proposed Method
+
+Experimental Results
+
+Conclusion
+
+Exp 1: Performance Benchmarking: Throughput & MAC 48
+RTT Efficiency
+The lower the value of each metric, the better.
+Proposed: dynamic adjustment prevents packet loss at high offered loading.
+
+PID: Process Identifier
+
+Trade-off Analysis
+
+Too Low Slot Ahead
+
+Too High Slot Ahead
+
+Packet loss & rising retransmission rate
+
+Rising scheduling stalls due to HARQ PID exhaustion.
+
+Introduction
+
+System Architecture
+
+Proposed Method
+
+Experimental Results
+
+Delay Management: Node Sync
+Synchronization Achieved
+
+Conclusion
+
+49
+
+

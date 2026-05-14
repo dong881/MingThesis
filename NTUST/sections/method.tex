@@ -3,23 +3,23 @@
 \chapter{所提方法}
 \label{sec:method}
 
-\textcolor{blue}{本章節詳細介紹所提出的動態定時調整演算法。為了解決 PNF 與 VNF 之間封包傳輸過程中的不穩定延遲，我們提出了一種「雙迴路定時控制架構 (Dual-Loop Timing Control Architecture)」。}
+\textcolor{blue}{本章節詳細介紹所提出的動態定時調整演算法。為了解決 PNF 與 VNF 之間封包傳輸過程中的不穩定延遲，我們提出了一種「自適應提前時槽機制 (Adaptive Slots Ahead mechanism)」。}
 
-\section{自適應定時控制架構}
+\section{延遲管理架構}
 \label{subsec:timing_control_architecture}
 
-\textcolor{blue}{本系統的定時控制聚焦於同步與延遲管理的邏輯層面，確保 VNF 端的定時提前能夠靈活應對網路抖動，且不會引起預期外的震盪。此架構透過兩個主要的邏輯組件運作，兩者之間實現了無縫互動：
+\textcolor{blue}{本系統的定時控制聚焦於同步與延遲管理的邏輯層面，確保 VNF 端的提前時槽能夠靈活應對網路抖動，且不會引起預期外的震盪。此架構透過兩個主要的邏輯組件運作，兩者之間實現了無縫互動：
 \begin{enumerate}
-    \item \textbf{自適應節點同步 (Adaptive Node Synchronization)：} 聚焦於微秒級的相位對齊。它持續監控來自 PNF 的定時偏移量，確保 VNF 的絕對喚醒時間精確追蹤 PNF 的時鐘，從而吸收低層的傳輸抖動。
-    \item \textbf{觸發定時控制 (Trigger Timing Control)：} 聚焦於時槽 (Slot) 級別的延遲管理。它透過收斂優化演算法動態分析 PNF 回報的統計數據，以決定全域目標提前時槽 ($S_{\text{ahead}}$)，確保排程指令始終符合 PNF 嚴格的定時時窗約束。
+    \item \textbf{節點同步 (Node Sync)：} 確保 VNF 與 PNF 之間的訊框與時槽邊界對齊。它監控定時偏移量以維持同步，從而吸收低層的傳輸抖動。
+    \item \textbf{延遲管理 (Delay Management)：} 聚焦於時槽 (Slot) 級別的延遲管理。它透過收斂優化演算法動態分析 PNF 回報的統計數據，以決定全域目標提前時槽 ($S_{\text{ahead}}$)，確保排程指令始終符合 PNF 嚴格的定時時窗約束。
 \end{enumerate}}
 
-\section{自適應節點同步}
+\section{節點同步}
 \label{subsec:node_sync}
 \textcolor{blue}{為了實現微秒級的相位對齊，系統採用了類似 IEEE 1588 (PTP) 的時間戳記交換機制。當 VNF 收到 \textit{UL\_node\_sync} 訊息時，它根據四個時間戳記 ($t_1$ 至 $t_4$) 計算瞬時定時偏移量 ($offset$)。為了避免瞬時突波，使用指數加權移動平均 (EWMA) 模型對 $offset$ 及其變動量 ($error$) 進行平滑處理，產生平均偏移量 ($\mu_{offset}$) 與平均絕對離差 ($dev_{offset}$)，並利用平滑因子 $\alpha$ 與 $\beta$ 進行調整。接著，直接從估計的抖動 ($dev_{offset}$) 導出動態同步閾值 ($Threshold$)。如果絕對偏移量超出此閾值，系統會根據時槽長度 ($\text{slot\_duration}$) 將偏移量分解為時槽調整量 ($S_{adj}$) 與微秒級調整量 ($\mu s_{adj}$)。這些參數隨後由 VNF 定時致動器 (VNF Timing Actuator) 使用，以精確對齊本地時鐘。此過程總結於演算法~\ref{alg:node_sync_simplified}。}
 
 \begin{algorithm}[H]
-\caption{自適應節點同步 (Adaptive Node Synchronization)}
+\caption{節點同步 (Node Sync)}
 \label{alg:node_sync_simplified}
 \small
 \begin{algorithmic}[1]
@@ -56,14 +56,14 @@
 \end{algorithmic}
 \end{algorithm}
 
-\textcolor{blue}{為了對抗波動的網路延遲並維持排程的穩健性，本論文提出了一種動態觸發定時控制策略。在收到定時統計數據（特別是 PNF 回報的最差情況延遲偏移量 $\Delta t_{arrive}$）後，系統計算偏差 ($error$)，並結合受 Jacobson/Karels TCP RTT 演算法啟發的 EWMA 模型，利用平滑因子 $\alpha$ 與 $\beta$ 來估計平均延遲 ($\mu_{delay}$) 與抖動偏差 ($dev_{delay}$)。}
+\textcolor{blue}{為了對抗波動的網路延遲並維持排程的穩健性，本論文提出了一種動態的延遲管理策略。在收到定時統計數據（特別是 PNF 回報的最差情況延遲偏移量 $\Delta t_{arrive}$）後，系統計算偏差 ($error$)，並結合受 Jacobson/Karels TCP RTT 演算法啟發的 EWMA 模型，利用平滑因子 $\alpha$ 與 $\beta$ 來估計平均延遲 ($\mu_{delay}$) 與抖動偏差 ($dev_{delay}$)。}
 
 \textcolor{blue}{在進行追蹤調整之前，演算法建立了多個\textbf{恐慌準則 (Panic Criteria)}。如果絕對偏差超過 $3 \cdot dev_{delay}$，則檢測到統計異常，表明出現了突然的延遲突波。如果 $\Delta t_{arrive} > \text{slot\_duration}$，則發生嚴格違規，意味著封包延遲超過了時槽邊界。任一條件都會觸發\textbf{快速攻擊恐慌模式 (Fast Attack Panic Mode)}，將當前觸發定時 ($S_{curr}$) 激進地增加 1 個時槽來計算下一次觸發定時 ($S_{next}$)，以確保連線連續性並減輕災難性的期限違規。}
 
 \textcolor{blue}{相反地，為了在安全區域內最大化低延遲運行，採用了\textbf{主動延遲縮減 (Proactive Latency Reduction)} 機制。當延遲安全地低於絕對邊界 ($\Delta t_{arrive} \le \text{Safe\_Margin}$) 時，穩定計數器 ($count_{stable}$) 遞增。一旦此計數器超過隨 $dev_{delay}$ 動態縮放的自適應穩定閾值 ($N_{stable}$)，系統會謹慎地將 $S_{curr}$ 減少 1 以確定 $S_{next}$。這種非對稱響應（快速擴張、緩慢衰減）可防止乒乓震盪，同時最小化往返時間。最後，$S_{next}$ 被限制在允許的 nFAPI 定時時窗內。調整策略濃縮於演算法~\ref{alg:delay_manager_simplified}。}
 
 \begin{algorithm}[H]
-\caption{觸發定時控制 (Trigger Timing Control)}
+\caption{延遲管理 (Delay Management)}
 \label{alg:delay_manager_simplified}
 \small
 \begin{algorithmic}[1]

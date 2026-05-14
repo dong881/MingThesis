@@ -36,7 +36,7 @@
 \label{subsec:C_odu_low}
 \textcolor{blue}{O-DU Low 管理物理層的高層基頻處理 (High PHY)。在此層級中，最關鍵的同步機制是 nFAPI PNF 定時時窗 (Timing Window)：
 \begin{itemize}
-\item \textbf{定時時窗 (Timing Window)：} 一個預定義且嚴格的時間區間。當 O-DU High 發送的排程訊息（特別是 \texttt{DL\_TTI.request}）在網路中傳輸時，它必須準確地送達並恰好落在該時窗內。否則，高層物理層將拒絕該訊息，導致無法處理該子訊框 (Subframe) 的資料。
+\item \textbf{定時時窗 (Timing Window)：} 一個預定義且嚴格的時間區間。當 O-DU High 發送的排程訊息（特別是 \texttt{DL\_TTI.request}）在網路中傳輸時，它必須準確地送達並恰好落在該時窗內。否則，高層物理層將拒絕該訊息，導致無法處理該時槽 (Slot) 的資料。
 \item \textbf{定時資訊 ($\Delta t_{arrive}$)：} PNF 持續監控控制訊息相對於傳輸期限 (Deadline) 的確切到達偏移量。此偏移量表示為 $\Delta t_{arrive}$，代表定時時窗內的剩餘時間裕度。PNF 定期將此資訊傳回 MAC 層的延遲管理器。這建立了一個閉迴路回饋控制系統，用以補償 VNF 與 PNF 機器之間不可預測的傳輸延遲變動。
 \end{itemize}}
 

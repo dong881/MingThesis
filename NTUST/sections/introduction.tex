@@ -88,7 +88,7 @@ L_{total} = L_{prop} + L_{trans} + L_{proc}^{DU} + L_{proc}^{RU} + L_{queue}
 
 雖然 Option 6 具有靈活的定時調整能力，且對於非理想前傳具備較佳的容忍度，但在實務部署中仍面臨嚴峻挑戰。隨著 5G 網路邁向雲端化，託管 MAC 層的虛擬網路功能 (VNF) 通常部署於通用處理器 (GPP) 上。這種虛擬化環境引入了非確定性的作業系統排程延遲以及與 UE 數量呈正相關的處理負載變動 \cite{Foukas2021_ICC, ComplexityPFS2019_WCNC}。
 
-在現有的開源實作（如 OpenAirInterface）中，定時調整機制仍未完全成熟。靜態的定時提前 (Timing Advance) 配置在面臨網路抖動或運算負載突增時，極易導致「Missing Subframe」錯誤，即排程指令無法準時抵達 RU。這不僅會造成通訊中斷，更限制了 VNF 在動態雲端環境中的彈性擴展能力。
+在現有的開源實作（如 OpenAirInterface）中，定時調整機制仍未完全成熟。靜態的提前時槽 (Slots Ahead) 配置在面臨網路抖動或運算負載突增時，極易導致「Missing Slot Packet」錯誤，即排程指令無法準時抵達 RU。這不僅會造成通訊中斷，更限制了 VNF 在動態雲端環境中的彈性擴展能力。
 
 因此，本論文的核心研究問題定義如下：在非確定性的雲端處理負載與網路抖動下，如何動態且精準地補償 nFAPI Split 6 架構中的端到端延遲？
 
@@ -124,8 +124,8 @@ L_{total} = L_{prop} + L_{trans} + L_{proc}^{DU} + L_{proc}^{RU} + L_{queue}
 針對上述問題，本論文的主要貢獻如下：
 \begin{itemize}
 \item \textbf{nFAPI Split 6 的多維延遲量化分析：} 我們系統性地分析並量化了影響同步失效的非確定性因素，包括 Linux 核心排程抖動、VNF 處理負載以及網路佇列延遲。
-\item \textbf{自適應提前時間控制 (Adaptive Advance-Time Control) 演算法：} 我們提出了一種雙迴路架構的動態定時調整機制。透過「收斂優化迴路」估計即時抖動趨勢，並由「VNF 定時致動器」動態調整提前時槽 ($S_{ahead}$)，確保 P7 訊息的準時性。
-\item \textbf{端到端商用測試平台驗證：} 我們在 OpenAirInterface 平台上實作了所提機制，並結合商用 UE 與 O-RU 進行驗證。實驗結果顯示，該機制能有效消除 Missing Subframe 錯誤，並在高度擁塞的環境下維持穩定的網路吞吐量與低時延特性。
+\item \textbf{自適應提前時槽 (Adaptive Slots Ahead) 機制：} 我們提出了一種基於節點同步與延遲管理 (Delay Management) 的動態調整機制。透過 EWMA 模型平滑定時資訊以估計即時抖動趨勢，並動態調整提前時槽 ($S_{ahead}$)，確保排程訊息的準時性。
+\item \textbf{端到端商用測試平台驗證：} 我們在 OpenAirInterface 平台上實作了所提機制，並結合商用 UE 與 O-RU 進行驗證。實驗結果顯示，該機制能有效消除 Missing Slot Packet 錯誤，並在高度擁塞的環境下維持穩定的網路吞吐量與低時延特性。
 \end{itemize}
 
 \end{document}

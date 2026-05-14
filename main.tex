@@ -1,5 +1,8 @@
 
-\documentclass[conference]{IEEEtran}
+\documentclass[10pt, conference, letterpaper]{IEEEtran}
+\pdfpagewidth=8.5in
+\pdfpageheight=11in
+
 \usepackage{cite}
 \usepackage{amsmath,amssymb,amsfonts}
 \usepackage{algpseudocode}
@@ -9,13 +12,11 @@
 \usepackage{tabularx}
 \usepackage{color}
 \usepackage{booktabs}
-\usepackage[encapsulated]{CJK}
 \usepackage{url}
 \usepackage{algorithm}
 \usepackage{algpseudocode}
 
 \begin{document}
-\begin{CJK}{UTF8}{bsmi}
 \title{Adaptive Slots Ahead for nFAPI Split under Unpredictable network congestion}
 \author{
   \IEEEauthorblockN{Ming-Hong HSU\IEEEauthorrefmark{1}, Ray-Guang Cheng\IEEEauthorrefmark{1}, and Co-author 1\IEEEauthorrefmark{2}}
@@ -41,7 +42,7 @@ nFAPI, O-RAN, Functional Split, Adaptive Control.
 
 \textcolor{blue}{These splits present distinct synchronization requirements and management strategies. Option 2 relies on sequence numbers and deep buffering over general packet-switched networks, making its timing constraints relatively relaxed. Option 7.2 \cite{oran_wg4_cus}, operating within the physical layer, demands strict phase/symbol-level synchronization enforced by hardware Precision Time Protocol (PTP) over Time-Sensitive Networking (TSN). Occupying a unique intermediate position is Option 6 (standardized as nFAPI by the Small Cell Forum \cite{SCF225}), which separates the MAC and PHY layers. Option 6 requires frame/slot-level synchronization and focuses on delay management, offering the flexibility to operate over general packet-switched networks without the prohibitive costs of TSN.}
 
-\textcolor{blue}{The rationale for deploying the MAC layer (O-DU High) in a cloud environment via Option 6 is primarily driven by resource pooling, as Layer 2 processing complexity scales dynamically with user equipment (UE) density \cite{Foukas2021_ICC}. However, migrating the MAC layer to a Virtualized Network Function (VNF) introduces endogenous processing latency that compresses the available margin for fronthaul transmission delay. Unlike Option 7.2, which rigidly drops out-of-window packets, Option 6 must adaptively manage delays to ensure slot-level synchronization over non-deterministic Ethernet transport. Existing open-source implementations typically employ static timing advance configurations, which fail to accommodate dynamic network jitter and server processing variations, leading to frequent scheduling failures (e.g., missing slot packet).}
+\textcolor{blue}{The rationale for deploying the MAC layer (O-DU High) in a cloud environment via Option 6 is primarily driven by resource pooling, as Layer 2 processing complexity scales dynamically with user equipment (UE) density \cite{Foukas2021_ICC}. However, migrating the MAC layer to a Virtualized Network Function (VNF) introduces endogenous processing latency that compresses the available margin for fronthaul transmission delay. Unlike Option 7.2, which rigidly drops out-of-window packets, Option 6 must adaptively manage delays to ensure slot-level synchronization over non-deterministic Ethernet transport. Existing open-source implementations typically employ static slots ahead configurations, which fail to accommodate dynamic network jitter and server processing variations, leading to frequent scheduling failures (e.g., missing slot packet).}
 
 \textcolor{blue}{This highlights a fundamental gap in current disaggregated RAN designs: the lack of adaptive timing control mechanisms for intermediate-layer splits operating under non-ideal transport environments.}
 
@@ -55,16 +56,16 @@ nFAPI, O-RAN, Functional Split, Adaptive Control.
 
 \textcolor{blue}{In this paper, we focus on the nFAPI-based Option 6 split as a representative case of timing-sensitive yet transport-flexible RAN disaggregation. While Option 6 offers significant advantages in terms of reduced fronthaul bandwidth and deployment flexibility, its performance is highly sensitive to non-deterministic latency introduced by transport networks and server processing.}
 
-\textcolor{blue}{We identify that the root cause of performance degradation in such systems lies in the inability of the MAC scheduler to adapt its transmission timing to dynamic end-to-end latency variations. Existing open-source implementations, such as OpenAirInterface (OAI), typically employ static timing advance configurations, which fail to accommodate fluctuating network conditions, leading to frequent synchronization failures and throughput degradation.}
+\textcolor{blue}{We identify that the root cause of performance degradation in such systems lies in the inability of the MAC scheduler to adapt its transmission timing to dynamic end-to-end latency variations. Existing open-source implementations, such as OpenAirInterface (OAI), typically employ static slots ahead configurations, which fail to accommodate fluctuating network conditions, leading to frequent synchronization failures and throughput degradation.}
 
-\textcolor{blue}{To address this issue, we propose an adaptive timing control framework that dynamically adjusts scheduling lead time based on real-time latency estimation. The proposed approach introduces a dual-loop architecture, where a convergence optimization loop estimates end-to-end delay characteristics, and a timing actuator dynamically compensates for timing offsets to ensure that scheduling messages arrive within the valid timing window.}
+\textcolor{blue}{To address this issue, we propose an adaptive timing control framework that dynamically adjusts scheduling lead time based on real-time latency estimation. The proposed approach consists of two main components: Node Sync, which aligns frame and slot boundaries between the VNF and PNF, and Delay Management, which applies an Exponentially Weighted Moving Average (EWMA) to smooth the timing information and dynamically adjust the slots ahead to ensure that scheduling messages arrive within the valid timing window.}
 
 \textcolor{blue}{The main contributions of this paper are summarized as follows:}
 
 \begin{itemize}
 \item \textcolor{blue}{\textbf{Systematic Analysis of Timing Uncertainty in Split 6:} We characterize the impact of non-deterministic latency, including network jitter and processing delay, on synchronization stability in disaggregated RAN systems.}
-\item \textcolor{blue}{\textbf{Adaptive Advance-Time Control Algorithm:} We propose a dynamic timing adjustment mechanism that continuously aligns scheduling decisions with varying transport delays, effectively mitigating timing violations.}
-\item \textcolor{blue}{\textbf{Experimental Validation on OAI Platform:} We implement the proposed framework in a real-world testbed and demonstrate that it eliminates missing subframe errors and significantly improves throughput stability under non-ideal fronthaul conditions.}
+\item \textcolor{blue}{\textbf{Adaptive Slots Ahead mechanism:} We propose a dynamic timing adjustment mechanism that continuously aligns scheduling decisions with varying transport delays, effectively mitigating timing violations.}
+\item \textcolor{blue}{\textbf{Experimental Validation on OAI Platform:} We implement the proposed framework in a real-world testbed and demonstrate that it eliminates missing slot packet errors and significantly improves throughput stability under non-ideal fronthaul conditions.}
 \end{itemize}
 
 \section{System Model}
@@ -103,7 +104,7 @@ nFAPI, O-RAN, Functional Split, Adaptive Control.
 \label{subsec:C_odu_low}
 \textcolor{blue}{The O-DU Low manages the higher-level baseband processing of the physical layer (High PHY). At this level, the most critical synchronization mechanism is the nFAPI PNF Timing Window:
 \begin{itemize}
-\item \textbf{Timing Window:} A predefined, strict time duration. When the scheduling message (specifically the \texttt{DL\_TTI.request}) sent by the O-DU High propagates across the network, it must accurately arrive and fall exactly within this Window. Otherwise, the High PHY will reject the message and fail to process the subframe data.
+\item \textbf{Timing Window:} A predefined, strict time duration. When the scheduling message (specifically the \texttt{DL\_TTI.request}) sent by the O-DU High propagates across the network, it must accurately arrive and fall exactly within this Window. Otherwise, the High PHY will reject the message and fail to process the slot data.
 \item \textbf{Timing Info ($\Delta t_{arrive}$):} The PNF continuously monitors the exact arrival offset of control messages relative to the transmission deadline. This offset, denoted as $\Delta t_{arrive}$, represents the remaining time margin within the timing window. The PNF periodically sends this information back to the Delay Manager in the MAC layer. This establishes a closed-loop feedback control system, compensating for the unpredictable transmission latency variations between the VNF and PNF machines.
 \end{itemize}}
 
@@ -125,23 +126,23 @@ Note that RTT denotes the Round-Trip Time. To validate the split-architecture st
 \section{Proposed Method}
 \label{sec:proposed_method}
 
-\textcolor{blue}{This section details the proposed dynamic timing adjustment algorithm. To resolve the unstable latency during packet transmission between the PNF and VNF, we propose an Adaptive Timing Control Architecture.}
+\textcolor{blue}{This section details the proposed dynamic timing adjustment algorithm. To resolve the unstable latency during packet transmission between the PNF and VNF, we propose an Adaptive Slots Ahead mechanism.}
 
-\subsection{Adaptive Timing Control Architecture}
+\subsection{Delay Management Architecture}
 \label{subsec:timing_control_architecture}
 
-\textcolor{blue}{The timing control of this system focuses on the logical aspects of synchronization and delay management, ensuring that the timing advancement on the VNF side can flexibly cope with network jitter without inducing unexpected oscillations. The architecture operates through two primary logical components that interact seamlessly:
+\textcolor{blue}{The timing control of this system focuses on the logical aspects of synchronization and delay management, ensuring that the slots ahead on the VNF side can flexibly cope with network jitter without inducing unexpected oscillations. The architecture operates through two primary logical components that interact seamlessly:
 \begin{enumerate}
-    \item \textbf{Adaptive Node Synchronization:} Focuses on microsecond-level phase alignment. It continuously monitors the timing offset from the PNF and ensures the VNF's clock precisely tracks the PNF's clock, absorbing low-level transport jitter.
-    \item \textbf{Trigger Timing Control:} Focuses on slot-level delay management. It dynamically analyzes the statistical data reported by the PNF through the convergence optimization algorithm to determine the target slot-ahead ($S_{next}$), guaranteeing that scheduling instructions always meet the PNF's strict timing window constraints.
+    \item \textbf{Node Sync:} Ensures frame and slot boundary alignment between the VNF and PNF. It monitors the timing offset to maintain synchronization, absorbing transport jitter.
+    \item \textbf{Delay Management:} Focuses on slot-level delay management. It dynamically analyzes the statistical data reported by the PNF through the convergence optimization algorithm to determine the target slot-ahead ($S_{next}$), guaranteeing that scheduling instructions always meet the PNF's strict timing window constraints.
 \end{enumerate}}
 
-\subsection{Adaptive Node Synchronization}
+\subsection{Node Sync}
 \label{subsec:node_sync}
 \textcolor{blue}{To achieve microsecond-level phase alignment, the system utilizes an IEEE 1588 (PTP) style timestamp exchange. When the VNF receives the \textit{UL\_node\_sync} message, it calculates the instantaneous timing offset ($offset$) based on four timestamps ($t_1$ to $t_4$). To avoid transient spikes, the $offset$ and its variation ($error$) are smoothed using an Exponentially Weighted Moving Average (EWMA) model to produce the mean offset ($\mu_{offset}$) and the mean absolute deviation ($dev_{offset}$), utilizing smoothing factors $\alpha$ and $\beta$. A dynamic synchronization threshold ($Threshold$) is then derived directly from the estimated jitter ($dev_{offset}$). If the absolute $offset$ exceeds this $Threshold$, the system breaks the $offset$ down into a slot adjustment ($S_{adj}$) and a microsecond-level adjustment ($\mu s_{adj}$) based on the slot duration ($\text{slot\_duration}$). These parameters are subsequently consumed by the VNF Timing Actuator to precisely align the local clock. The process is summarized in Algorithm~\ref{alg:node_sync_simplified}.}
 
 \begin{algorithm}
-\caption{Adaptive Node Synchronization}
+\caption{Node Sync}
 \label{alg:node_sync_simplified}
 \begin{algorithmic}[1]
 \Require $t_1, t_2, t_3$ (Timestamps from PNF \textit{UL\_node\_sync}), $t_4$ (VNF local receive timestamp)
@@ -178,7 +179,7 @@ Note that RTT denotes the Round-Trip Time. To validate the split-architecture st
 \end{algorithmic}
 \end{algorithm}
 
-\subsection{Trigger Timing Control (Convergence Optimization)}
+\subsection{Delay Management}
 \label{subsec:convergence_optimization}
 
 \textcolor{blue}{To counteract fluctuating network latency and maintain scheduling robustness, this paper proposes a dynamic trigger timing control policy. Upon receiving timing statistics, specifically the worst-case late arrival offset ($\Delta t_{arrive}$) reported by the PNF, the system computes the deviation ($error$) and incorporates an EWMA model inspired by the Jacobson/Karels TCP RTT algorithm to estimate the mean latency ($\mu_{delay}$) and jitter deviation ($dev_{delay}$), utilizing smoothing factors $\alpha$ and $\beta$.}
@@ -188,7 +189,7 @@ Note that RTT denotes the Round-Trip Time. To validate the split-architecture st
 \textcolor{blue}{Conversely, to maximize low-latency operation in safe zones, a \textbf{Proactive Latency Reduction} mechanism is used. When the latency operates safely below an absolute boundary ($\Delta t_{arrive} \le \text{Safe\_Margin}$), a stability counter ($count_{stable}$) increments. Once this counter exceeds an adaptive stability threshold ($N_{stable}$) which scales dynamically by $dev_{delay}$, the system cautiously drops $S_{curr}$ by 1 to determine $S_{next}$. This asymmetric response (fast expansion, slow decay) prevents ping-pong oscillation while minimizing round-trip time. Finally, $S_{next}$ is limited within the allowable nFAPI timing window. The adjustment strategy is condensed in Algorithm~\ref{alg:delay_manager_simplified}.}
 
 \begin{algorithm}
-\caption{Trigger Timing Control}
+\caption{Delay Management}
 \label{alg:delay_manager_simplified}
 \begin{algorithmic}[1]
 \Require $\Delta t_{arrive}$ (Timing offset info from PNF)
@@ -331,9 +332,8 @@ Fronthaul & O-RAN F release \\
 \section{Conclusion}
 \label{sec:conclusion}
 
-\textcolor{blue}{This paper presented a dynamic timing adjustment framework for disaggregated RAN architectures, specifically focusing on the nFAPI-based Split Option 6 over non-ideal packet-switched networks. Recognizing the limitations of static timing configurations under unpredictable network jitter and server processing delays, we proposed an adaptive slot-ahead control mechanism based on Exponentially Weighted Moving Average (EWMA) to dynamically track and mitigate network latency variations. Experimental validations conducted on the OpenAirInterface (OAI) platform with a commercial Pegatron O-RU demonstrated that the proposed method effectively eliminates synchronization failures and maintains resilient system throughput, even under severe network congestion. Unlike existing solutions that rely on expensive hardware-level synchronization or specialized acceleration, our software-based approach offers a cost-effective and flexible alternative for deploying robust O-RAN systems on general-purpose Commercial Off-the-Shelf (COTS) servers.}
+\textcolor{blue}{This paper presented a dynamic timing adjustment framework for disaggregated RAN architectures, specifically focusing on the nFAPI-based Split Option 6 over non-ideal packet-switched networks. Recognizing the limitations of static slots ahead configurations under unpredictable network jitter and server processing delays, we proposed an Adaptive Slots Ahead mechanism based on Exponentially Weighted Moving Average (EWMA) to dynamically track and mitigate network latency variations. Experimental validations conducted on the OpenAirInterface (OAI) platform with a commercial Pegatron O-RU demonstrated that the proposed method effectively eliminates synchronization failures and maintains resilient system throughput, even under severe network congestion. Unlike existing solutions that rely on expensive hardware-level synchronization or specialized acceleration, our software-based approach offers a cost-effective and flexible alternative for deploying robust O-RAN systems on general-purpose Commercial Off-the-Shelf (COTS) servers.}
 
-\end{CJK}
 \bibliographystyle{IEEEtran}
 \bibliography{references}
 \end{document}
