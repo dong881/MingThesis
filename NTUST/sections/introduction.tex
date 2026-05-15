@@ -6,18 +6,18 @@
 \section{研究背景與 O-RAN 架構演進}
 \label{sec:background}
 
-在第五代 (5G) 及即將到來的第六代 (6G) 行動通訊標準的架構演進中，無線接取網路 (Radio Access Network, RAN) 經歷了從傳統的封閉式單體基站 (Monolithic Base Station) 向高度虛擬化、雲端化及解構化 (Disaggregated) 架構的根本性變革。傳統架構下，基頻處理與無線電射頻 (RF) 功能被緊密綁定於單一供應商的專有硬體設備中，這不僅限制了網路佈署的靈活性，亦大幅增加了營運商的資本支出 (CAPEX) 與營運支出 (OPEX)。
+在第五代 (5G) 及即將到來的第六代 (6G) 行動通訊標準的架構演進中，無線接取網路 (Radio Access Network, RAN) 經歷了從傳統的封閉式單體基站 (Monolithic Base Station) 向高度虛擬化、雲端化及解耦化 (Disaggregated) 架構的根本性變革。傳統架構下，基頻處理與無線電射頻 (RF) 功能被緊密綁定於單一供應商的專有硬體設備中，這不僅限制了網路佈署的靈活性，亦大幅增加了營運商的資本支出與營運支出。
 
-雲端無線接取網路 (Cloud-RAN 或 C-RAN) 的出現開啟了解構化的序幕，將基頻處理單元 (BBU) 集中至遠端的運算池 (BBU Pool)，並將遠端無線電頭端 (RRH) 保留於蜂巢站點，兩者透過通用公共無線電介面 (CPRI) 進行連接。然而，C-RAN 的架構仍受限於龐大的前傳網路 (Fronthaul) 頻寬需求與嚴苛的延遲限制。為解決上述瓶頸並徹底打破供應商鎖定 (Vendor Lock-in) 的困境，O-RAN 聯盟 (O-RAN Alliance) 與第三代合作夥伴計畫 (3GPP) 共同推動了 RAN 的進一步解構，將傳統的 BBU 與 RRH 在邏輯與物理上正式拆分為三個獨立的網路實體：中央單元 (Central Unit, CU)、分散單元 (Distributed Unit, DU) 以及無線電單元 (Radio Unit, RU) \cite{3gpp_tr_38_801, agarwal2025open}。
+隨著雲端無線接取網路 (Cloud-RAN) 的興起，解耦化的部署方式逐漸普及，其將基頻處理單元 (BBU) 集中至遠端的運算池 (BBU Pool)，並將遠端無線電頭端 (RRH) 保留於邊緣站點，兩者透過通用公共無線電介面 (CPRI) 進行連接。然而，C-RAN 的架構仍受限於龐大的前傳網路 (Fronthaul) 頻寬需求與嚴苛的延遲限制。為解決上述瓶頸並徹底打破供應商鎖定 (Vendor Lock-in) 的困境，O-RAN 聯盟 (O-RAN Alliance) 與第三代合作夥伴計畫 (3GPP) 共同推動了 RAN 的進一步解耦，將傳統的 BBU 與 RRH 在邏輯與物理上正式拆分為三個獨立的網路實體：中央單元 (Central Unit, CU)、分散單元 (Distributed Unit, DU) 以及無線電單元 (Radio Unit, RU) \cite{3gpp_tr_38_801, agarwal2025open}。
 
-在這種解構模型中，「功能切分選項」 (Functional Split Options) 成為了決定網路效能、硬體複雜度、頻寬消耗以及延遲容忍度的最關鍵設計核心 \cite{larsen2019comparison, 10186379}。3GPP 標準化了八種主要的功能切分選項，其中高層切分 (High Layer Split, HLS，即 Option 2) 將 CU 與 DU 分離，已被廣泛認定為具備最佳成本效益比的標準配置。然而，在低層切分 (Lower Layer Split, LLS) 領域，也就是 DU 與 RU 之間的介面定義，技術標準仍呈現高度分歧。不同的切分選項被提出以適應多樣化的網路需求與佈署場景，其中最具代表性的兩種選項分別為 O-RAN 聯盟主推的 Split 7.2x (Low-PHY 切分) 以及由小型基地台論壇 (Small Cell Forum, SCF) 倡導的 Split 6 (MAC-PHY 切分) \cite{SCF225, oran_wg4_cus}。
+在這種解耦模型中，「功能切分選項」 (Functional Split Options) 成為了決定網路效能、硬體複雜度、頻寬消耗以及延遲容忍度的最關鍵設計核心 \cite{larsen2019comparison, 10186379}。3GPP 標準化了八種主要的功能切分選項，其中高層切分 (High Layer Split, HLS，即 Option 2) 將 CU 與 DU 分離，已被廣泛認定為具備最佳成本效益比的標準配置。然而，在低層切分 (Lower Layer Split, LLS) 領域，也就是 DU 與 RU 之間的介面定義，技術標準仍呈現高度分歧。不同的切分選項被提出以適應多樣化的網路需求與佈署場景，其中最具代表性的兩種選項分別為 O-RAN 聯盟主推的 Split 7.2x (Low-PHY 切分) 以及由小型基地台論壇 (Small Cell Forum, SCF) 倡導的 Split 6 (MAC-PHY 切分) \cite{SCF225, oran_wg4_cus}。
 
 \section{Split 6 (MAC-PHY) 切分技術與 nFAPI 標準}
 \label{sec:split6_nfapi}
 
-\subsection{協定堆疊解構與底層運作力學}
+\subsection{協定堆疊的結構解析與底層運作機制}
 
-要深刻理解 Split 6 切分選項的戰略價值與技術挑戰，必須首先剖析 5G NR (New Radio) 協定堆疊的計算責任分配。在極端集中的架構（如 Split 8）中，所有的數位基頻處理（包含整個 PHY 層）皆在 DU 執行，RU 僅負責數位類比轉換與類比射頻訊號的放大與發射。此配置雖然能將多節點協同處理 (如 CoMP) 的增益最大化，但其致命缺點在於前傳網路必須傳輸未經壓縮的高解析度同相與正交 (IQ) 訊號樣本，需要數十至數百 Gbps 的頻寬，且對延遲抖動 (Jitter) 的容忍度極低 \cite{fayad2024toward}。
+要深刻理解 Split 6 切分選項的戰略價值與技術挑戰，必須首先剖析 5G NR (New Radio) 協定堆疊的計算責任分配。在極端集中的架構（如 Split 8）中，所有的數位基頻處理（包含整個 PHY 層）皆在 DU 執行，RU 僅負責數位類比轉換與類比射頻訊號的放大與發射。此配置雖然能將多節點協同處理的增益最大化，但其致命缺點在於前傳網路必須傳輸未經壓縮的高解析度同相與正交 (IQ) 訊號樣本，需要數十至數百 Gbps 的頻寬，且對延遲抖動 (Jitter) 的容忍度極低 \cite{fayad2024toward}。相較之下，目前 O-RAN 聯盟主推的 Split 7.2x 則將切分點設於實體層內部（Low-PHY），雖然將部分運算（如 FFT/IFFT）移至 RU 以減輕前傳壓力，但其前傳頻寬需求仍與系統頻寬及天線數量成正比，對於大規模天線陣列 (Massive MIMO) 的部署而言，頻寬負荷依然沉重。此外，Split 7.2x 對時序同步的要求極其嚴苛，通常需要硬體級的精確時間協定 (PTP) 支援以維持嚴格的相位同步。相比之下，Split 6 (MAC-PHY) 將整個實體層功能下放至 RU，前傳網路僅傳輸封包化的 MAC PDU，這不僅大幅降低了對傳輸網路的頻寬要求，也顯著提升了對前傳網路延遲抖動的容忍度。
 
 Split 6 的核心設計理念，便是將架構邊界精準地劃設於 MAC 層與 PHY 層之間 \cite{douros2018nfapi}。在此架構下，O-DU 負責執行 RLC 與 MAC 層的邏輯運算，而 O-RU 則包攬了 PHY 層的複雜數位訊號處理（包含通道編碼、調變、FFT 等）。前傳網路不再傳輸龐大的 IQ 樣本，而是傳輸經過 MAC 層排程後的「MAC 協定資料單元 (MAC PDUs)」。MAC PDU 的資料傳輸速率嚴格依賴於使用者的實際負載 (Payload)，而非射頻通道的理論最大頻寬。因此，Split 6 能將前傳網路的容量需求降低一個數量級，在頻寬受限的傳輸網路中具有革命性優勢。
 
@@ -56,7 +56,7 @@ URLLC 頻寬因子 & 極高 (常數) & 7.634 & 1.070 \\
 
 \subsection{數學建模與拓撲最佳化}
 
-在封包交換網路中滿足 nFAPI 的時序限制是核心難題。解構化 RAN 的端到端處理與傳輸延遲 ($L_{total}$) 可以被拆解為：
+在封包交換網路中滿足 nFAPI 的時序限制是核心難題。解耦化 RAN 的端到端處理與傳輸延遲 ($L_{total}$) 可以被拆解為：
 \begin{equation}
 L_{total} = L_{prop} + L_{trans} + L_{proc}^{DU} + L_{proc}^{RU} + L_{queue}
 \end{equation}
