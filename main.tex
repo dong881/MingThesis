@@ -17,7 +17,7 @@
 \usepackage{algpseudocode}
 
 \begin{document}
-\title{Adaptive Slots Ahead for nFAPI Split under Unpredictable Network Congestion}
+\title{Adaptive Timing Control for Throughput–Latency Trade-off in nFAPI Split}
 \author{
   \IEEEauthorblockN{Ming-Hong HSU\IEEEauthorrefmark{1}, Ray-Guang Cheng\IEEEauthorrefmark{1}, and Co-author 1\IEEEauthorrefmark{2}}
   \IEEEauthorblockA{\IEEEauthorrefmark{1}Dept. of Electronic and Computer Engineering, National Taiwan University of Science and Technology, Taiwan}
@@ -28,7 +28,7 @@
 \maketitle
 
 \begin{abstract}
-% TODO: Briefly summarize the problem, method, results, and contribution.
+\textcolor{blue}{In the Open Radio Access Network (O-RAN) architecture, functional split Option 6 (standardized as nFAPI) provides deployment flexibility over general packet-switched networks by decoupling the MAC and PHY layers, avoiding the prohibitive costs of Time-Sensitive Networking (TSN). However, migrating the MAC layer to a Virtualized Network Function (VNF) in a cloud environment introduces non-deterministic transport and processing latency. Existing open-source implementations rely on static slot-ahead timing configurations, which fail to adapt to unpredictable network jitter, leading to severe scheduling failures and throughput degradation. To address this challenge, this paper proposes an adaptive timing control framework for non-ideal fronthaul environments. The proposed method employs an Exponentially Weighted Moving Average (EWMA) to dynamically estimate network delay and proactively adjust the scheduling slot-ahead, ensuring control messages arrive within the strict timing window of the Physical Network Function (PNF). Experimental validations on an OpenAirInterface (OAI) testbed integrated with a commercial O-RAN Radio Unit (O-RU) demonstrate that the proposed adaptive mechanism effectively eliminates synchronization failures, maintains stable Hybrid Automatic Repeat Request (HARQ) round-trip times, and ensures resilient system throughput under severe network congestion.}
 \end{abstract}
 
 \begin{IEEEkeywords}
