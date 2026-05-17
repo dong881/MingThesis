@@ -13,21 +13,21 @@
 \textcolor{blue}{測試平台環境連接了一系列高效能伺服器、無線單元與商用智慧型手機。端到端網路部署的詳細軟硬體配置如下表所示。}
 
 \begin{table}[!htbp]
-\caption{測試平台節點配置}
-\label{tab:node_config}
-\centering
-\begin{tabular}{l|l}
-\toprule
-\textbf{單元} & \textbf{規格} \\
-\midrule
-核心網路 (Core Network, CN) & Open5GS \cite{Open5GS} \\
-軟體協定疊 / 分支 & OpenAirInterface \cite{OAI} (\texttt{2026.w13}) \\
-VNF 伺服器 & Intel\textsuperscript{\tiny\textregistered} Xeon\textsuperscript{\tiny\textregistered} Gold 6226R \cite{IntelXeon622R} 搭配 NetXtreme BCM5719 網卡 \cite{NetXtreme_BCM5719, nic_interface} \\
-PNF 伺服器 & Intel\textsuperscript{\tiny\textregistered} Xeon\textsuperscript{\tiny\textregistered} Gold 6433N \cite{IntelXeon6433N} 搭配 Intel I210 網卡 \cite{Intel_I210, nic_interface} \\
-O-RU & Pegatron RU (P5G-Indoor O-RU-PR1450) \\
-商用現成設備 (COTS UE) & Samsung Galaxy S20 \cite{3GPP.TS.38.101} \\
-\bottomrule
-\end{tabular}
+  \caption{測試平台節點配置}
+  \label{tab:node_config}
+  \centering
+  \begin{tabularx}{\textwidth}{l|L}
+    \toprule
+    \textbf{單元} & \textbf{規格} \\
+    \midrule
+    核心網路 (Core Network, CN) & Open5GS \cite{Open5GS} \\
+    軟體協定疊 / 分支 & OpenAirInterface \cite{OAI} (\texttt{2026.w13}) \\
+    VNF 伺服器 & Intel\textsuperscript{\tiny\textregistered} Xeon\textsuperscript{\tiny\textregistered} Gold 6226R \cite{IntelXeon622R} 搭配 NetXtreme BCM5719 網卡 \cite{NetXtreme_BCM5719, nic_interface} \\
+    PNF 伺服器 & Intel\textsuperscript{\tiny\textregistered} Xeon\textsuperscript{\tiny\textregistered} Gold 6433N \cite{IntelXeon6433N} 搭配 Intel I210 網卡 \cite{Intel_I210, nic_interface} \\
+    O-RU & Pegatron RU (P5G-Indoor O-RU-PR1450) \\
+    商用現成設備 (COTS UE) & Samsung Galaxy S20 \cite{3GPP.TS.38.101} \\
+    \bottomrule
+  \end{tabularx}
 \end{table}
 
 \begin{table}[!htbp]
@@ -62,13 +62,11 @@ MIMO / 埠數 (MIMO / Ports) & 4-layer / 4T4R \\
 
 \begin{figure}[!htbp]
   \centering
-  \subfloat[未應用 EWMA]{\includegraphics[width=0.7\textwidth]{figures/exp1a.png}\label{fig:exp1a}} \\
-  \vspace{0.5cm}
-  \subfloat[已應用 EWMA]{\includegraphics[width=0.7\textwidth]{figures/exp1b.png}\label{fig:exp1b}} \\
-  \vspace{0.5cm}
-  \subfloat[趨勢觀察]{\includegraphics[width=0.7\textwidth]{figures/exp1c.png}\label{fig:exp1c}} \\
-  \vspace{0.5cm}
-  \subfloat[主動提前調整]{\includegraphics[width=0.7\textwidth]{figures/exp1d.png}\label{fig:exp1d}}
+  \subfloat[未應用 EWMA]{\includegraphics[width=0.48\textwidth]{figures/exp1a.png}\label{fig:exp1a}} \hfill
+  \subfloat[已應用 EWMA]{\includegraphics[width=0.48\textwidth]{figures/exp1b.png}\label{fig:exp1b}} \\
+  \vspace{0.2cm}
+  \subfloat[趨勢觀察]{\includegraphics[width=0.48\textwidth]{figures/exp1c.png}\label{fig:exp1c}} \hfill
+  \subfloat[主動提前調整]{\includegraphics[width=0.48\textwidth]{figures/exp1d.png}\label{fig:exp1d}}
   \caption{PNF 到達偏移量 ($\Delta t_{arrive}$) 之 EWMA 處理驗證與主動調整。}
   \label{fig:exp1}
 \end{figure}
