@@ -14,24 +14,24 @@
 
 \subsection{Split Option 2}
 \label{subsec:split2}
-Split Option 2 是一種高層切分 (High Layer Split, HLS) 架構，其主要將 CU 與 DU 進行分離。在這種切分方式下，封包數據匯聚協定 (PDCP) 與無線電資源控制 (RRC) 等高層協定集中於 CU 運行，而較低層的無線電鏈路控制 (RLC)、媒介存取控制 (MAC) 以及實體層 (PHY) 則保留在 DU。這種架構對前傳網路的頻寬與延遲要求較為寬鬆，並且有利於集中化管理與資源池化，因此被廣泛認定為具備最佳成本效益比的標準配置，特別適用於非即時性的資料傳輸場景。
+Split Option 2 是一種高層切分 (High Layer Split, HLS) 架構，其主要將 CU 與 DU 進行分離。在這種切分方式下，封包數據匯聚協定 (PDCP) 與無線電資源控制 (RRC) 等高層協定集中於 CU 運行，而較低層的無線電鏈路控制 (RLC)、媒介存取控制 (MAC) 以及實體層 (PHY) 則保留在 DU。這種架構對前傳網路的頻寬與延遲要求相對寬鬆，能夠輕易地部署於一般封包交換網路 (General packet-switched networks) 中。在同步機制的設計上也非常簡單，由於其容忍度較高，僅需要依賴流量控制 (Flow control) 與深度緩衝區 (Deep Buffering) 即可穩定運作 \cite{larsen2019comparison}，被廣泛認定為具備最佳成本效益比的標準配置，特別適用於非即時性的資料傳輸場景。
 
 \subsection{Split Option 6}
 \label{subsec:split6}
-Split Option 6，又稱為 MAC-PHY 切分，將架構的切割點精準設立於 MAC 層與 PHY 層之間。在此選項中，DU 負責處理包含 MAC 層在內的上層協定，而 RU 則保留了完整的實體層 (PHY) 處理能力。由於前傳網路傳輸的是經過 MAC 層排程後的「MAC 協定資料單元 (MAC PDU)」，其頻寬需求會根據使用者的實際負載動態調整，而非受限於通道的最大頻寬。這種特性使得 Split Option 6 能在頻寬受限的傳輸網路中展現極大的彈性與優勢。
+Split Option 6，又稱為 MAC-PHY 切分，將架構的切割點精準設立於 MAC 層與 PHY 層之間。在此選項中，DU 負責處理包含 MAC 層在內的上層協定，而 RU 則保留了完整的實體層 (PHY) 處理能力。由於前傳網路傳輸的是經過 MAC 層排程後的「MAC 協定資料單元 (MAC PDU)」，其頻寬需求會根據使用者的實際負載動態調整。特別的是，基於 nFAPI 的 Split Option 6 架構雖然同樣支援部署於一般封包交換網路中，但其同步要求卻與 Split 2 截然不同。它必須嚴格遵循排程器在每個時槽 (Slot-level) 的同步基準，將資料準時從 VNF 送達 PNF。在此過程中，VNF 端的作業系統排程延遲，以及封包交換網路帶來的未知傳輸延遲與抖動，都是維持精確時間同步所必須克服的重大挑戰 \cite{Foukas2021_ICC}。
 
 \subsection{Split Option 7.2}
 \label{subsec:split72}
-Split Option 7.2x (Low-PHY 切分) 則是將切分點設於實體層內部，目前為 O-RAN 聯盟所主推的低層切分 (Lower Layer Split, LLS) 標準 \cite{oran_wg4_cus}。雖然將部分運算（如 FFT/IFFT）移至 RU 藉以減輕前傳壓力，但其前傳頻寬需求仍與系統頻寬及天線數量成正比。這種切分方式通常需要極高容量的前傳網路支援，並對時序同步的要求極其嚴苛，常需仰賴硬體級的精確時間協定 (PTP) 以維持嚴格的相位同步。
+Split Option 7.2x (Low-PHY 切分) 則是將切分點設於實體層內部，目前為 O-RAN 聯盟所主推的低層切分 (Lower Layer Split, LLS) 標準 \cite{oran_wg4_cus}。雖然將部分運算（如 FFT/IFFT）移至 RU 藉以減輕前傳壓力，但其前傳傳輸的是經過實體層處理的頻域 IQ 符號 (Frequency-domain IQ symbols)，頻寬需求極高。因此，Split 7.2 必須在非常嚴苛的網路條件下部署，對硬體設備（如硬體級精確時間協定 PTP）的依賴導致其部署成本十分高昂 \cite{11039666}。然而，正是因為具備嚴苛的專屬網路環境，且傳輸的是穩定的連續 IQ 資料流，其同步機制相對穩定，不需要特別處理因不同網路負載 (Offered load) 變化而造成的延遲波動問題。
 
 \subsection{Split Option 8}
 \label{subsec:split8}
-Split Option 8 是最傳統的底層切分架構，將切分點設於射頻 (RF) 與實體層 (PHY) 之間。在這種架構下，所有的基頻處理功能（包含完整的 PHY、MAC 以及更高層協定）皆集中於 DU 或 CU 運行，而 RU 僅負責射頻訊號的收發。這種配置產生了以時域 IQ 樣本為主的前傳資料流，通常依賴通用公共無線電介面 (CPRI) 或加強型通用公共無線電介面 (eCPRI) 進行傳輸。雖然其將硬體資源高度集中化，但對前傳網路的頻寬需求極高，且嚴格受限於系統頻寬及天線數量。此外，其延遲限制極度嚴格（最大允許單向延遲為 $250 \mu s$ \cite{3gpp_tr_38_801}），因此高度依賴高品質的專屬光纖網路。
+Split Option 8 是最傳統的底層切分架構，將切分點設於射頻 (RF) 與實體層 (PHY) 之間。在這種架構下，所有的基頻處理功能（包含完整的 PHY、MAC 以及更高層協定）皆集中於 DU 或 CU 運行，而 RU 僅負責射頻訊號的收發。這種配置產生了以時域 IQ 樣本為主的前傳資料流，通常依賴通用公共無線電介面 (CPRI) 或加強型通用公共無線電介面 (eCPRI) 進行傳輸。雖然其將硬體資源高度集中化，但對前傳網路的頻寬需求極高，且嚴格受限於系統頻寬及天線數量。此外，其延遲限制極度嚴格（最大允許單向延遲為 $250 \mu s$ \cite{3gpp_tr_38_801}），因此與 Split 7.2 類似，高度依賴高品質的專屬光纖網路與精確的時序同步硬體。
 
 \section{基於 Split Option 6 之網路架構與挑戰}
 \label{sec:split6_details}
 
-本論文專注於 Split Option 6 的架構設計與應用。如前所述，採用底層拆分（如 Split Option 7.2）雖然可以將運算資源進一步集中，但需要更昂貴的 PTP 部署環境以及對低延遲要求極高的傳輸網路，這將導致高昂的資本與營運支出。相對地，選用將實體層全留（Monolithic PHY）於遠端節點的 Split Option 6 方案，能在資源需求與成本效益上取得最佳平衡。根據 Khan 等人 \cite{10014970} 的研究，針對 5G NR 小型基地台的成本收益權衡分析指出，相較於嚴格的底層切分，將 MAC 層與 PHY 層分離的架構能在確保良好吞吐量 (Goodput) 的同時，顯著降低對前傳網路的頻寬需求 (Request Bandwidth)，從而達到降低整體部署成本的目標。因此，在非理想或資源受限的網路環境中，Split Option 6 成為了兼顧效能與成本的理想選擇。
+本論文專注於 Split Option 6 的架構設計與應用。如前所述，採用底層拆分（如 Split Option 7.2）雖然可以將運算資源進一步集中，但需要更昂貴的 PTP 部署環境以及對低延遲要求極高的傳輸網路，這將導致高昂的資本與營運支出。因此，相對來說選用將實體層全留（Monolithic PHY）於遠端節點的 Split Option 6 方案，能在資源需求與成本效益上取得最佳平衡。根據 Khan 等人 \cite{10014970} 的研究，針對 5G NR 小型基地台的成本收益權衡分析指出，相較於嚴格的底層切分，將 MAC 層與 PHY 層分離的架構能在確保良好吞吐量 (Goodput) 的同時，顯著降低對前傳網路的頻寬需求 (Request Bandwidth)，從而達到降低整體部署成本的目標。因此，在非理想或資源受限的網路環境中，Split Option 6 成為了兼顧效能與成本的理想選擇。
 
 \subsection{FAPI 介面介紹}
 \label{subsec:fapi}
@@ -49,12 +49,12 @@ Split Option 8 是最傳統的底層切分架構，將切分點設於射頻 (RF)
 
 \begin{table}[htbp]
 \centering
-\caption{5G RAN 拆分布屬比較表}
+\caption{5G RAN 拆分部署比較表}
 \label{tab:split_comparison_matrix}
 \small
 \begin{tabularx}{\textwidth}{@{}L L L L L@{}}
 \toprule
-\textbf{評估維度} & \textbf{Split 2} & \textbf{Split Option 6} & \textbf{Split 7.2x} & \textbf{Split 8} \\ \midrule
+\textbf{拆分選項} & \textbf{Split 2} & \textbf{Split 6 (nFAPI)} & \textbf{Split 7.2x} & \textbf{Split 8} \\ \midrule
 協定切割邊界 & PDCP / RLC & MAC / PHY & Low-PHY / High-PHY & RF / PHY \\
 前傳資料型態 & PDCP PDU & MAC PDU (封包化) & 頻域 IQ 符號 & 時域 IQ 樣本 \\
 標準化介面 & F1 & SCF nFAPI & O-RAN WG4 eCPRI & CPRI / eCPRI \\
@@ -71,7 +71,7 @@ Split Option 8 是最傳統的底層切分架構，將切分點設於射頻 (RF)
 
 雖然 Split Option 6 具備靈活的定時調整能力，且對於非理想前傳網路具備較佳的容忍度，但在實務佈署中仍面臨嚴峻挑戰。隨著無線接取網路邁向虛擬化與雲端化，託管 MAC 層的功能通常以虛擬網路功能 (VNF) 的形式部署於通用處理器上。然而，在這種通用運算環境中，非確定性的作業系統排程抖動與處理延遲的不確定性，往往會對時序敏感的基頻處理造成衝擊 \cite{Foukas2021_ICC, Lee2022}。
 
-特別是在現有的開源實作（如 OpenAirInterface）中，nFAPI 介面的定時控制多依賴於靜態配置的「提前時槽」 (Slots Ahead)。這種硬編碼方式無法動態適應封包交換網路中瞬息萬變的傳輸延遲與網路抖動。當前傳網路發生突發性的擁塞或 VNF 運算環境出現延遲波峰時，排程指令與控制訊息極易錯過預定的時序期限，進而產生「Missing Slot Packet」錯誤。這類錯誤不僅會導致通訊中斷，更限制了 VNF 在動態雲端資源環境中的彈性擴展能力。
+特別是在現有的開源實作（如 OpenAirInterface）中，nFAPI 介面的定時控制多依賴於靜態配置的「提前時槽」 (Slots Ahead)。這種硬編碼方式無法動態適應封包交換網路中瞬息萬變的傳輸延遲與網路抖動。當前傳網路發生突發性的擁塞或 VNF 運算環境出現延遲波峰時，排程指令與控制訊息極易錯過預定的時序期限，進而產生遺失時槽封包（Missing Slot Packet）錯誤。這類錯誤不僅會導致通訊中斷，更限制了 VNF 在動態雲端資源環境中的彈性擴展能力。
 
 因此，本論文的核心研究問題定義如下：在具備非確定性處理負載與網路抖動的雲端環境中，如何動態且精準地補償 nFAPI Split Option 6 架構中的端到端延遲，確保時序同步的穩定性？
 
@@ -91,7 +91,7 @@ Split Option 8 是最傳統的底層切分架構，將切分點設於射頻 (RF)
 \begin{itemize}
 \item \textbf{nFAPI Split Option 6 的多維延遲量化分析：} 我們系統性地分析並量化了影響同步失效的非確定性因素，包括 Linux 核心排程抖動、VNF 處理負載以及網路佇列延遲。
 \item \textbf{自適應提前時槽 (Adaptive Slots Ahead) 機制：} 我們提出了一種基於節點同步與延遲管理 (Delay Management) 的動態調整機制。透過 EWMA 模型平滑定時資訊以估計即時抖動趨勢，並動態調整提前時槽 ($S_{ahead}$)，確保排程訊息的準時性。
-\item \textbf{端到端商用測試平台驗證：} 我們在 OpenAirInterface 平台上實作了所提機制，並結合商用 UE 與 O-RU 進行驗證。實驗結果顯示，該機制能有效消除 Missing Slot Packet 錯誤，並在高度擁塞的環境下維持穩定的網路吞吐量與低時延特性。
+\item \textbf{端到端商用測試平台驗證：} 我們在 OpenAirInterface 平台上實作了所提機制，並結合商用 UE 與 O-RU 進行驗證。實驗結果顯示，該機制能有效消除遺失時槽封包錯誤，並在高度擁塞的環境下維持穩定的網路吞吐量與低時延特性。
 \end{itemize}
 
 \end{document}
