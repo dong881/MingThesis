@@ -1,10 +1,13 @@
 \documentclass[../my_ntust_thesis.tex]{subfiles}
 \begin{document}
+\iffalse
 \chapter{結論}
+\fi
+\chapter{Conclusion}
 \label{sec:conclusions}
 
-本研究針對 O-RAN 開放式無線接取網路架構中的傳輸延遲問題，提出了一套自適應提前時槽（Adaptive Slots Ahead）機制，特別聚焦於採用 nFAPI 介面的 Option 6 功能分割架構。在非理想的封包交換網路環境中，傳統的靜態提前時槽設定無法有效應對不可預期的網路抖動與伺服器處理延遲，容易導致排程逾時與同步失敗。為了解決此一挑戰，本研究設計了一套基於指數加權移動平均（EWMA）模型的動態延遲管理演算法，透過閉迴路的反饋控制，持續追蹤並預測端到端的網路傳輸延遲特性。
+This study addresses the transmission latency issues in the O-RAN Open Radio Access Network architecture by proposing an Adaptive Slots Ahead mechanism, with a specific focus on the Option 6 functional split architecture utilizing the nFAPI interface. In a non-ideal packet-switched network environment, traditional static slots ahead configurations cannot effectively handle unpredictable network jitter and server processing delays, easily leading to scheduling timeouts and synchronization failures. To overcome this challenge, this study designs a dynamic delay management algorithm based on the Exponentially Weighted Moving Average (EWMA) model. Through closed-loop feedback control, it continuously tracks and predicts end-to-end network transmission latency characteristics.
 
-透過整合 OpenAirInterface (OAI) 開源軟體與商用 Pegatron O-RU 設備的端到端（End-to-End）實體驗證平台，實驗結果證實了本研究所提之延遲管理架構能顯著提升系統的穩定度。在模擬網路壅塞的情境下，該機制能主動補償時間偏移，確保 MAC 層排程指令準確落入實體層的時序窗口內，徹底消除因時槽封包（Slot Packet）遺失所造成的連線中斷。相較於依賴昂貴硬體加速或嚴格硬體層級 PTP 同步的傳統方案，本研究所提出之基於純軟體的解決方案，在通用型商用現成（COTS）伺服器上展現了極高的部署彈性與成本效益，為未來 5G/6G 異質網路的商業化落地提供了具備高可靠度的關鍵技術基礎。
+By integrating the OpenAirInterface (OAI) open-source software with commercial Pegatron O-RU equipment into an end-to-end physical verification platform, the experimental results demonstrate that the proposed delay management architecture significantly improves system stability. Under simulated network congestion scenarios, this mechanism actively compensates for timing offsets, ensuring that MAC layer scheduling commands accurately fall within the timing window of the physical layer, thereby completely eliminating connection drops caused by missing slot packets. Compared to traditional solutions that rely on expensive hardware acceleration or strict hardware-level PTP synchronization, the software-based solution proposed in this study demonstrates extremely high deployment flexibility and cost-effectiveness on general-purpose Commercial Off-The-Shelf (COTS) servers, providing a highly reliable key technological foundation for the commercialization of future 5G/6G heterogeneous networks.
 
 \end{document}

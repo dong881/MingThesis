@@ -303,20 +303,12 @@
 \newcounter {subsubsection}[subsection]
 \newcounter {paragraph}[subsubsection]
 \newcounter {subparagraph}[paragraph]
-\newcommand{\zhnum}[1]{%
-  \ifcase#1\or 一\or 二\or 三\or 四\or 五\or 六\or 七\or 八\or 九\or 十%
-  \or 十一\or 十二\or 十三\or 十四\or 十五\or 十六\or 十七\or 十八\or 十九\or 二十%
-  \or 二十一\or 二十二\or 二十三\or 二十四\or 二十五\or 二十六\or 二十七\or 二十八\or 二十九\or 三十%
-  \or 三十一\or 三十二\or 三十三\or 三十四\or 三十五\or 三十六\or 三十七\or 三十八\or 三十九\or 四十%
-  \or 四十一\or 四十二\or 四十三\or 四十四\or 四十五\or 四十六\or 四十七\or 四十八\or 四十九\or 五十%
-  \fi
-}
 \renewcommand \thepart {\@Roman\c@part}
 \renewcommand \thechapter {\@arabic\c@chapter}
-\renewcommand \thesection {\zhnum{\value{section}}、}
-\renewcommand\thesubsection   {(\zhnum{\value{subsection}})}
-\renewcommand\thesubsubsection{\arabic{subsubsection}.}
-\renewcommand\theparagraph    {(\arabic{paragraph})}
+\renewcommand \thesection {\thechapter.\@arabic\c@section}
+\renewcommand\thesubsection   {\thesection.\@arabic\c@subsection}
+\renewcommand\thesubsubsection{\thesubsection .\@arabic\c@subsubsection}
+\renewcommand\theparagraph    {\thesubsubsection.\@arabic\c@paragraph}
 \renewcommand\thesubparagraph {\theparagraph.\@arabic\c@subparagraph}
 \newcommand\@chapapp{\chaptername}
 \newcommand\part{%
@@ -379,7 +371,7 @@
                          \refstepcounter{chapter}%
                          \typeout{\@chapapp\space\thechapter.}%
                          \addcontentsline{toc}{chapter}%
-                                   {\protect\numberline{\prechaptername\zhnum{\value{chapter}}\postchaptername}#1}%
+                                   {\protect\numberline{\thechapter}#1}%
                     \else
                       \addcontentsline{toc}{chapter}{#1}%
                     \fi
@@ -397,7 +389,7 @@
 \def\@makechapterhead#1{%
   {\parindent \z@ \centering \normalfont    
     \ifnum \c@secnumdepth >\m@ne
-        \LARGE\bfseries \prechaptername\zhnum{\value{chapter}}\postchaptername
+        \LARGE\bfseries \prechaptername \space \thechapter \space \postchaptername
     \fi
     \hspace{1em}
     \interlinepenalty\@M
@@ -427,7 +419,7 @@
 \newcommand\section{\@startsection {section}{1}{\z@}%
                                    {-3.5ex \@plus -1ex \@minus -.2ex}%
                                    {2.3ex \@plus.2ex}%
-                                   {\normalfont\Large\bfseries\centering}}
+                                   {\normalfont\Large\bfseries}}
 \newcommand\subsection{\@startsection{subsection}{2}{\z@}%
                                      {-3.25ex\@plus -1ex \@minus -.2ex}%
                                      {1.5ex \@plus .2ex}%
@@ -671,12 +663,12 @@
 %      \penalty\@highpenalty
 %    \endgroup
 %  \fi}
-\newcommand*{\l@chapter}{\@dottedtocline{0}{0em}{4.5em}}
-\newcommand*\l@section{\@dottedtocline{1}{1.5em}{3.0em}}
-\newcommand*\l@subsection{\@dottedtocline{2}{3.0em}{3.5em}}
-\newcommand*\l@subsubsection{\@dottedtocline{3}{4.5em}{4.0em}}
-\newcommand*\l@paragraph{\@dottedtocline{4}{6.0em}{5.0em}}
-\newcommand*\l@subparagraph{\@dottedtocline{5}{7.5em}{6.0em}}
+\newcommand*{\l@chapter}{\@dottedtocline{0}{0em}{1.4em}}
+\newcommand*\l@section{\@dottedtocline{1}{1.5em}{2.3em}}
+\newcommand*\l@subsection{\@dottedtocline{2}{3.8em}{3.2em}}
+\newcommand*\l@subsubsection{\@dottedtocline{3}{7.0em}{4.1em}}
+\newcommand*\l@paragraph{\@dottedtocline{4}{10em}{5em}}
+\newcommand*\l@subparagraph{\@dottedtocline{5}{12em}{6em}}
 \newcommand\listoffigures{%
     \if@twocolumn
       \@restonecoltrue\onecolumn

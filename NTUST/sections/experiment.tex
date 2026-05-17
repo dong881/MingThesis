@@ -1,71 +1,98 @@
 \documentclass[../my_ntust_thesis.tex]{subfiles}
 \begin{document}
+\iffalse
 \chapter{實驗結果}
+\fi
+\chapter{Experimental Results}
 \label{sec:experiment}
 
-本研究在 OpenAirInterface (OAI) nFAPI 端到端環境中進行實驗，以驗證所提出的延遲管理方法。為了確保評估的統計可靠性，報告中呈現的每個吞吐量 (Throughput) 值皆代表 180 個數據點的平均值（3 次獨立試驗 $\times$ 每次試驗 60 個樣本）。
+This study conducts experiments in an OpenAirInterface (OAI) nFAPI end-to-end environment to verify the proposed delay management method. To ensure the statistical reliability of the evaluation, each throughput value reported represents the average of 180 data points (3 independent trials $\times$ 60 samples per trial).
 
-為了驗證假設以及所提動態觸發排程演算法的有效性，實驗情境安排如下：第~\ref{subsec:experimental_scenario} 節概述了軟硬體環境與自動化評估框架。第~\ref{subsec:scenario_1} 節驗證了針對 PNF 到達偏移量 ($\Delta t_{arrive}$) 的指數加權移動平均 (EWMA) 機制。第~\ref{subsec:scenario_2} 節將高峰吞吐量與 MAC 層往返時間 (RTT) 的性能與靜態基準進行基準測試。第~\ref{subsec:scenario_3} 節評估了所提方法在不同網路擁塞程度下的穩定性。
+To validate the hypothesis and the effectiveness of the proposed dynamic trigger scheduling algorithm, the experimental scenarios are arranged as follows: Section~\ref{subsec:experimental_scenario} outlines the hardware and software environment as well as the automated evaluation framework. Section~\ref{subsec:scenario_1} validates the Exponentially Weighted Moving Average (EWMA) mechanism for the PNF arrival offset ($\Delta t_{arrive}$). Section~\ref{subsec:scenario_2} benchmarks the performance of peak throughput and MAC layer Round-Trip Time (RTT) against static baselines. Section~\ref{subsec:scenario_3} evaluates the stability of the proposed method under varying degrees of network congestion.
 
+\iffalse
 \section{實驗情境}
+\fi
+\section{Experimental Scenario}
 \label{subsec:experimental_scenario}
 
-測試平台環境連接了一系列高效能伺服器、無線單元與商用智慧型手機。端到端網路部署的詳細軟硬體配置如下表所示。
+The testbed environment connects a series of high-performance servers, radio units, and commercial smartphones. The detailed hardware and software configuration of the end-to-end network deployment is shown in the table below.
 
 \begin{table}[!htbp]
+\iffalse
   \caption{測試平台節點配置}
+\fi
+  \caption{Testbed Node Configuration}
   \label{tab:node_config}
   \centering
   \begin{tabularx}{\textwidth}{l|L}
     \toprule
-    \textbf{單元} & \textbf{規格} \\
+    \textbf{Unit} & \textbf{Specification} \\
     \midrule
-    核心網路 (Core Network, CN) & Open5GS \cite{Open5GS} \\
-    軟體協定疊 / 分支 & OpenAirInterface \cite{OAI} (\texttt{2026.w13}) \\
-    VNF 伺服器 & Intel\textsuperscript{\tiny\textregistered} Xeon\textsuperscript{\tiny\textregistered} Gold 6226R \cite{IntelXeon622R} 搭配 NetXtreme BCM5719 網卡 \cite{NetXtreme_BCM5719, nic_interface} \\
-    PNF 伺服器 & Intel\textsuperscript{\tiny\textregistered} Xeon\textsuperscript{\tiny\textregistered} Gold 6433N \cite{IntelXeon6433N} 搭配 Intel I210 網卡 \cite{Intel_I210, nic_interface} \\
+    Core Network (CN) & Open5GS \cite{Open5GS} \\
+    Software Protocol Stack / Branch & OpenAirInterface \cite{OAI} (\texttt{2026.w13}) \\
+    VNF Server & Intel\textsuperscript{\tiny\textregistered} Xeon\textsuperscript{\tiny\textregistered} Gold 6226R \cite{IntelXeon622R} with NetXtreme BCM5719 NIC \cite{NetXtreme_BCM5719, nic_interface} \\
+    PNF Server & Intel\textsuperscript{\tiny\textregistered} Xeon\textsuperscript{\tiny\textregistered} Gold 6433N \cite{IntelXeon6433N} with Intel I210 NIC \cite{Intel_I210, nic_interface} \\
     O-RU & Pegatron RU (P5G-Indoor O-RU-PR1450) \\
-    商用現成設備 (COTS UE) & Samsung Galaxy S20 \cite{3GPP.TS.38.101} \\
+    Commercial Off-The-Shelf (COTS) UE & Samsung Galaxy S20 \cite{3GPP.TS.38.101} \\
     \bottomrule
   \end{tabularx}
 \end{table}
 
 \begin{table}[!htbp]
+\iffalse
 \caption{無線系統參數}
+\fi
+\caption{Wireless System Parameters}
 \label{tab:wireless_params}
 \centering
 \begin{tabular}{l|l}
 \toprule
-\textbf{參數} & \textbf{設定} \\
+\textbf{Parameter} & \textbf{Setting} \\
 \midrule
-子載波間隔 (Subcarrier Spacing) & 30 kHz \\
-TDD 模式 (TDD Pattern) & 3D1S1U \\
-MIMO / 埠數 (MIMO / Ports) & 4-layer / 4T4R \\
-前傳介面 (Fronthaul) & O-RAN F release \\
+Subcarrier Spacing & 30 kHz \\
+TDD Pattern & 3D1S1U \\
+MIMO / Ports & 4-layer / 4T4R \\
+Fronthaul Interface & O-RAN F release \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-為了確保自動化測量與分析具備一致的數據品質，本研究開發了一個自動評估 rApp，運行於 O-RAN 服務管理與編排 (SMO) 框架下的非即時無線存取網路智慧控制器 (Non-RT RIC) 上 \cite{O-RAN.arch, O-RAN.rapp}，如圖~\ref{fig:rapp_architecture} 所示。此 rApp 可自動啟動 VNF 與 PNF。一旦 gNB 成功建立，rApp 會自動透過 SSH 連接至控制電腦，利用 Android 偵錯橋接器 (ADB) \cite{ADB} 切換 UE 的飛航模式，隨後透過 SSH 在核心網路伺服器上啟動 iPerf \cite{iperf3} 伺服器。接著，它會自動執行一系列預定的 iPerf 測試案例。隨後，rApp 透過 O1 SFTP 收集所有日誌檔案，並利用 Python 腳本自動繪製後續的數據分析圖表。在實驗過程中，我們也使用 tcpdump \cite{tcpdump} 進行封包側錄，並利用 Linux PTP \cite{LinuxPTP311} 及 TSN 時間同步機制 \cite{tsn-timesync} 確保網路節點間的基準時序，底層資料傳輸則依賴 DPDK \cite{DPDK20119} 進行封包加速。此框架的一個關鍵能力是能透過 Linux 流量控制 (TC)，在 MAC 回饋鏈路 ($T_5-T_4$) 與前傳路段 ($T_2-T_1$) 自動配置網路延遲模擬，這對於驗證解耦式架構在非確定性延遲下的穩定性至關重要。
+To ensure consistent data quality for automated measurement and analysis, this study developed an automated evaluation rApp running on the Non-Real-Time RAN Intelligent Controller (Non-RT RIC) within the O-RAN Service Management and Orchestration (SMO) framework \cite{O-RAN.arch, O-RAN.rapp}, as shown in Figure~\ref{fig:rapp_architecture}. This rApp automatically starts the VNF and PNF. Once the gNB is successfully established, the rApp automatically connects to the control PC via SSH, toggles the UE's airplane mode using the Android Debug Bridge (ADB) \cite{ADB}, and then launches an iPerf \cite{iperf3} server on the Core Network server via SSH. Subsequently, it automatically executes a series of predefined iPerf test cases. After that, the rApp collects all log files via O1 SFTP and uses Python scripts to automatically plot charts for subsequent data analysis. During the experiments, we also used tcpdump \cite{tcpdump} for packet sniffing, and utilized Linux PTP \cite{LinuxPTP311} and TSN time synchronization mechanisms \cite{tsn-timesync} to ensure baseline timing among network nodes, while underlying data transmission relied on DPDK \cite{DPDK20119} for packet acceleration. A key capability of this framework is the ability to automate network delay simulations on the MAC feedback link ($T_5-T_4$) and fronthaul link ($T_2-T_1$) using Linux Traffic Control (TC), which is crucial for verifying the stability of the disaggregated architecture under non-deterministic latency.
 
 \begin{figure}[!htbp]
   \centering
   \includegraphics[width=0.8\textwidth]{figures/rapp.png}
+\iffalse
   \caption{rApp 自動化評估框架架構。}
+\fi
+  \caption{Architecture of the rApp automated evaluation framework.}
   \label{fig:rapp_architecture}
 \end{figure}
 
+\iffalse
 \section{情境 I：PNF 到達偏移量 ($\Delta t_{arrive}$) 之 EWMA 驗證}
+\fi
+\section{Scenario I: EWMA Validation for PNF Arrival Offset ($\Delta t_{arrive}$)}
 \label{subsec:scenario_1}
 
-此情境驗證了應用指數加權移動平均 (EWMA) 來平滑 PNF 到達偏移量 ($\Delta t_{arrive}$) 的有效性。由於網路抖動與處理延遲，從 PNF 接收到的原始定時偏移量可能會展現出高變異性。圖~\ref{fig:exp1} 展示了 EWMA 處理的影響。在不使用 EWMA 的情況下（圖~\ref{fig:exp1a}），到達偏移量波動劇烈，這可能導致不穩定的排程決策。透過應用 EWMA（圖~\ref{fig:exp1b}），高頻抖動被有效過濾，為定時調整演算法提供了一個穩定的基準。再者，如圖~\ref{fig:exp1c} 與圖~\ref{fig:exp1d} 所示，平滑後的數據使系統能夠相對穩定地進行判斷。當 $\Delta t_{arrive}$ 開始呈現下降趨勢時，演算法能夠穩定地識別此趨勢，並主動提前更多的時間 ($S_{ahead}$)，以維持同步的穩定性。
+This scenario verifies the effectiveness of applying the Exponentially Weighted Moving Average (EWMA) to smooth the PNF arrival offset ($\Delta t_{arrive}$). Due to network jitter and processing delays, the raw timing offset received from the PNF can exhibit high variability. Figure~\ref{fig:exp1} illustrates the impact of EWMA processing. Without EWMA (Figure~\ref{fig:exp1a}), the arrival offset fluctuates drastically, which can lead to unstable scheduling decisions. By applying EWMA (Figure~\ref{fig:exp1b}), high-frequency jitter is effectively filtered, providing a stable baseline for the timing adjustment algorithm. Furthermore, as shown in Figures~\ref{fig:exp1c} and \ref{fig:exp1d}, the smoothed data allows the system to make relatively stable judgments. When $\Delta t_{arrive}$ begins to show a downward trend, the algorithm steadily identifies this trend and proactively advances more time ($S_{ahead}$) to maintain synchronization stability.
 
 \begin{figure}[!htbp]
   \centering
+\iffalse
   \subfloat[未應用 EWMA]{\includegraphics[width=0.65\textwidth]{figures/exp1a.png}\label{fig:exp1a}} \\
+\fi
+  \subfloat[Without EWMA]{\includegraphics[width=0.65\textwidth]{figures/exp1a.png}\label{fig:exp1a}} \\
   \vspace{0.15cm}
+\iffalse
   \subfloat[已應用 EWMA]{\includegraphics[width=0.65\textwidth]{figures/exp1b.png}\label{fig:exp1b}}
+\fi
+  \subfloat[With EWMA]{\includegraphics[width=0.65\textwidth]{figures/exp1b.png}\label{fig:exp1b}}
+\iffalse
   \caption{PNF 到達偏移量 ($\Delta t_{arrive}$) 之 EWMA 處理驗證與主動調整。}
+\fi
+  \caption{EWMA processing validation and proactive adjustment for PNF arrival offset ($\Delta t_{arrive}$).}
   \label{fig:exp1}
 \end{figure}
 
@@ -74,37 +101,64 @@ MIMO / 埠數 (MIMO / Ports) & 4-layer / 4T4R \\
 \begin{figure}[!htbp]
   \ContinuedFloat
   \centering
+\iffalse
   \subfloat[趨勢觀察]{\includegraphics[width=0.65\textwidth]{figures/exp1c.png}\label{fig:exp1c}} \\
+\fi
+  \subfloat[Trend Observation]{\includegraphics[width=0.65\textwidth]{figures/exp1c.png}\label{fig:exp1c}} \\
   \vspace{0.15cm}
+\iffalse
   \subfloat[主動提前調整]{\includegraphics[width=0.65\textwidth]{figures/exp1d.png}\label{fig:exp1d}}
+\fi
+  \subfloat[Proactive Advance Adjustment]{\includegraphics[width=0.65\textwidth]{figures/exp1d.png}\label{fig:exp1d}}
+\iffalse
   \caption{PNF 到達偏移量 ($\Delta t_{arrive}$) 之 EWMA 處理驗證與主動調整（續）。}
+\fi
+  \caption{EWMA processing validation and proactive adjustment for PNF arrival offset ($\Delta t_{arrive}$) (cont.).}
 \end{figure}
 
+\iffalse
 \section{情境 II：性能基準測試}
+\fi
+\section{Scenario II: Performance Benchmarking}
 \label{subsec:scenario_2}
 
-在此情境中，我們評估了所提自適應定時機制相對於標準靜態提前時槽配置的基準性能。圖~\ref{fig:exp2} 展示了在 MAC 層延遲與系統吞吐量方面的性能評估。
+In this scenario, we evaluate the benchmark performance of the proposed adaptive timing mechanism against a standard static slots ahead configuration. Figure~\ref{fig:exp2} presents the performance evaluation in terms of MAC layer latency and system throughput.
 
-圖~\ref{fig:exp2} 展示了在不同負載 (Offered Load) 下的性能評估。所提演算法優先確保最佳吞吐量，在所有負載條件下皆能持續維持最佳的吞吐量表現。同時，在確保此最佳吞吐量的前提下，演算法也極大化地選擇最佳提前時槽，以優化 MAC 層 HARQ 往返時間 (RTT)，有效避免不必要的額外開銷。
+Figure~\ref{fig:exp2} displays the performance evaluation under varying Offered Load. The proposed algorithm prioritizes ensuring optimal throughput, consistently maintaining optimal throughput performance under all load conditions. Simultaneously, while ensuring this optimal throughput, the algorithm maximizes the selection of the optimal slots ahead to optimize the MAC layer HARQ Round-Trip Time (RTT), effectively avoiding unnecessary extra overhead.
 
 \begin{figure}[!htbp]
   \centering
+\iffalse
   \subfloat[MAC 延遲與可靠性]{\includegraphics[width=0.7\textwidth]{figures/exp2a.png}\label{fig:exp2a}} \\
+\fi
+  \subfloat[MAC Latency and Reliability]{\includegraphics[width=0.7\textwidth]{figures/exp2a.png}\label{fig:exp2a}} \\
   \vspace{0.5cm}
+\iffalse
   \subfloat[吞吐量優化]{\includegraphics[width=0.7\textwidth]{figures/exp2b.png}\label{fig:exp2b}}
+\fi
+  \subfloat[Throughput Optimization]{\includegraphics[width=0.7\textwidth]{figures/exp2b.png}\label{fig:exp2b}}
+\iffalse
   \caption{性能評估：MAC RTT 效率與系統吞吐量。}
+\fi
+  \caption{Performance Evaluation: MAC RTT Efficiency and System Throughput.}
   \label{fig:exp2}
 \end{figure}
 
+\iffalse
 \section{情境 III：網路擁塞下的穩定性}
+\fi
+\section{Scenario III: Stability under Network Congestion}
 \label{subsec:scenario_3}
 
-為了測試系統的穩健性，我們利用 Linux TC 在 $T_2-T_1$ 與 $T_5-T_4$ 路段注入了人工網路擁塞，改變單向延遲 (OWD) 與抖動。如圖~\ref{fig:exp3} 所示，當延遲超過固定時窗時，靜態配置經歷了災難性的吞吐量下降與頻繁的連線重設；與此相對，所提自適應定時控制動態地擴展了提前時槽 ($S_{ahead}$)。這種擴展允許 MAC 排程器預先觸發訊息，確保訊息儘管傳輸延遲增加，仍能在有效時窗內抵達 PNF。據此，即使在先前會導致完全同步失效的擁塞程度下，系統仍能維持穩定的吞吐量。
+To test the system's robustness, we utilized Linux TC to inject artificial network congestion into the $T_2-T_1$ and $T_5-T_4$ segments, altering the One-Way Delay (OWD) and jitter. As shown in Figure~\ref{fig:exp3}, when the delay exceeds the fixed timing window, the static configuration experiences a catastrophic drop in throughput and frequent connection resets. In contrast, the proposed adaptive timing control dynamically expands the slots ahead ($S_{ahead}$). This expansion allows the MAC scheduler to trigger messages in advance, ensuring that messages can still arrive at the PNF within the valid timing window despite the increased transmission delay. Consequently, even at congestion levels that would previously cause complete synchronization failure, the system can maintain stable throughput.
 
 \begin{figure}[!htbp]
   \centering
   \includegraphics[width=0.8\textwidth]{figures/exp3.png}
+\iffalse
   \caption{不同網路擁塞程度下的系統穩定性與吞吐量表現。}
+\fi
+  \caption{System stability and throughput performance under varying degrees of network congestion.}
   \label{fig:exp3}
 \end{figure}
 

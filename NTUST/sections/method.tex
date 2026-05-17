@@ -1,90 +1,105 @@
 \documentclass[../my_ntust_thesis.tex]{subfiles}
 \begin{document}
+\iffalse
 \chapter{所提方法}
+\fi
+\chapter{Proposed Method}
 \label{sec:method}
 
-本章節詳細介紹所提出的動態定時調整演算法。為了解決 PNF 與 VNF 之間封包傳輸過程中的不穩定延遲，我們提出了一種自適應提前時槽機制 (Adaptive Slots Ahead mechanism)。
+This chapter details the proposed dynamic timing adjustment algorithm. To address the unstable transmission latency during packet transmission between the PNF and VNF, we propose an Adaptive Slots Ahead mechanism.
 
+\iffalse
 \section{延遲管理架構}
+\fi
+\section{Delay Management Architecture}
 \label{subsec:timing_control_architecture}
 
-本系統的定時控制聚焦於同步與延遲管理的邏輯層面，確保 VNF 端的提前時槽能夠靈活應對網路抖動，且不會引起預期外的震盪。此架構透過兩個主要的邏輯組件運作，兩者之間實現了無縫互動：
+The timing control of this system focuses on the logical layer of synchronization and delay management, ensuring that the slots ahead at the VNF side can flexibly respond to network jitter without causing unexpected oscillations. This architecture operates through two main logical components that interact seamlessly:
 \begin{enumerate}
-    \item \textbf{節點同步 (Node Sync)：} 確保 VNF 與 PNF 之間的訊框與時槽邊界對齊。它監控定時偏移量以維持同步，從而吸收低層的傳輸抖動。
-    \item \textbf{延遲管理 (Delay Management)：} 聚焦於時槽 (Slot) 級別的延遲管理。它透過收斂優化演算法動態分析 PNF 回報的統計數據，以決定全域目標提前時槽 ($S_{\text{ahead}}$)，確保排程指令始終符合 PNF 嚴格的定時時窗約束。
+    \item \textbf{Node Sync:} Ensures alignment of frame and slot boundaries between the VNF and PNF. It monitors timing offsets to maintain synchronization, thereby absorbing low-layer transmission jitter.
+    \item \textbf{Delay Management:} Focuses on slot-level delay management. It dynamically analyzes the statistical data reported by the PNF through a convergence optimization algorithm to determine the global target slots ahead ($S_{\text{ahead}}$), ensuring that scheduling commands always comply with the PNF's strict timing window constraints.
 \end{enumerate}
 
+\iffalse
 \section{節點同步}
+\fi
+\section{Node Sync}
 \label{subsec:node_sync}
-為了實現微秒級的相位對齊，系統採用了類似 IEEE 1588 (PTP) 的時間戳記交換機制。當 VNF 收到 \textit{UL\_node\_sync} 訊息時，它根據四個時間戳記 ($t_1$ 至 $t_4$) 計算瞬時定時偏移量 ($offset$)。為了避免瞬時突波，使用指數加權移動平均 (EWMA) 模型對 $offset$ 及其變動量 ($error$) 進行平滑處理，產生平均偏移量 ($\mu_{offset}$) 與平均絕對離差 ($dev_{offset}$)，並利用平滑因子 $\alpha$ 與 $\beta$ 進行調整。接著，直接從估計的抖動 ($dev_{offset}$) 導出動態同步閾值 ($Threshold$)。如果絕對偏移量超出此閾值，系統會根據時槽長度 ($\text{slot\_duration}$) 將偏移量分解為時槽調整量 ($S_{adj}$) 與微秒級調整量 ($\mu s_{adj}$)。這些參數隨後由 VNF 定時致動器 (VNF Timing Actuator) 使用，以精確對齊本地時鐘。此過程總結於演算法~\ref{alg:node_sync_simplified}。
+To achieve microsecond-level phase alignment, the system adopts a timestamp exchange mechanism similar to IEEE 1588 (PTP). When the VNF receives the \textit{UL\_node\_sync} message, it calculates the instantaneous timing offset ($offset$) based on four timestamps ($t_1$ to $t_4$). To avoid instantaneous spikes, an Exponentially Weighted Moving Average (EWMA) model is used to smooth the $offset$ and its variation ($error$), generating an average offset ($\mu_{offset}$) and a mean absolute deviation ($dev_{offset}$), which are adjusted using smoothing factors $\alpha$ and $\beta$. Then, a dynamic synchronization threshold ($Threshold$) is derived directly from the estimated jitter ($dev_{offset}$). If the absolute offset exceeds this threshold, the system decomposes the offset into a slot adjustment ($S_{adj}$) and a microsecond adjustment ($\mu s_{adj}$) based on the slot duration ($\text{slot\_duration}$). These parameters are subsequently used by the VNF Timing Actuator to precisely align the local clock. This process is summarized in Algorithm~\ref{alg:node_sync_simplified}.
 
 \begin{algorithm}[H]
+\iffalse
 \caption{節點同步 (Node Sync)}
+\fi
+\caption{Node Sync}
 \label{alg:node_sync_simplified}
 \small
 \begin{algorithmic}[1]
-\Require $t_1, t_2, t_3$ (PNF \textit{UL\_node\_sync}), $t_4$ (VNF 本地接收時間戳記)
-\Ensure $S_{adj}$ (時槽調整量), $\mu s_{adj}$ (微秒調整量)
+\Require $t_1, t_2, t_3$ (PNF \textit{UL\_node\_sync}), $t_4$ (VNF local reception timestamp)
+\Ensure $S_{adj}$ (Slot adjustment), $\mu s_{adj}$ (Microsecond adjustment)
 
-\Statex \textbf{符號說明：} 
-\Statex $offset$ (瞬時定時偏移量), $\mu_{offset}$ (EWMA 平均偏移量)
-\Statex $dev_{offset}$ (EWMA 平均絕對離差 / 抖動)
-\Statex $Threshold$ (動態同步閾值), $\alpha, \beta$ (平滑因子)
-\Statex $\text{slot\_duration}$ (以 \textmu s 為單位的時槽長度)
+\Statex \textbf{Notation:} 
+\Statex $offset$ (Instantaneous timing offset), $\mu_{offset}$ (EWMA mean offset)
+\Statex $dev_{offset}$ (EWMA mean absolute deviation / jitter)
+\Statex $Threshold$ (Dynamic synchronization threshold), $\alpha, \beta$ (Smoothing factors)
+\Statex $\text{slot\_duration}$ (Slot duration in \textmu s)
 
-\Statex \textbf{第一階段：時間戳記處理與迴繞保護}
+\Statex \textbf{Phase 1: Timestamp Processing and Wraparound Protection}
 \State $d_1 \gets t_2 - t_1$
 \State $d_2 \gets t_4 - t_3$
 
-\Statex \textbf{第二階段：偏移量與動態抖動估計}
+\Statex \textbf{Phase 2: Offset and Dynamic Jitter Estimation}
 \State $offset \gets (d_1 - d_2) / 2$
 \State $error \gets offset - \mu_{offset}$
 \State $\mu_{offset} \gets \mu_{offset} + \alpha \cdot error$
 \State $dev_{offset} \gets dev_{offset} + \beta(|error| - dev_{offset})$
 \State $Threshold \gets dev_{offset}$
 
-\Statex \textbf{第三階段：相位對齊}
+\Statex \textbf{Phase 3: Phase Alignment}
 \If{$|offset| > Threshold$}
     \State $S_{adj} \gets \lfloor offset / \text{slot\_duration} \rfloor$
     \State $\mu s_{adj} \gets offset \pmod{\text{slot\_duration}}$
-    \State 應用 $S_{adj}$ 與 $\mu s_{adj}$ 調整本地時鐘
+    \State Apply $S_{adj}$ and $\mu s_{adj}$ to adjust the local clock
 \Else
-    \State 狀態 $\gets$ \textbf{已同步 (Synchronized)}
+    \State State $\gets$ \textbf{Synchronized}
     \State $S_{adj} \gets 0$, $\mu s_{adj} \gets 0$
 \EndIf
 \State \Return $S_{adj}, \mu s_{adj}$
 \end{algorithmic}
 \end{algorithm}
 
-為了對抗波動的網路延遲並維持排程的穩健性，本論文提出了一種動態的延遲管理策略。在收到定時統計數據（特別是 PNF 回報的最差情況延遲偏移量 $\Delta t_{arrive}$）後，系統計算偏差 ($error$)，並結合受 Jacobson/Karels TCP RTT 演算法啟發的 EWMA 模型，利用平滑因子 $\alpha$ 與 $\beta$ 來估計平均延遲 ($\mu_{delay}$) 與抖動偏差 ($dev_{delay}$)。
+To combat fluctuating network latency and maintain scheduling robustness, this paper proposes a dynamic delay management strategy. Upon receiving timing statistics (specifically, the worst-case delay offset $\Delta t_{arrive}$ reported by the PNF), the system calculates the deviation ($error$). Inspired by the Jacobson/Karels TCP RTT algorithm, an EWMA model is applied using smoothing factors $\alpha$ and $\beta$ to estimate the mean delay ($\mu_{delay}$) and jitter deviation ($dev_{delay}$).
 
-在進行追蹤調整之前，演算法建立了多個\textbf{恐慌準則 (Panic Criteria)}。如果絕對偏差超過 $3 \cdot dev_{delay}$，則檢測到統計異常，表明出現了突然的延遲突波。如果 $\Delta t_{arrive} > \text{slot\_duration}$，則發生嚴格違規，意味著封包延遲超過了時槽邊界。任一條件都會觸發\textbf{快速攻擊恐慌模式 (Fast Attack Panic Mode)}，將當前觸發定時 ($S_{curr}$) 激進地增加 1 個時槽來計算下一次觸發定時 ($S_{next}$)，以確保連線連續性並減輕災難性的期限違規。
+Before making tracking adjustments, the algorithm establishes several \textbf{Panic Criteria}. If the absolute deviation exceeds $3 \cdot dev_{delay}$, a statistical anomaly is detected, indicating a sudden latency spike. If $\Delta t_{arrive} > \text{slot\_duration}$, a strict violation occurs, meaning the packet delay exceeds the slot boundary. Either condition triggers the \textbf{Fast Attack Panic Mode}, which aggressively increments the current trigger timing ($S_{curr}$) by 1 slot to calculate the next trigger timing ($S_{next}$), ensuring connection continuity and mitigating catastrophic deadline violations.
 
-相反地，為了在安全區域內最大化低延遲運行，採用了\textbf{主動延遲縮減 (Proactive Latency Reduction)} 機制。當延遲安全地低於絕對邊界 ($\Delta t_{arrive} \le \text{Safe\_Margin}$) 時，穩定計數器 ($count_{stable}$) 遞增。一旦此計數器超過隨 $dev_{delay}$ 動態縮放的自適應穩定閾值 ($N_{stable}$)，系統會謹慎地將 $S_{curr}$ 減少 1 以確定 $S_{next}$。這種非對稱響應（快速擴張、緩慢衰減）可防止乒乓震盪，同時最小化往返時間。最終，$S_{next}$ 亦被限制在允許的 nFAPI 定時時窗內。調整策略濃縮於演算法~\ref{alg:delay_manager_simplified}。
+Conversely, to maximize low-latency operation within a safe zone, a \textbf{Proactive Latency Reduction} mechanism is employed. When the delay is safely below an absolute boundary ($\Delta t_{arrive} \le \text{Safe\_Margin}$), a stability counter ($count_{stable}$) increments. Once this counter exceeds an adaptive stability threshold ($N_{stable}$) that dynamically scales with $dev_{delay}$, the system cautiously decrements $S_{curr}$ by 1 to determine $S_{next}$. This asymmetric response (fast attack, slow decay) prevents ping-pong oscillations while minimizing round-trip time. Finally, $S_{next}$ is also bounded within the permissible nFAPI timing window. The adjustment strategy is condensed in Algorithm~\ref{alg:delay_manager_simplified}.
 
 \begin{algorithm}[H]
+\iffalse
 \caption{延遲管理 (Delay Management)}
+\fi
+\caption{Delay Management}
 \label{alg:delay_manager_simplified}
 \small
 \begin{algorithmic}[1]
-\Require $\Delta t_{arrive}$ (來自 PNF 的定時偏移資訊)
-\Ensure $S_{next}$ (下一次 MAC 排程的觸發定時)
+\Require $\Delta t_{arrive}$ (Timing offset information from PNF)
+\Ensure $S_{next}$ (Trigger timing for the next MAC schedule)
 
-\Statex \textbf{符號說明：} 
-\Statex $S_{curr}$ (當前觸發定時), $\mu_{delay}$ (EWMA 平均延遲)
-\Statex $dev_{delay}$ (EWMA 平均偏差), $count_{stable}$ (穩定到達計數器)
-\Statex $N_{stable}$ (自適應閾值), $\alpha, \beta$ (平滑因子)
-\Statex $\text{Safe\_Margin}$ (目標安全裕度), $\text{slot\_duration}$ (時槽長度)
+\Statex \textbf{Notation:} 
+\Statex $S_{curr}$ (Current trigger timing), $\mu_{delay}$ (EWMA mean delay)
+\Statex $dev_{delay}$ (EWMA mean deviation), $count_{stable}$ (Stable arrival counter)
+\Statex $N_{stable}$ (Adaptive threshold), $\alpha, \beta$ (Smoothing factors)
+\Statex $\text{Safe\_Margin}$ (Target safe margin), $\text{slot\_duration}$ (Slot duration)
 
-\Statex \textbf{第一階段：延遲統計更新}
+\Statex \textbf{Phase 1: Delay Statistics Update}
 \State $error \gets \Delta t_{arrive} - \mu_{delay}$
 \State $\mu_{delay} \gets \mu_{delay} + \alpha \cdot error$
 \State $dev_{delay} \gets dev_{delay} + \beta(|error| - dev_{delay})$
 
-\Statex \textbf{第二階段：異常檢測}
+\Statex \textbf{Phase 2: Anomaly Detection}
 \State $IsAnomaly \gets (|error| > 3 \cdot dev_{delay}) \lor (\Delta t_{arrive} > \text{slot\_duration})$
 
-\Statex \textbf{第三階段：定時調整}
+\Statex \textbf{Phase 3: Timing Adjustment}
 \If{$IsAnomaly$}
     \State $S_{next} \gets S_{curr} + 1$
     \State $count_{stable} \gets 0$
@@ -100,11 +115,9 @@
     \State $S_{next} \gets S_{curr}$
     \State $count_{stable} \gets 0$
 \EndIf
-\State 將 $S_{next}$ 限制在允許的 nFAPI 定時時窗內
+\State Constrain $S_{next}$ within the allowed nFAPI timing window
 \State \Return $S_{next}$
 \end{algorithmic}
 \end{algorithm}
-
-\end{document}
 
 \end{document}
