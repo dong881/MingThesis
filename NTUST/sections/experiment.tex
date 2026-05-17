@@ -20,12 +20,12 @@
 \toprule
 \textbf{單元} & \textbf{規格} \\
 \midrule
-核心網路 (Core Network, CN) & Open5GS \\
-軟體協定疊 / 分支 & OpenAirInterface (\texttt{2026.w13}) \\
-VNF 伺服器 & Intel\textsuperscript{\tiny\textregistered} Xeon\textsuperscript{\tiny\textregistered} Gold 6226R \\
-PNF 伺服器 & Intel\textsuperscript{\tiny\textregistered} Xeon\textsuperscript{\tiny\textregistered} Gold 6433N \\
+核心網路 (Core Network, CN) & Open5GS \cite{Open5GS} \\
+軟體協定疊 / 分支 & OpenAirInterface \cite{OAI} (\texttt{2026.w13}) \\
+VNF 伺服器 & Intel\textsuperscript{\tiny\textregistered} Xeon\textsuperscript{\tiny\textregistered} Gold 6226R \cite{IntelXeon622R} 搭配 NetXtreme BCM5719 網卡 \cite{NetXtreme_BCM5719, nic_interface} \\
+PNF 伺服器 & Intel\textsuperscript{\tiny\textregistered} Xeon\textsuperscript{\tiny\textregistered} Gold 6433N \cite{IntelXeon6433N} 搭配 Intel I210 網卡 \cite{Intel_I210, nic_interface} \\
 O-RU & Pegatron RU (P5G-Indoor O-RU-PR1450) \\
-商用現成設備 (COTS UE) & Samsung Galaxy S20 \\
+商用現成設備 (COTS UE) & Samsung Galaxy S20 \cite{3GPP.TS.38.101} \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -46,7 +46,7 @@ MIMO / 埠數 (MIMO / Ports) & 4-layer / 4T4R \\
 \end{tabular}
 \end{table}
 
-\textcolor{blue}{為了確保自動化測量與分析具備一致的數據品質，本研究開發了一個自動評估 rApp，運行於 O-RAN 服務管理與編排 (SMO) 框架下的非即時無線存取網路智慧控制器 (Non-RT RIC) 上 \cite{oran_architecture}，如圖~\ref{fig:rapp_architecture} 所示。此 rApp 可自動啟動 VNF 與 PNF。一旦 gNB 成功建立，rApp 會自動透過 SSH 連接至控制電腦，利用 Android 偵錯橋接器 (ADB) 切換 UE 的飛航模式，隨後透過 SSH 在核心網路伺服器上啟動 iPerf 伺服器。接著，它會自動執行一系列預定的 iPerf 測試案例。最後，rApp 透過 O1 SFTP 收集所有日誌檔案，並利用 Python 腳本自動繪製後續的數據分析圖表。此框架的一個關鍵能力是能透過 Linux 流量控制 (TC)，在 MAC 回饋鏈路 ($T_5-T_4$) 與前傳路段 ($T_2-T_1$) 自動配置網路延遲模擬，這對於驗證解耦式架構在非確定性延遲下的穩定性至關重要。}
+\textcolor{blue}{為了確保自動化測量與分析具備一致的數據品質，本研究開發了一個自動評估 rApp，運行於 O-RAN 服務管理與編排 (SMO) 框架下的非即時無線存取網路智慧控制器 (Non-RT RIC) 上 \cite{O-RAN.arch, O-RAN.rapp}，如圖~\ref{fig:rapp_architecture} 所示。此 rApp 可自動啟動 VNF 與 PNF。一旦 gNB 成功建立，rApp 會自動透過 SSH 連接至控制電腦，利用 Android 偵錯橋接器 (ADB) \cite{ADB} 切換 UE 的飛航模式，隨後透過 SSH 在核心網路伺服器上啟動 iPerf \cite{iperf3} 伺服器。接著，它會自動執行一系列預定的 iPerf 測試案例。最後，rApp 透過 O1 SFTP 收集所有日誌檔案，並利用 Python 腳本自動繪製後續的數據分析圖表。在實驗過程中，我們也使用 tcpdump \cite{tcpdump} 進行封包側錄，並利用 Linux PTP \cite{LinuxPTP311} 及 TSN 時間同步機制 \cite{tsn-timesync} 確保網路節點間的基準時序，底層資料傳輸則依賴 DPDK \cite{DPDK20119} 進行封包加速。此框架的一個關鍵能力是能透過 Linux 流量控制 (TC)，在 MAC 回饋鏈路 ($T_5-T_4$) 與前傳路段 ($T_2-T_1$) 自動配置網路延遲模擬，這對於驗證解耦式架構在非確定性延遲下的穩定性至關重要。}
 
 \begin{figure}[!htbp]
   \centering
