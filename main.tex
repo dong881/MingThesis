@@ -5,16 +5,23 @@
 
 \usepackage{cite}
 \usepackage{amsmath,amssymb,amsfonts}
-\usepackage{algpseudocode}
-\usepackage{svg}
 \usepackage{graphicx}
-\usepackage{subfigure}
+\usepackage[caption=false,font=footnotesize]{subfig}
 \usepackage{tabularx}
 \usepackage{color}
 \usepackage{booktabs}
 \usepackage{url}
 \usepackage{algorithm}
 \usepackage{algpseudocode}
+
+% =========================================================================
+% IEEEtran Draft/Final Color Toggle
+% - Draft Mode (Default): User-added text displays in blue.
+% - Final Mode: Uncomment the line below to render all blue text in black.
+% =========================================================================
+%\definecolor{blue}{rgb}{0,0,0} 
+% =========================================================================
+
 
 \begin{document}
 \title{Adaptive Timing Control for Throughput–Latency Trade-off in nFAPI Split}
@@ -286,13 +293,13 @@ Fronthaul & O-RAN F release \\
 
 \begin{figure}[!htbp]
   \centering
-  \subfigure[Non-applied EWMA]{\includegraphics[width=0.48\columnwidth]{figures/exp1a.png}\label{fig:exp1a}}
+  \subfloat[Non-applied EWMA]{\includegraphics[width=0.48\columnwidth]{figures/exp1a.png}\label{fig:exp1a}}
   \hfill
-  \subfigure[Applied EWMA]{\includegraphics[width=0.48\columnwidth]{figures/exp1b.png}\label{fig:exp1b}}
+  \subfloat[Applied EWMA]{\includegraphics[width=0.48\columnwidth]{figures/exp1b.png}\label{fig:exp1b}}
   
-  \subfigure[Trend Detection]{\includegraphics[width=0.48\columnwidth]{figures/exp1c.png}\label{fig:exp1c}}
+  \subfloat[Trend Detection]{\includegraphics[width=0.48\columnwidth]{figures/exp1c.png}\label{fig:exp1c}}
   \hfill
-  \subfigure[Proactive Adjustment]{\includegraphics[width=0.48\columnwidth]{figures/exp1d.png}\label{fig:exp1d}}
+  \subfloat[Proactive Adjustment]{\includegraphics[width=0.48\columnwidth]{figures/exp1d.png}\label{fig:exp1d}}
   \caption{Validation of EWMA processing on PNF Timing Info and proactive adjustment.}
   \label{fig:exp1}
 \end{figure}
@@ -304,9 +311,9 @@ Fronthaul & O-RAN F release \\
 
 \begin{figure}[!htbp]
   \centering
-  \subfigure[MAC Latency \& Reliability]{\includegraphics[width=0.48\columnwidth]{figures/exp2a.png}\label{fig:exp2a}}
+  \subfloat[MAC Latency \& Reliability]{\includegraphics[width=0.48\columnwidth]{figures/exp2a.png}\label{fig:exp2a}}
   \hfill
-  \subfigure[Throughput Optimization]{\includegraphics[width=0.48\columnwidth]{figures/exp2b.png}\label{fig:exp2b}}
+  \subfloat[Throughput Optimization]{\includegraphics[width=0.48\columnwidth]{figures/exp2b.png}\label{fig:exp2b}}
   \caption{Performance evaluation: MAC RTT efficiency and system throughput.}
   \label{fig:exp2}
 \end{figure}
