@@ -24,6 +24,10 @@ Split Option 6，又稱為 MAC-PHY 切分，將架構的切割點精準設立於
 \label{subsec:split72}
 Split Option 7.2x (Low-PHY 切分) 則是將切分點設於實體層內部，目前為 O-RAN 聯盟所主推的低層切分 (Lower Layer Split, LLS) 標準 \cite{oran_wg4_cus}。雖然將部分運算（如 FFT/IFFT）移至 RU 藉以減輕前傳壓力，但其前傳頻寬需求仍與系統頻寬及天線數量成正比。這種切分方式通常需要極高容量的前傳網路支援，並對時序同步的要求極其嚴苛，常需仰賴硬體級的精確時間協定 (PTP) 以維持嚴格的相位同步。
 
+\subsection{Split Option 8}
+\label{subsec:split8}
+Split Option 8 是最傳統的底層切分架構，將切分點設於射頻 (RF) 與實體層 (PHY) 之間。在這種架構下，所有的基頻處理功能（包含完整的 PHY、MAC 以及更高層協定）皆集中於 DU 或 CU 運行，而 RU 僅負責射頻訊號的收發。這種配置產生了以時域 IQ 樣本為主的前傳資料流，通常依賴通用公共無線電介面 (CPRI) 或加強型通用公共無線電介面 (eCPRI) 進行傳輸。雖然其將硬體資源高度集中化，但對前傳網路的頻寬需求極高，且嚴格受限於系統頻寬及天線數量。此外，其延遲限制極度嚴格（最大允許單向延遲為 $250 \mu s$ \cite{3gpp_tr_38_801}），因此高度依賴高品質的專屬光纖網路。
+
 \section{基於 Split Option 6 之網路架構與挑戰}
 \label{sec:split6_details}
 
@@ -37,24 +41,26 @@ Split Option 7.2x (Low-PHY 切分) 則是將切分點設於實體層內部，目
 \label{subsec:nfapi}
 為了克服 FAPI 在物理部署上的限制並實現跨網路的 Split Option 6 架構，SCF 進一步開發了網路功能應用平台介面 (network Functional Application Platform Interface, nFAPI) \cite{SCF225}。nFAPI 的核心創新在於將原本依賴記憶體共享的 FAPI 訊息，封裝成可以透過乙太網路 (Ethernet) 或 IP 網路傳輸的網路封包協定 \cite{douros2018nfapi}。這項技術突破賦予了虛擬化網路功能 (VNF) 極大的彈性，使得運行於通用伺服器 (COTS Server) 上的雲端化 MAC 功能，得以透過封包交換網路遠端控制實體節點 (PNF) 上的 PHY 設備。
 
+值得注意的是，根據 3GPP TR 38.801 \cite{3gpp_tr_38_801} 的規範，Split Option 6 的理想前傳單向延遲限制為 $250 \mu s$。然而，SCF 在其規範中對 nFAPI 的延遲容忍度提出了更務實的特別解釋 \cite{SCF082, SCF225}。SCF 指出，nFAPI 係針對封包交換 IP 網路所設計，其前傳延遲預算主要取決於自主 HARQ (Autonomous HARQ) 重傳機制的配置。透過配置兩次自主 HARQ 重傳，nFAPI 能夠容忍高達 6 ms 的前傳延遲（包含訊框延遲與延遲抖動） \cite{SCF082}。此外，在非理想前傳網路 (Non-ideal Fronthaul) 環境中，透過微調 S-DU 的 HARQ 參數（如 K0, K1, K2）以及 RACH 計時器，搭配 nFAPI P7 介面內建的延遲管理 (Delay Management) 機制與適應 P5 介面的 SCTP 協定，nFAPI 甚至能支援高達 30 ms 的高延遲與高抖動傳輸條件 \cite{SCF225}。這種針對非理想網路的設計，使得 Split Option 6 在部署上具備極高的實用性與靈活性。
+
 \subsection{切分技術綜合比較}
 \label{subsec:split_comparison}
-為更直觀呈現不同切分選項之間的差異，表~\ref{tab:split_comparison_matrix} 針對 Split 8、Split 7.2x 以及 Split Option 6 在前傳資料型態、頻寬需求及延遲限制等方面進行了綜合比較。
+為更直觀呈現不同切分選項之間的差異，表~\ref{tab:split_comparison_matrix} 針對 Split 2、Split Option 6、Split 7.2x 以及 Split 8 在協定邊界、頻寬需求及延遲限制等方面進行了綜合比較。
 
 \begin{table}[htbp]
 \centering
-\caption{5G RAN 底層切分技術綜合比較矩陣}
+\caption{5G RAN 拆分布屬比較表}
 \label{tab:split_comparison_matrix}
 \small
-\begin{tabularx}{\textwidth}{@{}L L L L@{}}
+\begin{tabularx}{\textwidth}{@{}L L L L L@{}}
 \toprule
-\textbf{評估維度} & \textbf{Split 8} & \textbf{Split 7.2x} & \textbf{Split Option 6 (nFAPI)} \\ \midrule
-協定切割邊界 & RF / PHY & Low-PHY / High-PHY & MAC / PHY \\
-前傳資料型態 & 時域 IQ 樣本 & 頻域 IQ 符號 & MAC PDU (封包化) \\
-標準化介面 & CPRI / eCPRI & O-RAN WG4 eCPRI & SCF nFAPI \\
-頻寬成長驅動 & 系統頻寬、天線數 & 頻寬、空間層數 & 實際使用者流量 \\
-延遲限制 & $< 250 \mu s$ & $< 250 \mu s$ & $1-3 ms$ (HARQ 預算) \\
-最佳佈署場景 & C-RAN、專屬光纖 & 巨集基地台 & 小型基地台、室內專網 \\ \bottomrule
+\textbf{評估維度} & \textbf{Split 2} & \textbf{Split Option 6} & \textbf{Split 7.2x} & \textbf{Split 8} \\ \midrule
+協定切割邊界 & PDCP / RLC & MAC / PHY & Low-PHY / High-PHY & RF / PHY \\
+前傳資料型態 & PDCP PDU & MAC PDU (封包化) & 頻域 IQ 符號 & 時域 IQ 樣本 \\
+標準化介面 & F1 & SCF nFAPI & O-RAN WG4 eCPRI & CPRI / eCPRI \\
+頻寬成長驅動 & 實際使用者流量 & 實際使用者流量 & 頻寬、空間層數 & 系統頻寬、天線數 \\
+延遲限制 \cite{3gpp_tr_38_801, SCF082} & $1.5 \sim 10 ms$ & $250 \mu s$ (3GPP)\newline $6 \sim 30 ms$ (SCF) & $250 \mu s$ & $250 \mu s$ \\
+最佳佈署場景 & 非即時性服務 & 小型基地台、室內專網 & 巨集基地台 & C-RAN、專屬光纖 \\ \bottomrule
 \end{tabularx}
 \end{table}
 
