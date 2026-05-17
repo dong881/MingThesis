@@ -3,14 +3,14 @@
 \chapter{實驗結果}
 \label{sec:experiment}
 
-\textcolor{blue}{本研究在 OpenAirInterface (OAI) nFAPI 端到端環境中進行實驗，以驗證所提出的延遲管理方法。為了確保評估的統計可靠性，報告中呈現的每個吞吐量 (Throughput) 值皆代表 180 個數據點的平均值（3 次獨立試驗 $\times$ 每次試驗 60 個樣本）。}
+本研究在 OpenAirInterface (OAI) nFAPI 端到端環境中進行實驗，以驗證所提出的延遲管理方法。為了確保評估的統計可靠性，報告中呈現的每個吞吐量 (Throughput) 值皆代表 180 個數據點的平均值（3 次獨立試驗 $\times$ 每次試驗 60 個樣本）。
 
-\textcolor{blue}{為了驗證假設以及所提動態觸發排程演算法的有效性，實驗情境安排如下：第~\ref{subsec:experimental_scenario} 節概述了軟硬體環境與自動化評估框架。第~\ref{subsec:scenario_1} 節驗證了針對 PNF 到達偏移量 ($\Delta t_{arrive}$) 的指數加權移動平均 (EWMA) 機制。第~\ref{subsec:scenario_2} 節將高峰吞吐量與 MAC 層往返時間 (RTT) 的性能與靜態基準進行基準測試。第~\ref{subsec:scenario_3} 節評估了所提方法在不同網路擁塞程度下的穩定性。}
+為了驗證假設以及所提動態觸發排程演算法的有效性，實驗情境安排如下：第~\ref{subsec:experimental_scenario} 節概述了軟硬體環境與自動化評估框架。第~\ref{subsec:scenario_1} 節驗證了針對 PNF 到達偏移量 ($\Delta t_{arrive}$) 的指數加權移動平均 (EWMA) 機制。第~\ref{subsec:scenario_2} 節將高峰吞吐量與 MAC 層往返時間 (RTT) 的性能與靜態基準進行基準測試。第~\ref{subsec:scenario_3} 節評估了所提方法在不同網路擁塞程度下的穩定性。
 
 \section{實驗情境}
 \label{subsec:experimental_scenario}
 
-\textcolor{blue}{測試平台環境連接了一系列高效能伺服器、無線單元與商用智慧型手機。端到端網路部署的詳細軟硬體配置如下表所示。}
+測試平台環境連接了一系列高效能伺服器、無線單元與商用智慧型手機。端到端網路部署的詳細軟硬體配置如下表所示。
 
 \begin{table}[!htbp]
   \caption{測試平台節點配置}
@@ -46,7 +46,7 @@ MIMO / 埠數 (MIMO / Ports) & 4-layer / 4T4R \\
 \end{tabular}
 \end{table}
 
-\textcolor{blue}{為了確保自動化測量與分析具備一致的數據品質，本研究開發了一個自動評估 rApp，運行於 O-RAN 服務管理與編排 (SMO) 框架下的非即時無線存取網路智慧控制器 (Non-RT RIC) 上 \cite{O-RAN.arch, O-RAN.rapp}，如圖~\ref{fig:rapp_architecture} 所示。此 rApp 可自動啟動 VNF 與 PNF。一旦 gNB 成功建立，rApp 會自動透過 SSH 連接至控制電腦，利用 Android 偵錯橋接器 (ADB) \cite{ADB} 切換 UE 的飛航模式，隨後透過 SSH 在核心網路伺服器上啟動 iPerf \cite{iperf3} 伺服器。接著，它會自動執行一系列預定的 iPerf 測試案例。最後，rApp 透過 O1 SFTP 收集所有日誌檔案，並利用 Python 腳本自動繪製後續的數據分析圖表。在實驗過程中，我們也使用 tcpdump \cite{tcpdump} 進行封包側錄，並利用 Linux PTP \cite{LinuxPTP311} 及 TSN 時間同步機制 \cite{tsn-timesync} 確保網路節點間的基準時序，底層資料傳輸則依賴 DPDK \cite{DPDK20119} 進行封包加速。此框架的一個關鍵能力是能透過 Linux 流量控制 (TC)，在 MAC 回饋鏈路 ($T_5-T_4$) 與前傳路段 ($T_2-T_1$) 自動配置網路延遲模擬，這對於驗證解耦式架構在非確定性延遲下的穩定性至關重要。}
+為了確保自動化測量與分析具備一致的數據品質，本研究開發了一個自動評估 rApp，運行於 O-RAN 服務管理與編排 (SMO) 框架下的非即時無線存取網路智慧控制器 (Non-RT RIC) 上 \cite{O-RAN.arch, O-RAN.rapp}，如圖~\ref{fig:rapp_architecture} 所示。此 rApp 可自動啟動 VNF 與 PNF。一旦 gNB 成功建立，rApp 會自動透過 SSH 連接至控制電腦，利用 Android 偵錯橋接器 (ADB) \cite{ADB} 切換 UE 的飛航模式，隨後透過 SSH 在核心網路伺服器上啟動 iPerf \cite{iperf3} 伺服器。接著，它會自動執行一系列預定的 iPerf 測試案例。隨後，rApp 透過 O1 SFTP 收集所有日誌檔案，並利用 Python 腳本自動繪製後續的數據分析圖表。在實驗過程中，我們也使用 tcpdump \cite{tcpdump} 進行封包側錄，並利用 Linux PTP \cite{LinuxPTP311} 及 TSN 時間同步機制 \cite{tsn-timesync} 確保網路節點間的基準時序，底層資料傳輸則依賴 DPDK \cite{DPDK20119} 進行封包加速。此框架的一個關鍵能力是能透過 Linux 流量控制 (TC)，在 MAC 回饋鏈路 ($T_5-T_4$) 與前傳路段 ($T_2-T_1$) 自動配置網路延遲模擬，這對於驗證解耦式架構在非確定性延遲下的穩定性至關重要。
 
 \begin{figure}[!htbp]
   \centering
@@ -58,7 +58,7 @@ MIMO / 埠數 (MIMO / Ports) & 4-layer / 4T4R \\
 \section{情境 I：PNF 到達偏移量 ($\Delta t_{arrive}$) 之 EWMA 驗證}
 \label{subsec:scenario_1}
 
-\textcolor{blue}{此情境驗證了應用指數加權移動平均 (EWMA) 來平滑 PNF 到達偏移量 ($\Delta t_{arrive}$) 的有效性。由於網路抖動與處理延遲，從 PNF 接收到的原始定時偏移量可能會展現出高變異性。圖~\ref{fig:exp1} 展示了 EWMA 處理的影響。在不使用 EWMA 的情況下（圖~\ref{fig:exp1a}），到達偏移量波動劇烈，這可能導致不穩定的排程決策。透過應用 EWMA（圖~\ref{fig:exp1b}），高頻抖動被有效過濾，為定時調整演算法提供了一個穩定的基準。此外，如圖~\ref{fig:exp1c} 與圖~\ref{fig:exp1d} 所示，平滑後的數據使系統能夠相對穩定地進行判斷。當 $\Delta t_{arrive}$ 開始呈現下降趨勢時，演算法能夠穩定地識別此趨勢，並主動提前更多的時間 ($S_{ahead}$)，以維持同步的穩定性。}
+此情境驗證了應用指數加權移動平均 (EWMA) 來平滑 PNF 到達偏移量 ($\Delta t_{arrive}$) 的有效性。由於網路抖動與處理延遲，從 PNF 接收到的原始定時偏移量可能會展現出高變異性。圖~\ref{fig:exp1} 展示了 EWMA 處理的影響。在不使用 EWMA 的情況下（圖~\ref{fig:exp1a}），到達偏移量波動劇烈，這可能導致不穩定的排程決策。透過應用 EWMA（圖~\ref{fig:exp1b}），高頻抖動被有效過濾，為定時調整演算法提供了一個穩定的基準。再者，如圖~\ref{fig:exp1c} 與圖~\ref{fig:exp1d} 所示，平滑後的數據使系統能夠相對穩定地進行判斷。當 $\Delta t_{arrive}$ 開始呈現下降趨勢時，演算法能夠穩定地識別此趨勢，並主動提前更多的時間 ($S_{ahead}$)，以維持同步的穩定性。
 
 \begin{figure}[!htbp]
   \centering
@@ -83,9 +83,9 @@ MIMO / 埠數 (MIMO / Ports) & 4-layer / 4T4R \\
 \section{情境 II：性能基準測試}
 \label{subsec:scenario_2}
 
-\textcolor{blue}{在此情境中，我們評估了所提自適應定時機制相對於標準靜態提前時槽配置的基準性能。圖~\ref{fig:exp2} 展示了在 MAC 層延遲與系統吞吐量方面的性能評估。}
+在此情境中，我們評估了所提自適應定時機制相對於標準靜態提前時槽配置的基準性能。圖~\ref{fig:exp2} 展示了在 MAC 層延遲與系統吞吐量方面的性能評估。
 
-\textcolor{blue}{圖~\ref{fig:exp2} 展示了在不同負載 (Offered Load) 下的性能評估。所提演算法優先確保最佳吞吐量，在所有負載條件下皆能持續維持最佳的吞吐量表現。同時，在確保此最佳吞吐量的前提下，演算法也極大化地選擇最佳提前時槽，以優化 MAC 層 HARQ 往返時間 (RTT)，有效避免不必要的額外開銷。}
+圖~\ref{fig:exp2} 展示了在不同負載 (Offered Load) 下的性能評估。所提演算法優先確保最佳吞吐量，在所有負載條件下皆能持續維持最佳的吞吐量表現。同時，在確保此最佳吞吐量的前提下，演算法也極大化地選擇最佳提前時槽，以優化 MAC 層 HARQ 往返時間 (RTT)，有效避免不必要的額外開銷。
 
 \begin{figure}[!htbp]
   \centering
@@ -99,7 +99,7 @@ MIMO / 埠數 (MIMO / Ports) & 4-layer / 4T4R \\
 \section{情境 III：網路擁塞下的穩定性}
 \label{subsec:scenario_3}
 
-\textcolor{blue}{為了測試系統的穩健性，我們利用 Linux TC 在 $T_2-T_1$ 與 $T_5-T_4$ 路段注入了人工網路擁塞，改變單向延遲 (OWD) 與抖動。如圖~\ref{fig:exp3} 所示，當延遲超過固定時窗時，靜態配置經歷了災難性的吞吐量下降與頻繁的連線重設；與此相對，所提自適應定時控制動態地擴展了提前時槽 ($S_{ahead}$)。這種擴展允許 MAC 排程器預先觸發訊息，確保訊息儘管傳輸延遲增加，仍能在有效時窗內抵達 PNF。因此，即使在先前會導致完全同步失效的擁塞程度下，系統仍能維持穩定的吞吐量。}
+為了測試系統的穩健性，我們利用 Linux TC 在 $T_2-T_1$ 與 $T_5-T_4$ 路段注入了人工網路擁塞，改變單向延遲 (OWD) 與抖動。如圖~\ref{fig:exp3} 所示，當延遲超過固定時窗時，靜態配置經歷了災難性的吞吐量下降與頻繁的連線重設；與此相對，所提自適應定時控制動態地擴展了提前時槽 ($S_{ahead}$)。這種擴展允許 MAC 排程器預先觸發訊息，確保訊息儘管傳輸延遲增加，仍能在有效時窗內抵達 PNF。據此，即使在先前會導致完全同步失效的擁塞程度下，系統仍能維持穩定的吞吐量。
 
 \begin{figure}[!htbp]
   \centering

@@ -3,19 +3,19 @@
 \chapter{系統架構}
 \label{sec:system}
 
-\textcolor{blue}{在深入探討系統細節之前，本研究先介紹所採用的系統框架。為了將網路功能應用平台介面 (nFAPI) 與主流商用設備整合，本研究所提之系統採用了一種具韌性的兩階段分割架構。網路首先透過網路功能之間的 Split~6 nFAPI 介面進行連接，隨後轉換為標準的 O-RAN Split~7.2x 介面以連接商用 Pegatron O-RU。圖~\ref{fig:System-Architecture} 展示了此系統架構及其延遲管理機制。}
+在深入探討系統細節之前，本研究先介紹所採用的系統框架。為了將網路功能應用平台介面 (nFAPI) 與主流商用設備整合，本研究所提之系統採用了一種具韌性的兩階段分割架構。網路首先透過網路功能之間的 Split~6 nFAPI 介面進行連接，隨後轉換為標準的 O-RAN Split~7.2x 介面以連接商用 Pegatron O-RU。圖~\ref{fig:System-Architecture} 展示了此系統架構及其延遲管理機制。
 
 \section{端到端架構}
 \label{subsec:A_end_to_end}
-\textcolor{blue}{本系統建立了一個完整的 5G 端到端通訊鏈路，從核心網路延伸至使用者設備：
+本系統建立了一個完整的 5G 端到端通訊鏈路，從核心網路延伸至使用者設備：
 \begin{itemize}
 \item \textbf{核心網路 (Core Network, CN)：} 負責路由、對談管理以及使用者資料認證的核心元件。
 \item \textbf{O-RAN 中央單元 (O-CU)：} 處理高層協定疊的邏輯節點，如無線資源控制 (RRC) 與封包資料匯聚協定 (PDCP)。它透過 F1 介面與分散單元連接。
 \item \textbf{O-RAN 分散單元 (O-DU)：} 為了優化計算性能與部署靈活性，系統將 O-DU 分為 O-DU High 與 O-DU Low。O-DU High 以虛擬網路功能 (VNF) 的形式在虛擬機器上執行，而 O-DU Low 則以實體網路功能 (PNF) 的形式部署在專用硬體上。
-\item \textbf{交換器 (Switch)：} 位於 VNF 與 PNF 之間的商用網路交換器。此中間層連接利用 nFAPI 協定。然而，穿越此封包交換網路不可避免地會產生非確定性的延遲。
+\item \textbf{交換器 (Switch)：} 位於 VNF 與 PNF 之間的商用網路交換器。此中間層連接利用 nFAPI 協定。不過，穿越此封包交換網路不可避免地會產生非確定性的延遲。
 \item \textbf{O-RAN 無線單元 (O-RU)：} 專用的硬體單元，負責低層物理層 (Low PHY) 處理、數位波束成型 (Digital Beamforming) 與射頻 (RF) 傳輸。
 \item \textbf{商用現成使用者設備 (COTS UE)：} 作為網路終端接收器的標準商用智慧型手機或數據機。
-\end{itemize}}
+\end{itemize}
 
 \begin{figure}[!t]
   \centering
@@ -26,35 +26,35 @@
 
 \section{O-DU High：MAC 與延遲管理器}
 \label{subsec:B_odu_high}
-\textcolor{blue}{在 O-DU High 的媒體存取控制 (MAC) 層中，處理定時機制的核心組件包括排程器 (Scheduler) 與 nFAPI 延遲管理器 (nFAPI Delay Manager)：
+在 O-DU High 的媒體存取控制 (MAC) 層中，處理定時機制的核心組件包括排程器 (Scheduler) 與 nFAPI 延遲管理器 (nFAPI Delay Manager)：
 \begin{itemize}
 \item \textbf{排程器 (Scheduler)：} 負責分配可用的無線資源（如時頻資源塊），並決定下行/上行資料傳輸的確切優先順序與時序。
 \item \textbf{nFAPI 延遲管理器：} 作為此延遲感知架構的關鍵控制單元。由於 VNF 與 PNF 之間的交換器存在不可預測且不穩定的延遲，延遲管理器持續接收來自低層物理層的定時回饋。它利用這些資訊動態計算網路抖動，並主動調整 \textbf{提前時槽 (slot-ahead, $S_{ahead}$)} 以觸發排程器。此計算確保排程指令 (\texttt{Sched data}) 能夠提前生成，以補償網路延遲。
-\end{itemize}}
+\end{itemize}
 
 \section{O-DU Low：高層物理層與定時時窗}
 \label{subsec:C_odu_low}
-\textcolor{blue}{O-DU Low 管理物理層的高層基頻處理 (High PHY)。在此層級中，最關鍵的同步機制是 nFAPI PNF 定時時窗 (Timing Window)：
+O-DU Low 管理物理層的高層基頻處理 (High PHY)。在此層級中，最關鍵的同步機制是 nFAPI PNF 定時時窗 (Timing Window)：
 \begin{itemize}
 \item \textbf{定時時窗 (Timing Window)：} 一個預定義且嚴格的時間區間。當 O-DU High 發送的排程訊息（特別是 \texttt{DL\_TTI.request}）在網路中傳輸時，它必須準確地送達並恰好落在該時窗內。否則，高層物理層將拒絕該訊息，導致無法處理該時槽 (Slot) 的資料。
 \item \textbf{定時資訊 ($\Delta t_{arrive}$)：} PNF 持續監控控制訊息相對於傳輸期限 (Deadline) 的確切到達偏移量。此偏移量表示為 $\Delta t_{arrive}$，代表定時時窗內的剩餘時間裕度。PNF 定期將此資訊傳回 MAC 層的延遲管理器。這建立了一個閉迴路回饋控制系統，用以補償 VNF 與 PNF 機器之間不可預測的傳輸延遲變動。
-\end{itemize}}
+\end{itemize}
 
 \section{關鍵驗證指標}
 \label{subsec:D_metrics}
-\textcolor{blue}{為了評估所提演算法在非理想環境下的穩定性、同步精度與即時性能，本研究定義了以下關鍵驗證指標：
+為了評估所提演算法在非理想環境下的穩定性、同步精度與即時性能，本研究定義了以下關鍵驗證指標：
 \begin{itemize}
 \item \textbf{MAC 層 HARQ RTT ($T_5 - T_1$)：} 專門測量 MAC 層的混合自動重傳請求 (HARQ) 迴路延遲。此指標精確反映了鏈路層的回饋效率與運作健康狀況。
 \item \textbf{VNF-PNF 下行延遲 ($T_2 - T_1$)：} 測量從虛擬化機器 (VNF) 到實體機器 (PNF) 累積的單向下行延遲。此指標用於直接量化並分析由中間乙太網路交換器引入的延遲抖動影響。
 \end{itemize}
-註：RTT 代表往返時間 (Round-Trip Time)。為了在非理想前傳條件下驗證分割架構的穩定性，本研究透過 Linux 流量控制 (TC) 在上行 ($T_5 - T_4$) 與下行 ($T_2 - T_1$) 路段進行網路延遲模擬。}
+註：RTT 代表往返時間 (Round-Trip Time)。為了在非理想前傳條件下驗證分割架構的穩定性，本研究透過 Linux 流量控制 (TC) 在上行 ($T_5 - T_4$) 與下行 ($T_2 - T_1$) 路段進行網路延遲模擬。
 
-\textcolor{blue}{為了在現實網路環境中驗證所提出的性能優化，系統設計利用了商用級的部署框架：
+為了在現實網路環境中驗證所提出的性能優化，系統設計利用了商用級的部署框架：
 \begin{itemize}
 \item \textbf{O-RAN Split 7.2x 互操作性。} \\
       儘管小型基地台論壇 (SCF) 已針對 MAC-PHY 分割 (Option 6) 標準化了 \textbf{網路功能應用平台介面 (nFAPI)} \cite{douros2018nfapi}，商用級無線單元 (O-RU) 原生支援的是 O-RAN Split Option 7.2x。為了與 OpenAirInterface \cite{wang2022opensource} 等開源協定疊達成無縫整合，本系統橋接了這些介面，以確保全規模的商用互操作性。
 \item \textbf{用於端到端驗證的混合系統架構。} \\
       為了在完全商用的生態系統中驗證 nFAPI 的性能，本論文採用了\textbf{混合架構} (Split Option 6 + Split Option 7.2)。在此模型中，系統提供了一個轉換/互通層 (Translation/Interworking Layer)，使得由 nFAPI 驅動的 MAC/High-PHY 能夠成功地與商用 Pegatron O-RU 進行互動。此設置允許在真實世界的端到端環境中，使用\textbf{商用現成 (COTS)} 使用者設備來驗證 nFAPI 的性能。
-\end{itemize}}
+\end{itemize}
 
 \end{document}
