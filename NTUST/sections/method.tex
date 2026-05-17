@@ -68,54 +68,60 @@ To achieve microsecond-level phase alignment, the system adopts a timestamp exch
 \end{algorithmic}
 \end{algorithm}
 
-To combat fluctuating network latency and maintain scheduling robustness, this paper proposes a dynamic delay management strategy. Upon receiving timing statistics (specifically, the worst-case delay offset $\Delta t_{arrive}$ reported by the PNF), the system calculates the deviation ($error$). Inspired by the Jacobson/Karels TCP RTT algorithm, an EWMA model is applied using smoothing factors $\alpha$ and $\beta$ to estimate the mean delay ($\mu_{delay}$) and jitter deviation ($dev_{delay}$).
+To combat fluctuating network latency and maintain scheduling robustness, this paper proposes a dynamic delay management strategy. This strategy intelligently trades off between throughput and latency by introducing the concepts of predicted risk and historical risk debt. Upon receiving the worst-case delay offset ($\Delta t_{arrive}$) reported by the PNF, the system calculates an Exponentially Weighted Moving Average (EWMA) for the mean delay ($\mu_{delay}$) and jitter deviation ($dev_{delay}$) using smoothing factors $\alpha$ and $\beta$.
 
-Before making tracking adjustments, the algorithm establishes several \textbf{Panic Criteria}. If the absolute deviation exceeds $3 \cdot dev_{delay}$, a statistical anomaly is detected, indicating a sudden latency spike. If $\Delta t_{arrive} > \text{slot\_duration}$, a strict violation occurs, meaning the packet delay exceeds the slot boundary. Either condition triggers the \textbf{Fast Attack Panic Mode}, which aggressively increments the current trigger timing ($S_{curr}$) by 1 slot to calculate the next trigger timing ($S_{next}$), ensuring connection continuity and mitigating catastrophic deadline violations.
+Before making tracking adjustments, the system evaluates the potential tail risk ($Risk_{pred}$) based on the maximum of the observed offset and the mean delay, augmented by the jitter deviation. This risk is then accumulated into a history-weighted risk debt ($Debt_{risk}$), which represents a decaying memory of past network instability. If a deadline violation occurs ($\Delta t_{arrive} > 0$) or a high risk is predicted ($Risk_{pred} > 0$), the algorithm takes immediate action to preserve throughput by incrementing the current trigger timing ($S_{curr}$).
 
-Conversely, to maximize low-latency operation within a safe zone, a \textbf{Proactive Latency Reduction} mechanism is employed. When the delay is safely below an absolute boundary ($\Delta t_{arrive} \le \text{Safe\_Margin}$), a stability counter ($count_{stable}$) increments. Once this counter exceeds an adaptive stability threshold ($N_{stable}$) that dynamically scales with $dev_{delay}$, the system cautiously decrements $S_{curr}$ by 1 to determine $S_{next}$. This asymmetric response (fast attack, slow decay) prevents ping-pong oscillations while minimizing round-trip time. Finally, $S_{next}$ is also bounded within the permissible nFAPI timing window. The adjustment strategy is condensed in Algorithm~\ref{alg:delay_manager_simplified}.
+Conversely, to optimize latency during safe operations, the algorithm checks if the historical debt is cleared ($Debt_{risk} < \epsilon$) and if the system has maintained sustained stability over consecutive observations ($count_{stable} \ge N_{stable}$, where $N_{stable}$ scales dynamically). If both conditions are met, the algorithm cautiously decreases the advance time. In scenarios where the risk is low but stability evidence is still accumulating or debt is being cleared, the current timing is maintained. This asymmetric response ensures connection continuity while avoiding ping-pong oscillations. The core adjustment strategy is condensed in Algorithm~\ref{alg:aatc_core}.
 
 \begin{algorithm}[H]
 \iffalse
 \caption{延遲管理 (Delay Management)}
 \fi
 \caption{Delay Management}
-\label{alg:delay_manager_simplified}
+\label{alg:aatc_core}
 \small
 \begin{algorithmic}[1]
-\Require $\Delta t_{arrive}$ (Timing offset information from PNF)
-\Ensure $S_{next}$ (Trigger timing for the next MAC schedule)
+\Require $\Delta t_{arrive}$ (Observed timing offset relative to deadline, $>0$ means late)
+\Require $S_{curr}$ (Current trigger timing advance in slots)
+\Ensure $S_{next}$ (Trigger timing for the next MAC scheduling)
 
-\Statex \textbf{Notation:} 
-\Statex $S_{curr}$ (Current trigger timing), $\mu_{delay}$ (EWMA mean delay)
-\Statex $dev_{delay}$ (EWMA mean deviation), $count_{stable}$ (Stable arrival counter)
-\Statex $N_{stable}$ (Adaptive threshold), $\alpha, \beta$ (Smoothing factors)
-\Statex $\text{Safe\_Margin}$ (Target safe margin), $\text{slot\_duration}$ (Slot duration)
+\Statex \textbf{Notation \& State Variables:} 
+\Statex $\mu_{delay}$: EWMA mean delay
+\Statex $dev_{delay}$: EWMA mean deviation (adaptive jitter margin)
+\Statex $Risk_{pred}$: Predicted timing risk based on current observation
+\Statex $Debt_{risk}$: History-weighted risk debt (decaying memory of past instability)
+\Statex $count_{stable}$: Consecutive stable arrivals counter
+\Statex $N_{stable}$: Adaptive stability threshold (dynamically scales with $S_{curr}$)
+\Statex $S_{max}$: Maximum allowable advance-time limit
+\Statex $\alpha, \beta$: Smoothing factors (e.g., $\alpha=1/8, \beta=1/4$)
+\Statex $\epsilon$: A strictly small threshold near zero for debt clearance
 
-\Statex \textbf{Phase 1: Delay Statistics Update}
-\State $error \gets \Delta t_{arrive} - \mu_{delay}$
-\State $\mu_{delay} \gets \mu_{delay} + \alpha \cdot error$
-\State $dev_{delay} \gets dev_{delay} + \beta(|error| - dev_{delay})$
+\Statex \textbf{Phase I: Delay, Risk \& Debt Estimation}
+\State $\mu_{delay} \gets \text{EWMA}(\Delta t_{arrive}, \mu_{delay}, \alpha)$
+\State $dev_{delay} \gets \text{EWMA}(|\Delta t_{arrive} - \mu_{delay}|, dev_{delay}, \beta)$
+\State $Risk_{pred} \gets \max(\Delta t_{arrive}, \mu_{delay}) + dev_{delay}$ \Comment{Evaluate potential tail risk}
+\State $Debt_{risk} \gets \text{EWMA}(\max(0, Risk_{pred}), Debt_{risk}, \alpha)$ \Comment{Accumulate or decay debt}
+\State $IsDebtFree \gets (Debt_{risk} < \epsilon)$ \Comment{Check if historical debt is cleared}
 
-\Statex \textbf{Phase 2: Anomaly Detection}
-\State $IsAnomaly \gets (|error| > 3 \cdot dev_{delay}) \lor (\Delta t_{arrive} > \text{slot\_duration})$
-
-\Statex \textbf{Phase 3: Timing Adjustment}
-\If{$IsAnomaly$}
-    \State $S_{next} \gets S_{curr} + 1$
+\Statex \textbf{Phase II: Trade-off Actuation (Throughput vs. Latency)}
+\If{$\Delta t_{arrive} > 0 \lor Risk_{pred} > 0$} 
+    \Statex \Comment{Condition 1: Deadline violation or high risk detected.}
+    \Statex \Comment{Action: Increase $S_{ahead}$ to preserve Throughput.}
+    \State $S_{next} \gets \min(S_{curr} + 1, S_{max})$
     \State $count_{stable} \gets 0$
-\ElsIf{$\Delta t_{arrive} \le \text{Safe\_Margin}$}
-    \State $count_{stable} \gets count_{stable} + 1$
-    \If{$count_{stable} \ge N_{stable}$}
-        \State $S_{next} \gets S_{curr} - 1$
-        \State $count_{stable} \gets 0$
-    \Else
-        \State $S_{next} \gets S_{curr}$
-    \EndIf
-\Else
+\ElsIf{$IsDebtFree$ \textbf{and} $count_{stable} \ge N_{stable}$} 
+    \Statex \Comment{Condition 2: Sustained stability confirmed.}
+    \Statex \Comment{Action: Decrease $S_{ahead}$ to optimize Latency.}
+    \State $S_{next} \gets \max(S_{curr} - 1, 1)$
+    \State $count_{stable} \gets 0$
+\Else 
+    \Statex \Comment{Condition 3: Safe but accumulating evidence or clearing debt.}
     \State $S_{next} \gets S_{curr}$
-    \State $count_{stable} \gets 0$
+    \If{$Risk_{pred} \le 0$}
+        \State $count_{stable} \gets count_{stable} + 1$
+    \EndIf
 \EndIf
-\State Constrain $S_{next}$ within the allowed nFAPI timing window
 \State \Return $S_{next}$
 \end{algorithmic}
 \end{algorithm}
