@@ -41,7 +41,7 @@ This system establishes a complete 5G end-to-end communication link extending fr
 In the Medium Access Control (MAC) layer of O-DU High, the core components handling the timing mechanism include the Scheduler and the nFAPI Delay Manager:
 \begin{itemize}
 \item \textbf{Scheduler:} Responsible for allocating available radio resources (e.g., time-frequency resource blocks) and determining the exact priority and timing of downlink/uplink data transmission.
-\item \textbf{nFAPI Delay Manager:} Serves as the key control unit of this delay-aware architecture. Due to the unpredictable and unstable delay across the switch between the VNF and PNF, the delay manager continuously receives timing feedback from the lower physical layer. It utilizes this information to dynamically calculate network jitter and proactively adjust the \textbf{slots ahead ($S_{ahead}$)} to trigger the scheduler. This calculation ensures that the scheduling command (\texttt{Sched data}) is generated in advance to compensate for the network delay.
+\item \textbf{nFAPI Delay Manager:} Serves as the key control unit of this delay-aware architecture. Due to the unpredictable and unstable delay across the switch between the VNF and PNF, the delay manager continuously receives timing feedback from the lower physical layer. It utilizes this information to dynamically calculate network jitter and actively adjust the \textbf{slots ahead ($S_{ahead}$)} to trigger the scheduler. This calculation ensures that the scheduling command (\texttt{Sched data}) is generated in advance to compensate for the network delay.
 \end{itemize}
 
 \iffalse

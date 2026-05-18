@@ -76,7 +76,7 @@ To ensure consistent data quality for automated measurement and analysis, this s
 \section{Scenario I: EWMA Validation for PNF Arrival Offset ($\Delta t_{arrive}$)}
 \label{subsec:scenario_1}
 
-This scenario verifies the effectiveness of applying the Exponentially Weighted Moving Average (EWMA) to smooth the PNF arrival offset ($\Delta t_{arrive}$). Due to network jitter and processing delays, the raw timing offset received from the PNF can exhibit high variability. Figure~\ref{fig:exp1} illustrates the impact of EWMA processing. Without EWMA (Figure~\ref{fig:exp1a}), the arrival offset fluctuates drastically, which can lead to unstable scheduling decisions. By applying EWMA (Figure~\ref{fig:exp1b}), high-frequency jitter is effectively filtered, providing a stable baseline for the timing adjustment algorithm. Furthermore, as shown in Figures~\ref{fig:exp1c} and \ref{fig:exp1d}, the smoothed data allows the system to make relatively stable judgments. When $\Delta t_{arrive}$ begins to show a downward trend, the algorithm steadily identifies this trend and proactively advances more time ($S_{ahead}$) to maintain synchronization stability.
+This scenario verifies the effectiveness of applying the Exponentially Weighted Moving Average (EWMA) to smooth the PNF arrival offset ($\Delta t_{arrive}$). Due to network jitter and processing delays, the raw timing offset received from the PNF can exhibit high variability. Figure~\ref{fig:exp1} illustrates the impact of EWMA processing. Without EWMA (Figure~\ref{fig:exp1a}), the arrival offset fluctuates drastically, which can lead to unstable scheduling decisions. By applying EWMA (Figure~\ref{fig:exp1b}), high-frequency jitter is effectively filtered, providing a stable baseline for the timing adjustment algorithm. Furthermore, as shown in Figures~\ref{fig:exp1c} and \ref{fig:exp1d}, the smoothed data allows the system to make relatively stable judgments. When $\Delta t_{arrive}$ begins to show a downward trend, the algorithm steadily identifies this trend and actively advances more time ($S_{ahead}$) to maintain synchronization stability.
 
 \begin{figure}[!htbp]
   \centering
@@ -92,7 +92,7 @@ This scenario verifies the effectiveness of applying the Exponentially Weighted 
 \iffalse
   \caption{PNF 到達偏移量 ($\Delta t_{arrive}$) 之 EWMA 處理驗證與主動調整。}
 \fi
-  \caption{EWMA processing validation and proactive adjustment for PNF arrival offset ($\Delta t_{arrive}$).}
+  \caption{EWMA processing validation and active adjustment for PNF arrival offset ($\Delta t_{arrive}$).}
   \label{fig:exp1}
 \end{figure}
 
@@ -109,11 +109,11 @@ This scenario verifies the effectiveness of applying the Exponentially Weighted 
 \iffalse
   \subfloat[主動提前調整]{\includegraphics[width=0.65\textwidth]{figures/exp1d.png}\label{fig:exp1d}}
 \fi
-  \subfloat[Proactive Advance Adjustment]{\includegraphics[width=0.65\textwidth]{figures/exp1d.png}\label{fig:exp1d}}
+  \subfloat[Active Advance Adjustment]{\includegraphics[width=0.65\textwidth]{figures/exp1d.png}\label{fig:exp1d}}
 \iffalse
   \caption{PNF 到達偏移量 ($\Delta t_{arrive}$) 之 EWMA 處理驗證與主動調整（續）。}
 \fi
-  \caption{EWMA processing validation and proactive adjustment for PNF arrival offset ($\Delta t_{arrive}$) (cont.).}
+  \caption{EWMA processing validation and active adjustment for PNF arrival offset ($\Delta t_{arrive}$) (cont.).}
 \end{figure}
 
 \iffalse
@@ -150,7 +150,7 @@ Figure~\ref{fig:exp2} displays the performance evaluation under varying Offered 
 \section{Scenario III: Stability under Network Congestion}
 \label{subsec:scenario_3}
 
-To test the system's robustness, we utilized Linux TC to inject artificial network congestion into the $T_2-T_1$ and $T_5-T_4$ segments, altering the One-Way Delay (OWD) and jitter. As shown in Figure~\ref{fig:exp3}, when the delay exceeds the fixed timing window, the static configuration experiences a catastrophic drop in throughput and frequent connection resets. In contrast, the proposed adaptive timing control dynamically expands the slots ahead ($S_{ahead}$). This expansion allows the MAC scheduler to trigger messages in advance, ensuring that messages can still arrive at the PNF within the valid timing window despite the increased transmission delay. Consequently, even at congestion levels that would previously cause complete synchronization failure, the system can maintain stable throughput.
+To test the system's robustness, we utilized Linux TC to inject artificial network congestion into the $T_2-T_1$ and $T_5-T_4$ segments, altering the One-Way Delay (OWD) and jitter. As shown in Figure~\ref{fig:exp3}, when the delay exceeds the fixed timing window, the static configuration experiences a severe drop in throughput and frequent connection resets. In contrast, the proposed adaptive timing control dynamically expands the slots ahead ($S_{ahead}$). This expansion allows the MAC scheduler to trigger messages in advance, ensuring that messages can still arrive at the PNF within the valid timing window despite the increased transmission delay. Consequently, even at congestion levels that would previously cause complete synchronization failure, the system can maintain stable throughput.
 
 \begin{figure}[!htbp]
   \centering

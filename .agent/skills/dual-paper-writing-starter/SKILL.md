@@ -17,6 +17,7 @@ Before drafting, the Agent will automatically consider the guidelines from the f
 - **Overall Writing Strategy:** @[/Paper and Thesis Writing Guide]
 - **IEEE Formatting Standards:** @[/IEEE Academic Paper Template]
 - **Advisor's Strict Rules:** @[/Advisor Paper Guidelines]
+- **Vocabulary Level Control:** @[/Vocabulary Level Guide] (Ensures simple, junior high school level English)
 - **Writing Process Flow:** @[/Academic Paper Writing Workflow]
 
 ## 🎯 Target Documents (目標文件)
