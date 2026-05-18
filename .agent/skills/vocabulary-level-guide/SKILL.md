@@ -24,6 +24,11 @@ Whenever you encounter or consider using a word from the "Avoid" list, **automat
 | **Catastrophic** | adj. | 災難性的 | **Huge, Massive, Very bad, Severe** | e.g., "Static configuration causes a *severe* drop in system throughput." |
 | **Pragmatic** | adj. | 務實的、實用主義的 | **Practical, Realistic, Useful** | e.g., "Small Cell Forum provides a more *practical* explanation." |
 | **Camaraderie** | n. | 同袍情誼、深厚友誼 | **Friendship, Support, Teamwork** | e.g., Acknowledgements: "Thanks for the *support* and *friendship* of my classmates." |
+| **Mitigate** | v. | 減輕、緩和 | **Reduce, Solve, Decrease** | e.g., "This approach dynamically tracks and *reduces* network jitter..." |
+| **Resilient** | adj. | 有彈性的、具韌性的 | **Strong, Stable** | e.g., "...and ensures *stable* system throughput." |
+| **Proprietary** | adj. | 專有的、專利的 | **Special, Private** | e.g., "...without relying on high-end *special* hardware..." |
+| **Endogenous** | adj. | 內生的、內在產生的 | **Internal** | e.g., "...introduces *internal* processing latency..." |
+| **Consequently** | adv. | 結果、因此 | **So, Therefore, As a result** | e.g., "*Therefore*, the system can maintain stable throughput." |
 
 ## 📝 Rules for Updating this Guide
 When the user indicates that a specific word is too difficult, update this skill by adding the word to the table above, providing its part of speech, meaning, and simpler alternatives.
