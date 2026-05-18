@@ -68,7 +68,7 @@ To achieve microsecond-level phase alignment, the system adopts a timestamp exch
 \end{algorithmic}
 \end{algorithm}
 
-To combat fluctuating network latency and maintain scheduling robustness, this paper proposes a dynamic delay management strategy. This strategy intelligently trades off between throughput and latency by introducing the concepts of predicted risk and historical risk debt. Upon receiving the worst-case delay offset ($\Delta t_{arrive}$) reported by the PNF, the system calculates an Exponentially Weighted Moving Average (EWMA) for the mean delay ($\mu_{delay}$) and jitter deviation ($dev_{delay}$) using smoothing factors $\alpha$ and $\beta$.
+To combat changing network latency and maintain scheduling stability, this paper proposes a dynamic delay management strategy. This strategy intelligently trades off between throughput and latency by introducing the concepts of predicted risk and historical risk debt. Upon receiving the worst-case delay offset ($\Delta t_{arrive}$) reported by the PNF, the system calculates an Exponentially Weighted Moving Average (EWMA) for the mean delay ($\mu_{delay}$) and jitter deviation ($dev_{delay}$) using smoothing factors $\alpha$ and $\beta$.
 
 Before making tracking adjustments, the system evaluates the potential tail risk ($Risk_{pred}$) based on the maximum of the observed offset and the mean delay, augmented by the jitter deviation. This risk is then accumulated into a history-weighted risk debt ($Debt_{risk}$), which represents a decaying memory of past network instability. If a deadline violation occurs ($\Delta t_{arrive} > 0$) or a high risk is predicted ($Risk_{pred} > 0$), the algorithm takes immediate action to preserve throughput by incrementing the current trigger timing ($S_{curr}$).
 
