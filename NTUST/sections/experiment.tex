@@ -70,6 +70,51 @@ To ensure consistent data quality for automated measurement and analysis, this s
   \label{fig:rapp_architecture}
 \end{figure}
 
+\subsection{Software Implementation and CI/CD Validation}
+\label{subsec:software_validation}
+
+\textcolor{blue}{To ensure that the proposed adaptive timing control and nFAPI modifications work well with current O-RAN standards, we have submitted our code to the official OpenAirInterface (OAI) repository. In addition to our local end-to-end evaluation using the rApp testing framework, the proposed software implementation was also pushed as a merge request (MR) to the official OAI repository. The code successfully passed various automated testing procedures in the OAI Continuous Integration and Continuous Deployment (CI/CD) pipeline.}
+
+\textcolor{blue}{In the software build and deployment stage (image building processes), the proposed implementation shows high compatibility across different hardware platforms. As shown in Table~\ref{tab:oai_cicd_build}, the image building and cross-compilation tests have all passed. These tests include x86-based Ubuntu and Red Hat Enterprise Linux (RHEL) systems, as well as ARM64-based NVIDIA Jetson edge platforms. These results show that the proposed method is mature enough to be deployed on different commercial hardware devices.}
+
+\begin{table}[!htbp]
+  \caption{OAI CI/CD Cross-Platform Compilation and Image Building Results}
+  \label{tab:oai_cicd_build}
+  \centering
+  \begin{tabularx}{\textwidth}{l|l|L|c}
+    \toprule
+    \textbf{Stage} & \textbf{Job / Builder} & \textbf{Target and Hardware Description} & \textbf{Result} \\
+    \midrule
+    x86 Build & Ubuntu-Image-Builder & Build OAI network function images on standard x86 servers & Passed \\
+    ARM Build & Ubuntu-ARM-Image-Builder & Build images on ARM64 for ARM-based edge servers & Passed \\
+    Edge AI Build & Ubuntu-Jetson-Image-Builder & Build light-weight images for NVIDIA Jetson platforms & Passed \\
+    RHEL Build & RHEL-Cluster-Image-Builder & Build images for Red Hat Enterprise Linux (RHEL) clusters & Passed \\
+    Cross-Compile & ARM-Cross-Compile & Verify cross-compilation from x86 to ARM64 architecture & Passed \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+\textcolor{blue}{After cross-platform builds, the code was tested in OAI system integration and physical layer dynamic tests. Although OAI includes many tests for special scenarios (such as Non-Terrestrial Networks, NTN), our method has passed several key tests in the main 5G branches. Table~\ref{tab:oai_integration_tests} summarizes the key integration and simulation tests that our code passed.}
+
+\begin{table}[!htbp]
+  \caption{Summary of System Integration and Physical Layer Validation}
+  \label{tab:oai_integration_tests}
+  \centering
+  \begin{tabularx}{\textwidth}{l|l|L}
+    \toprule
+    \textbf{Validation Scope} & \textbf{Passed Job Name} & \textbf{Description and Highlights} \\
+    \midrule
+    E2E 5G SA and RIC Integration & \texttt{OAI-FLEXRIC-RAN-Integration} & Run in 5G SA mode, integrate with 5G Core and FlexRIC (near-RT RIC) with low packet loss. \\
+    Commercial UE and RF Integration & \makecell[l]{\texttt{RAN-NSA-B200-Module-LTEBOX}\\\texttt{RAN-SA-B200-Module-SABOX}} & Run with USRP B200 and commercial Quectel modules to meet strict timing in real RF environments. \\
+    Third-Party RF Frontend Compatibility & \texttt{RAN-SA-AW2S-CN5G} & Run end-to-end tests with third-party AW2S RF equipment (20MHz TDD SA) and Amarisoft UE. \\
+    Handover Stability & \texttt{RAN-SA-Handover-CN5G} & Pass F1-interface and N2-interface handover tests under 5G SA to keep control plane stable. \\
+    5G L1 and Channel Compatibility & \makecell[l]{\texttt{RAN-Channel-Simulation}\\\texttt{RAN-PhySim-GraceHopper-5G}} & Pass physical layer simulations (including LDPC, Polar, PBCH, MIMO, MCS) to prove timing changes do not break 3GPP rules. \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+\textcolor{blue}{The results of the builds and key tests show that the proposed delay management mechanism is not only correct in theory, but also highly compatible in practice. It can serve as a stable open-source baseline for future optimizations in the O-RAN nFAPI community.}
+
 \iffalse
 \section{情境 I：PNF 到達偏移量 ($\Delta t_{arrive}$) 之 EWMA 驗證}
 \fi

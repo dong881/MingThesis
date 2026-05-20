@@ -75,6 +75,7 @@ nFAPI, O-RAN, Functional Split, Adaptive Control.
 \item \textcolor{blue}{\textbf{Systematic Analysis of Timing Uncertainty in Split 6:} We characterize the impact of non-deterministic latency, including network jitter and processing delay, on synchronization stability in disaggregated RAN systems.}
 \item \textcolor{blue}{\textbf{Adaptive Slots Ahead mechanism:} We propose a dynamic timing adjustment mechanism that continuously aligns scheduling decisions with varying transport delays, effectively mitigating timing violations.}
 \item \textcolor{blue}{\textbf{Experimental Validation on OAI Platform:} We implement the proposed framework in a real-world testbed and demonstrate that it eliminates missing slot packet errors and significantly improves throughput stability under non-ideal fronthaul conditions.}
+\item \textcolor{blue}{\textbf{Open-Source nFAPI Platform Contribution to Upstream OAI:} We submitted our adaptive timing control and nFAPI modifications as a merge request (MR) to the official OpenAirInterface (OAI) repository. This contribution was merged into the official codebase. It provides a standard open-source nFAPI platform that follows the Small Cell Forum (SCF) specification for future development and testing.}
 \end{itemize}
 
 \section{System Model}
@@ -287,6 +288,11 @@ Fronthaul & O-RAN F release \\
   \caption{Architecture of the rApp automated evaluation framework.}
   \label{fig:rapp_architecture}
 \end{figure}
+
+\subsection{Software Implementation and CI/CD Validation}
+\label{subsec:software_validation}
+
+\textcolor{blue}{To show the practical use and compatibility of the proposed adaptive timing control, we have merged our code into the official OpenAirInterface (OAI) repository. In addition to our local automated testbed using the rApp framework, the proposed software implementation was also verified through the official OAI automatic Continuous Integration and Continuous Deployment (CI/CD) pipeline. Specifically, the code passed all image building and cross-compilation tests on x86 and ARM64 systems, including Red Hat Enterprise Linux (RHEL) clusters and NVIDIA Jetson edge platforms. Furthermore, our implementation successfully completed key system-level tests, including 5G Standalone (SA) integration with the FlexRIC controller, real radio frequency (RF) transmissions using USRP B200 and AW2S radio units, F1/N2 handover procedures, and 3GPP-compliant physical layer simulations. These results confirm that our proposed timing control is stable and ready for diverse commercial hardware deployments.}
 
 \subsection{Scenario I: Validation of EWMA for PNF Timing Info}
 \label{subsec:scenario_1}
