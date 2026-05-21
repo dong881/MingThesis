@@ -176,17 +176,14 @@ Figure~\ref{fig:exp2} displays the performance evaluation under varying Offered 
 \begin{figure}[!htbp]
   \centering
 \iffalse
-  \subfloat[MAC 延遲與可靠性]{\includegraphics[width=0.7\textwidth]{figures/exp2a.png}\label{fig:exp2a}} \\
+  \subfloat[吞吐量優化]{\includegraphics[width=0.7\textwidth]{figures/exp2b.png}\label{fig:exp2a}} \\
 \fi
-  \subfloat[MAC Latency and Reliability]{\includegraphics[width=0.7\textwidth]{figures/exp2a.png}\label{fig:exp2a}} \\
+  \subfloat[Throughput Optimization]{\includegraphics[width=0.7\textwidth]{figures/exp2b.png}\label{fig:exp2a}} \\
   \vspace{0.5cm}
 \iffalse
-  \subfloat[吞吐量優化]{\includegraphics[width=0.7\textwidth]{figures/exp2b.png}\label{fig:exp2b}}
+  \subfloat[MAC 延遲與可靠性]{\includegraphics[width=0.7\textwidth]{figures/exp2a.png}\label{fig:exp2b}}
 \fi
-  \subfloat[Throughput Optimization]{\includegraphics[width=0.7\textwidth]{figures/exp2b.png}\label{fig:exp2b}}
-\iffalse
-  \caption{性能評估：MAC RTT 效率與系統吞吐量。}
-\fi
+  \subfloat[MAC Latency and Reliability]{\includegraphics[width=0.7\textwidth]{figures/exp2a.png}\label{fig:exp2b}}
   \caption{Performance Evaluation: MAC RTT Efficiency and System Throughput.}
   \label{fig:exp2}
 \end{figure}
@@ -197,15 +194,22 @@ Figure~\ref{fig:exp2} displays the performance evaluation under varying Offered 
 \section{Scenario III: Stability under Network Congestion}
 \label{subsec:scenario_3}
 
-To test the system's stability, we utilized Linux TC to inject artificial network congestion into the $T_2-T_1$ and $T_5-T_4$ segments, altering the One-Way Delay (OWD) and jitter. As shown in Figure~\ref{fig:exp3}, when the delay exceeds the fixed timing window, the static configuration experiences a severe drop in throughput and frequent connection resets. In contrast, the proposed adaptive timing control dynamically expands the slots ahead ($S_{ahead}$). This expansion allows the MAC scheduler to trigger messages in advance, ensuring that messages can still arrive at the PNF within the valid timing window despite the increased transmission delay. Therefore, even at congestion levels that would previously cause complete synchronization failure, the system can maintain stable throughput.
+To test the system's stability, we utilized Linux TC to inject artificial network congestion into the $T_2-T_1$ and $T_5-T_4$ segments, altering the One-Way Delay (OWD) and jitter. As shown in Figure~\ref{fig:exp3a}, when the delay exceeds the fixed timing window, the static configuration experiences a severe drop in throughput and frequent connection resets. In contrast, the proposed adaptive timing control dynamically expands the slots ahead ($S_{ahead}$). This expansion allows the MAC scheduler to trigger messages in advance, ensuring that messages can still arrive at the PNF within the valid timing window despite the increased transmission delay. Therefore, even at congestion levels that would previously cause complete synchronization failure, the system can maintain stable throughput.
+
+To further evaluate the impact of unpredictable network jitter between the VNF and PNF, we perform a second experiment using Linux TC to simulate random jitter on the fronthaul link. In this test, we run iPerf UDP traffic with an offered load of 1 Gbps to fully saturate the downlink transmission. We measure the resulting downlink (DL) receiver (RX) throughput at the UE, comparing different fixed slot-ahead configurations against our proposed adaptive timing mechanism. As shown in Figure~\ref{fig:exp3b}, when network jitter is high and unpredictable, fixed slot-ahead settings cannot handle the timing variations, leading to packet losses, sync failures, and a major drop in throughput. On the other hand, the proposed adaptive method dynamically adjusts the scheduling advance, keeping the transmission timing aligned. As a result, the UE achieves and maintains stable and high DL RX throughput even under severe jitter conditions.
 
 \begin{figure}[!htbp]
   \centering
-  \includegraphics[width=0.8\textwidth]{figures/exp3.png}
 \iffalse
-  \caption{不同網路擁塞程度下的系統穩定性與吞吐量表現。}
+  \subfloat[不同網路擁塞程度下的系統穩定性]{\includegraphics[width=0.7\textwidth]{figures/exp3a.png}\label{fig:exp3a}} \\
 \fi
-  \caption{System stability and throughput performance under varying degrees of network congestion.}
+  \subfloat[System Stability under Network Congestion]{\includegraphics[width=0.7\textwidth]{figures/exp3a.png}\label{fig:exp3a}} \\
+  \vspace{0.5cm}
+\iffalse
+  \subfloat[無法預測抖動下的吞吐量表現]{\includegraphics[width=0.7\textwidth]{figures/exp3b.png}\label{fig:exp3b}}
+\fi
+  \subfloat[Throughput Performance under Unpredictable Jitter]{\includegraphics[width=0.7\textwidth]{figures/exp3b.png}\label{fig:exp3b}}
+  \caption{System stability and throughput performance under network congestion and jitter.}
   \label{fig:exp3}
 \end{figure}
 

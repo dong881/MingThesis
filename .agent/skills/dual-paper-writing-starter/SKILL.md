@@ -19,6 +19,7 @@ Before drafting, the Agent will automatically consider the guidelines from the f
 - **Advisor's Strict Rules:** @[/Advisor Paper Guidelines]
 - **Vocabulary Level Control:** @[/Vocabulary Level Guide] (Ensures simple, junior high school level English)
 - **Writing Process Flow:** @[/Academic Paper Writing Workflow]
+- **Git Automation:** @[/git-auto-commit] (Automatically stages, commits, and pushes changes after validation)
 
 ## 🎯 Target Documents (目標文件)
 You are maintaining two concurrent versions of your research:
@@ -58,6 +59,9 @@ When you provide a new concept to this skill, the Agent will execute the followi
 - Analyze the build log for any syntax errors (e.g., missing `$`, `{`, `}`), undefined citations, or missing references.
 - Proactively fix all identified issues in the respective `.tex` or `.bib` files.
 - Repeat the build and correction cycle until both documents compile successfully without critical errors or undefined references.
+
+### Step 6: Git Version Control Automation (Git 提交與推送自動化)
+- Run the `Git Auto Commit` skill to automatically stage, commit, and push the verified changes to the remote repository.
 
 ## 🚀 How to Use (使用方式)
 When you have a new inspiration, simply prompt the Agent like this:

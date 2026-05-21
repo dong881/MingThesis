@@ -319,9 +319,9 @@ Fronthaul & O-RAN F release \\
 
 \begin{figure}[!htbp]
   \centering
-  \subfloat[MAC Latency \& Reliability]{\includegraphics[width=0.48\columnwidth]{figures/exp2a.png}\label{fig:exp2a}}
+  \subfloat[Throughput Optimization]{\includegraphics[width=0.48\columnwidth]{figures/exp2b.png}\label{fig:exp2a}}
   \hfill
-  \subfloat[Throughput Optimization]{\includegraphics[width=0.48\columnwidth]{figures/exp2b.png}\label{fig:exp2b}}
+  \subfloat[MAC Latency \& Reliability]{\includegraphics[width=0.48\columnwidth]{figures/exp2a.png}\label{fig:exp2b}}
   \caption{Performance evaluation: MAC RTT efficiency and system throughput.}
   \label{fig:exp2}
 \end{figure}
@@ -329,12 +329,14 @@ Fronthaul & O-RAN F release \\
 \subsection{Scenario III: Stability under Network Congestion}
 \label{subsec:scenario_3}
 
-\textcolor{blue}{Under simulated network congestion, the adaptive control dynamically adjusts the trigger timing to compensate for increased one-way delay. Fig.~\ref{fig:exp3} illustrates that while static methods fail when jitter exceeds the timing window, our approach maintains synchronization and stable throughput by actively advancing the scheduling cycle.}
+\textcolor{blue}{To evaluate stability, we inject delay and jitter between the VNF and PNF using Linux TC. As shown in Fig.~\ref{fig:exp3a}, static slots ahead configurations suffer from synchronization failures and throughput drops when delay exceeds the timing window, whereas our proposed adaptive mechanism dynamically increases the slots ahead to maintain stable throughput. Additionally, we evaluate the UE DL RX throughput under a saturated 1 Gbps UDP offered load with unpredictable link jitter. As shown in Fig.~\ref{fig:exp3b}, while fixed slot ahead configurations experience severe throughput degradation due to late packets, the proposed adaptive method dynamically tracks jitter and secures stable, high throughput at the UE.}
 
 \begin{figure}[!htbp]
   \centering
-  \includegraphics[width=0.9\columnwidth]{figures/exp3.png}
-  \caption{System stability and throughput performance under varying network congestion.}
+  \subfloat[Stability under Delay Congestion]{\includegraphics[width=0.48\columnwidth]{figures/exp3a.png}\label{fig:exp3a}}
+  \hfill
+  \subfloat[Throughput under Unpredictable Jitter]{\includegraphics[width=0.48\columnwidth]{figures/exp3b.png}\label{fig:exp3b}}
+  \caption{System stability and throughput performance under varying network conditions.}
   \label{fig:exp3}
 \end{figure}
 
