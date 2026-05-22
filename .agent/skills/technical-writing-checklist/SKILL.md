@@ -122,3 +122,4 @@ This skill provides a systematic checklist for reviewing and improving technical
 - Using passive voice when active voice is clearer
 - Making unsupported claims
 - Inconsistent formatting or terminology
+- Enclosing general technical terms (e.g., "Functional Split Options", "slots ahead") in double quotes ("..."). Write them as normal nouns/noun phrases instead. Use italics (`\textit{...}`) or parentheses if a term must be defined or emphasized.

@@ -28,6 +28,12 @@ You are maintaining two concurrent versions of your research:
 2. **Detailed Version (NTUST Thesis):** `@[NTUST/my_ntust_thesis.tex]` and `@[NTUST/sections]`
    - Requires comprehensive background, detailed derivations, extensive figures/tables, and full references.
 
+## ⚠️ Style Guardrails (寫作風格防錯防線)
+To ensure compliance with IEEE and NTUST thesis writing standards:
+- **No Double Quotes on General Technical Nouns**: Never enclose standard technical terms, names of mechanisms, or parameters (e.g., "Functional Split Options", "slots ahead", "Adaptive Slots Ahead Control Mechanism") in double quotes ("..."). This is a common error that makes them look like direct quotes or irony/sarcasm.
+  - *Correct*: Use them as normal nouns/noun phrases (e.g., functional split options, slots ahead parameter, Adaptive Slots Ahead Control Mechanism) without quotes.
+  - *Exceptions*: If you must define a brand new term or specifically call attention to a configuration variable, use italics (e.g., `\textit{slots ahead}`) or parentheses. Never use double quotes for general description or emphasis.
+
 ## ⚙️ Standard Workflow (執行流程)
 
 When you provide a new concept to this skill, the Agent will execute the following steps:

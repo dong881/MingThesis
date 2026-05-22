@@ -519,6 +519,7 @@ A well-structured report consists of:
 8. ❌ Data presentation disconnected from logic
 9. ❌ Writing Introduction before knowing results
 10. ❌ Submitting without reading aloud
+11. ❌ Enclosing general technical terms in double quotes (e.g., "Functional Split Options" -> functional split options)
 
 ---
 
