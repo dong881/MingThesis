@@ -13,11 +13,11 @@ Once the LaTeX documents compile successfully without errors or unresolved refer
 
 ### Step 1: Stage Changes (暫存變更)
 - Run `git status` to verify modified, deleted, and untracked files.
-- Stage the changed TeX, bib, figures, and other source files using:
+- Stage the changed TeX, bib, figures, source files, and the compiled PDF outputs using:
   ```bash
-  git add main.tex references.bib NTUST/sections/ NTUST/my_bib.bib NTUST/my_ntust_thesis.tex figures/
+  git add main.tex references.bib NTUST/sections/ NTUST/my_bib.bib NTUST/my_ntust_thesis.tex figures/ build/main.pdf NTUST/build/my_ntust_thesis.pdf
   ```
-  *(Avoid adding compilation temp files or build output directories like `build/`)*
+  *(Avoid adding other compilation temporary files, but always include the compiled PDF files)*
 
 ### Step 2: Commit Changes (提交變更)
 - Generate a concise commit message summarizing the changes (e.g., "feat(evaluation): update scenario 3 figures and text description").

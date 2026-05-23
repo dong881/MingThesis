@@ -67,7 +67,7 @@ When you provide a new concept to this skill, the Agent will execute the followi
 - Repeat the build and correction cycle until both documents compile successfully without critical errors or undefined references.
 
 ### Step 6: Git Version Control Automation (Git 提交與推送自動化)
-- Run the `Git Auto Commit` skill to automatically stage, commit, and push the verified changes to the remote repository.
+- Run the `Git Auto Commit` skill to automatically stage, commit, and push the verified changes (including the compiled PDF files `build/main.pdf` and `NTUST/build/my_ntust_thesis.pdf`) to the remote repository.
 
 ## 🚀 How to Use (使用方式)
 When you have a new inspiration, simply prompt the Agent like this:
