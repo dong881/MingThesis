@@ -27,7 +27,7 @@ This chapter details the proposed dynamic timing adjustment algorithm. To addres
     % Nodes
     \node [input, name=input] {};
     \node [sum, right of=input, node distance=1.8cm] (sum) {+};
-    \node [block, right of=sum, node distance=3.2cm] (controller) {\begin{tabular}{c} Asymmetric RCGR \\ Controller \end{tabular}};
+    \node [block, right of=sum, node distance=3.2cm] (controller) {\begin{tabular}{c} Asymmetric Delay \\ Controller \end{tabular}};
     \node [block, right of=controller, node distance=4.5cm] (system) {\begin{tabular}{c} VNF Scheduler \\ \& nFAPI Path \end{tabular}};
     \node [output, right of=system, node distance=2.5cm] (output) {};
     \node [block, below of=controller, node distance=2.2cm] (jitter_est) {\begin{tabular}{c} RFC 3550 Jitter \\ Estimator (Observer) \end{tabular}};
@@ -150,19 +150,19 @@ M_{\mathrm{sample}} = \max(0, -Risk_{\mathrm{pred}})
 \textcolor{blue}{The long-term risk debt ($Debt_{\mathrm{risk}}$) and the average safety margin ($M_{\mathrm{safe\_ewma}}$) are updated recursively using the factor $\alpha$. The system is considered debt-free if $Debt_{\mathrm{risk}}$ decays to zero.}
 
 \subsection{Asymmetric Predictive Feedback Control}
-\label{subsubsec:rcgr_control}
-\textcolor{blue}{The update of the slots ahead trigger timing $S_{next}$ is governed by the Rapid-Compensation / Gradual-Relaxation (RCGR) asymmetric control law. Under RCGR, the scheduler reacts immediately to timing violations or positive risk, while slowly decreasing the lead time only when the system has remained stable for a sustained duration:}
+\label{subsubsec:delay_control}
+\textcolor{blue}{The update of the slots ahead trigger timing $S_{next}$ is governed by an asymmetric control law. Under this law, the scheduler reacts immediately to timing violations or positive risk, while slowly decreasing the lead time only when the system has remained stable for a sustained duration:}
 \begin{itemize}
     \item \textcolor{blue}{\textbf{Rapid Compensation (Preserve Throughput):} If a timing violation is detected ($e_{\mathrm{late}} > 0$) or the predicted risk is positive ($Risk_{\mathrm{pred}} > 0$), the controller immediately increments the slots ahead parameter to prevent scheduling timeouts:}
           \begin{equation}
           S_{next} = \min(S_{curr} + 1, S_{max})
           \end{equation}
           \textcolor{blue}{and resets the stable observation counter $count_{stable} = 0$.}
-    \item \textcolor{blue}{\textbf{Gradual Relaxation (Optimize Latency):} If the system is cleared of risk debt ($Debt_{\mathrm{risk}} = 0$), the current sample has no risk, and the safety margin is sufficient ($M_{\mathrm{safe\_ewma}} \ge U_{\mathrm{timing}}$), the controller decrements the slots ahead timing once the stable observation counter exceeds the required threshold ($count_{stable} \ge N_{stable}$):}
+    \item \textcolor{blue}{\textbf{Gradual Relaxation (Optimize Latency):} If the system is cleared of risk debt ($Debt_{\mathrm{risk}} = 0$), the current sample has no risk, and the safety margin is sufficient ($M_{\mathrm{safe\_ewma}} \ge U_{\mathrm{timing}}$), the controller decrements the slots ahead timing once the stability condition is satisfied:}
           \begin{equation}
           S_{next} = \max(S_{curr} - 1, 1)
           \end{equation}
-          \textcolor{blue}{and resets $count_{stable} = 0$. The threshold $N_{stable}$ increases quadratically with $S_{curr}$ ($N_{stable} = S_{curr}^2 \cdot (1/\alpha)$) to ensure extremely cautious down-stepping as the scheduling distance grows.}
+          \textcolor{blue}{and resets $count_{stable} = 0$. To prevent premature timing reductions as the scheduling buffer grows, the required stable count threshold increases quadratically with $S_{curr}$.}
     \item \textcolor{blue}{\textbf{Maintain Baseline:} Otherwise, the controller holds the current timing, $S_{next} = S_{curr}$. The stable counter $count_{stable}$ is incremented if the current sample is safe.}
 \end{itemize}
 
@@ -180,7 +180,7 @@ The core adjustment strategy is condensed in Algorithm~\ref{alg:delay_management
 \Statex $\mu_{\mathrm{late}}$ (EWMA mean late offset), $v_{\mathrm{jitter}}$ (EWMA jitter variance)
 \Statex $U_{\mathrm{timing}}$ (Timing uncertainty), $Risk_{\mathrm{pred}}$ (Predicted timing risk)
 \Statex $Debt_{\mathrm{risk}}$ (EWMA risk debt), $M_{\mathrm{safe\_ewma}}$ (EWMA safety margin)
-\Statex $count_{stable}$ (Stable observation counter), $N_{stable}$ (Down-stepping wait threshold)
+\Statex $count_{stable}$ (Stable observation counter)
 \Statex $\alpha, \beta$ (Smoothing factors, where $\alpha=1/8, \beta=1/4$)
 
 \Statex \textbf{Phase I: EWMA Risk and Uncertainty Tracking}
@@ -193,13 +193,12 @@ The core adjustment strategy is condensed in Algorithm~\ref{alg:delay_management
 \State $M_{\mathrm{sample}} \gets \max(0, -Risk_{\mathrm{pred}})$
 \State $M_{\mathrm{safe\_ewma}} \gets M_{\mathrm{safe\_ewma}} + \alpha \cdot (M_{\mathrm{sample}} - M_{\mathrm{safe\_ewma}})$
 
-\Statex \textbf{Phase II: Asymmetric Timing Adjustment (RCGR)}
+\Statex \textbf{Phase II: Asymmetric Timing Adjustment}
 \If{$e_{\mathrm{late}} > 0 \lor Risk_{\mathrm{pred}} > 0$}
     \State $S_{next} \gets \min(S_{curr} + 1, S_{max})$ \Comment{Rapid Compensation}
     \State $count_{stable} \gets 0$
 \ElsIf{$Debt_{\mathrm{risk}} \approx 0 \land e_{\mathrm{late}} \le 0 \land M_{\mathrm{safe\_ewma}} \ge U_{\mathrm{timing}}$}
-    \State $N_{stable} \gets S_{curr}^2 \cdot (1/\alpha)$
-    \If{$count_{stable} \ge N_{stable}$}
+    \If{stability condition is satisfied}
         \State $S_{next} \gets \max(S_{curr} - 1, 1)$ \Comment{Gradual Relaxation}
         \State $count_{stable} \gets 0$
     \Else
