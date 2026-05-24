@@ -36,12 +36,13 @@ This system establishes a complete 5G end-to-end communication link extending fr
 \iffalse
 \section{O-DU High：MAC 與延遲管理器}
 \fi
-\section{O-DU High: MAC and Delay Manager}
+\section{O-DU High: MAC, Scheduler, and Dual-Loop Timing Core}
 \label{subsec:B_odu_high}
-In the Medium Access Control (MAC) layer of O-DU High, the core components handling the timing mechanism include the Scheduler and the nFAPI Delay Manager:
+\textcolor{blue}{Within the O-DU High virtualized network function, the timing control is organized as a Dual-Loop Control System. The core components handling this timing core include the Scheduler, the Node Sync Module (Inner-Loop), and the nFAPI Delay Manager (Outer-Loop):}
 \begin{itemize}
 \item \textbf{Scheduler:} Responsible for allocating available radio resources (e.g., time-frequency resource blocks) and determining the exact priority and timing of downlink/uplink data transmission.
-\item \textbf{nFAPI Delay Manager:} Serves as the key control unit of this delay-aware architecture. Due to the unpredictable and unstable delay across the switch between the VNF and PNF, the delay manager continuously receives timing feedback from the lower physical layer. It utilizes this information to dynamically calculate network jitter and actively adjust the \textbf{slots ahead ($S_{ahead}$)} to trigger the scheduler. This calculation ensures that the scheduling command (\texttt{Sched data}) is generated in advance to compensate for the network delay.
+\item \textcolor{blue}{\textbf{Node Sync Module (Inner-Loop):} Responsible for microsecond-level clock phase alignment. This module periodically exchanges NTP-style timestamps ($t_1 \sim t_4$) with the PNF via standard \textit{DL/UL\_node\_sync} messages. It calculates the instantaneous clock offset and applies slot-level ($S_{adj}$) and microsecond-level ($\mu s_{adj}$) adjustments to align the VNF's local clock to the PNF baseline, eliminating long-term hardware clock drift (Clock Drift).}
+\item \textcolor{blue}{\textbf{nFAPI Delay Manager (Outer-Loop):} Operates on top of the stabilized clock phase established by the inner loop. The delay manager utilizes the arrival offset ($\Delta t_{arrive}$) feedback from the PNF to dynamically estimate transport network jitter. It then actively adjusts the slots ahead ($S_{ahead}$) trigger offset of the scheduler. This outer-loop control compensates for the non-deterministic packet transport delays and VNF processing delays without inducing synchronization loss.}
 \end{itemize}
 
 \iffalse

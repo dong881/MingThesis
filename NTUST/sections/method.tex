@@ -11,26 +11,54 @@ This chapter details the proposed dynamic timing adjustment algorithm. To addres
 \iffalse
 \section{延遲管理架構}
 \fi
-\section{Delay Management Architecture}
+\section{Dual-Loop Timing Architecture}
 \label{subsec:timing_control_architecture}
 
-The timing control of this system focuses on the logical layer of synchronization and delay management, ensuring that the slots ahead at the VNF side can flexibly respond to network jitter without causing unexpected oscillations. This architecture operates through two main logical components that interact seamlessly:
+\textcolor{blue}{The timing control of this system is organized as a closed-loop Dual-Loop Control System, ensuring that the VNF-side scheduling can dynamically track and compensate for both microsecond-level clock drift and slot-level transport latency variation. As shown in Figure~\ref{fig:block_diagram}, the system establishes a feedback loop consisting of two primary components:}
+
+\begin{figure}[!htbp]
+\centering
+\begin{tikzpicture}[auto, node distance=2.2cm,>=latex']
+    \tikzstyle{block} = [draw, rectangle, minimum height=3em, minimum width=7em, text centered, draw=black, fill=blue!10]
+    \tikzstyle{sum} = [draw, circle, node distance=1.5cm, minimum size=2em, text centered, draw=black, fill=gray!20]
+    \tikzstyle{input} = [coordinate]
+    \tikzstyle{output} = [coordinate]
+
+    % Nodes
+    \node [input, name=input] {};
+    \node [sum, right of=input, node distance=1.8cm] (sum) {+};
+    \node [block, right of=sum, node distance=3.2cm] (controller) {\begin{tabular}{c} Asymmetric FASR \\ Controller \end{tabular}};
+    \node [block, right of=controller, node distance=4.5cm] (system) {\begin{tabular}{c} VNF Scheduler \\ \& nFAPI Path \end{tabular}};
+    \node [output, right of=system, node distance=2.5cm] (output) {};
+    \node [block, below of=controller, node distance=2.2cm] (jitter_est) {\begin{tabular}{c} RFC 3550 Jitter \\ Estimator (Observer) \end{tabular}};
+    \node [block, below of=system, node distance=2.2cm] (pnf_window) {\begin{tabular}{c} PNF Timing Window \\ \& Clock Drift \end{tabular}};
+
+    % Connections
+    \draw [draw,->] (input) -- node {Target Margin} (sum);
+    \draw [->] (sum) -- node {Error} (controller);
+    \draw [->] (controller) -- node {$S_{ahead}$ (Control Output)} (system);
+    \draw [->] (system) -- node [name=y] {Control Packets} (output);
+    \draw [->] (y) |- (pnf_window);
+    \draw [->] (pnf_window) -- node [near start] {$\Delta t_{arrive}$ (Feedback)} (jitter_est);
+    \draw [->] (jitter_est) -| node[pos=0.9] {-} (sum);
+\end{tikzpicture}
+\caption{Dual-Loop Timing Control System Block Diagram.}
+\label{fig:block_diagram}
+\end{figure}
+
 \begin{enumerate}
-    \item \textbf{Node Sync:} Ensures alignment of frame and slot boundaries between the VNF and PNF. It monitors timing offsets to maintain synchronization, thereby absorbing low-layer transmission jitter.
-    \item \textbf{Delay Management:} Focuses on slot-level delay management. It dynamically analyzes the statistical data reported by the PNF through a convergence optimization algorithm to determine the global target slots ahead ($S_{\text{ahead}}$), ensuring that scheduling commands always comply with the PNF's strict timing window constraints.
+    \item \textcolor{blue}{\textbf{Inner-Loop (Node Sync):} Maintains phase and slot boundary alignment between the VNF and PNF. It periodically exchanges timestamps to calculate the absolute phase offset, correcting for hardware clock drift (Clock Drift).}
+    \item \textcolor{blue}{\textbf{Outer-Loop (Delay Management):} Operates on top of the stabilized phase reference provided by the inner loop. It tracks and estimates packet transport delays and jitter at the slot level, dynamically adjusting the slots ahead ($S_{ahead}$) to guarantee that control messages fall within the PNF's strict timing window.}
 \end{enumerate}
 
 \iffalse
 \section{節點同步}
 \fi
-\section{Node Sync}
+\section{Inner-Loop: Node Sync}
 \label{subsec:node_sync}
 To achieve microsecond-level phase alignment, the system adopts a timestamp exchange mechanism similar to IEEE 1588 (PTP). When the VNF receives the \textit{UL\_node\_sync} message, it calculates the instantaneous timing offset ($offset$) based on four timestamps ($t_1$ to $t_4$). To avoid instantaneous spikes and prevent the system from reacting overly sensitively to raw input data, a smoothing preprocessing step is necessary. However, traditional moving averages incur high computational costs to record and maintain historical data within a sliding window. Therefore, the algorithm utilizes an Exponentially Weighted Moving Average (EWMA) model to process the $offset$ and its variation ($error$). This design exponentially decays the weight of historical data while applying only a specific weight to new data, ensuring the system is responsive yet stable. Specifically, it generates an average offset ($\mu_{offset}$) and a mean absolute deviation ($dev_{offset}$). The smoothing factors $\alpha$ and $\beta$ are used for these updates. Drawing inspiration from the TCP Congestion Avoidance and Control mechanisms specified in RFC 6298~\cite{rfc6298, 10.1145/52325.52356}, we set $\alpha = 1/8$ for the mean offset and $\beta = 1/4$ for the jitter variation. This configuration, proven effective in TCP over many years, makes jitter detection more sensitive. Furthermore, to improve execution efficiency, these factors are designed as negative powers of 2 ($\alpha = 2^{-3}$, $\beta = 2^{-2}$), allowing the computation logic to be implemented using highly efficient bitwise shift operations. Then, a dynamic synchronization threshold ($Threshold$) is derived directly from the estimated jitter ($dev_{offset}$). If the absolute offset exceeds this threshold, the system decomposes the offset into a slot adjustment ($S_{adj}$) and a microsecond adjustment ($\mu s_{adj}$) based on the slot duration ($\text{slot\_duration}$). These parameters are subsequently used by the VNF Timing Actuator to precisely align the local clock. This process is summarized in Algorithm~\ref{alg:node_sync_simplified}.
 
 \begin{algorithm}[H]
-\iffalse
-\caption{節點同步 (Node Sync)}
-\fi
 \caption{Node Sync}
 \label{alg:node_sync_simplified}
 \small
@@ -44,7 +72,7 @@ To achieve microsecond-level phase alignment, the system adopts a timestamp exch
 \Statex $Threshold$ (Dynamic synchronization threshold), $\alpha, \beta$ (Smoothing factors)
 \Statex $\text{slot\_duration}$ (Slot duration in \textmu s)
 
-\Statex \textbf{Phase 1: Timestamp Processing and Wraparound Protection}
+\Statex \textbf{Phase 1: Timing Offset Calculation}
 \State $d_1 \gets t_2 - t_1$
 \State $d_2 \gets t_4 - t_3$
 
@@ -68,16 +96,63 @@ To achieve microsecond-level phase alignment, the system adopts a timestamp exch
 \end{algorithmic}
 \end{algorithm}
 
-To combat changing network latency and maintain scheduling stability, this paper proposes a dynamic delay management strategy. This strategy intelligently trades off between throughput and latency by introducing the concepts of predicted risk and historical risk debt. Upon receiving the worst-case delay offset ($\Delta t_{arrive}$) reported by the PNF, the system applies the aforementioned EWMA model to calculate the mean delay ($\mu_{delay}$) and jitter deviation ($dev_{delay}$). Consistent with the Node Sync design inspired by RFC 6298~\cite{rfc6298, 10.1145/52325.52356}, the smoothing factors are set to $\alpha = 1/8$ and $\beta = 1/4$, allowing for efficient calculation via bitwise shift operations and providing sensitive tracking of network jitter.
+\iffalse
+\section{延遲管理}
+\fi
+\section{Outer-Loop: Delay Management}
+\label{subsec:delay_management}
 
-Before making tracking adjustments, the system evaluates the potential tail risk ($Risk_{pred}$) based on the maximum of the observed offset and the mean delay, augmented by the jitter deviation. This risk is then accumulated into a history-weighted risk debt ($Debt_{risk}$), which represents a decaying memory of past network instability. If a deadline violation occurs ($\Delta t_{arrive} > 0$) or a high risk is predicted ($Risk_{pred} > 0$), the algorithm takes immediate action to preserve throughput by incrementing the current trigger timing ($S_{curr}$).
+\textcolor{blue}{To counteract changing network latency and maintain scheduling stability, the outer loop implements a dynamic delay management strategy. This strategy operates as an Asymmetric Feedback Controller based on a Risk-Aware Predictive Model, incorporating standard telecommunication jitter measurements to calculate and manage risk debt.}
 
-Conversely, to optimize latency during safe operations, the algorithm checks if the historical debt is cleared ($Debt_{risk} < \epsilon$) and if the system has maintained sustained stability over consecutive observations ($count_{stable} \ge N_{stable}$, where $N_{stable}$ scales dynamically). If both conditions are met, the algorithm cautiously decreases the advance time. In scenarios where the risk is low but stability evidence is still accumulating or debt is being cleared, the current timing is maintained. This asymmetric response ensures connection continuity while avoiding ping-pong oscillations. The core adjustment strategy is condensed in Algorithm~\ref{alg:delay_management}.
+\subsection{Standardized Interarrival Jitter Calculation}
+\label{subsubsec:rfc3550}
+\textcolor{blue}{Rather than using an ad-hoc smoothing model, the outer loop strictly implements the standardized interarrival jitter calculation specified in IETF RFC 3550 (RTP) Section 6.4.1. Let $R_i$ be the arrival timestamp of packet $i$ at the physical layer (PNF), and $S_i$ be the transmit timestamp extracted from the nFAPI P7 header of packet $i$. The packet transit time difference $D_i$ between consecutive packets is defined as:}
+
+\begin{equation}
+D_i = (R_i - R_{i-1}) - (S_i - S_{i-1})
+\end{equation}
+
+\textcolor{blue}{The smoothed interarrival jitter $J_i$ is updated recursively using the Exponentially Weighted Moving Average (EWMA) model:}
+
+\begin{equation}
+J_i = J_{i-1} + \frac{|D_i| - J_{i-1}}{16}
+\end{equation}
+
+\textcolor{blue}{where the divisor $16$ serves as the smoothing factor, optimizing the trade-off between noise reduction and responsiveness under carrier-grade network conditions. This standardized jitter metric is periodically reported by the PNF within the nFAPI \texttt{Timing Info} message.}
+
+\subsection{Asymmetric Predictive Feedback Control}
+\label{subsubsec:fasr_control}
+\textcolor{blue}{Upon receiving the worst-case late arrival offset ($\Delta t_{arrive}$) and the standardized jitter $J_i$ reported by the PNF, the VNF Delay Manager evaluates the predicted tail risk ($Risk_{pred}$) for the next scheduling cycle:}
+
+\begin{equation}
+Risk_{pred} = \max(\Delta t_{arrive}, \mu_{delay}) + J_i
+\end{equation}
+
+\textcolor{blue}{where $\mu_{delay}$ is the EWMA mean of the late arrival offset. To prevent rapid oscillations, we introduce a history-weighted risk debt ($Debt_{risk}$), which represents a decaying memory of past timing instability:}
+
+\begin{equation}
+Debt_{risk} \gets Debt_{risk} + \alpha \cdot (\max(0, Risk_{pred}) - Debt_{risk})
+\end{equation}
+
+\textcolor{blue}{The update of the slots ahead $S_{ahead}$ is then governed by the Fast-Attack / Slow-Release (FASR) asymmetric control law. Under FASR, the controller reacts instantly to positive risk to preserve connection reliability, while slowly relaxing the timing margin only when the system has remained stable for a sustained duration:}
+
+\begin{itemize}
+    \item \textcolor{blue}{\textbf{Fast-Attack (Preserve Throughput):} If a timing violation is detected ($\Delta t_{arrive} > 0$) or the tail risk is positive ($Risk_{pred} > 0$), the controller immediately increments the slots ahead parameter to prevent scheduling timeouts:}
+          \begin{equation}
+          S_{next} = \min(S_{curr} + 1, S_{max})
+          \end{equation}
+          \textcolor{blue}{and resets the stable observation counter $count_{stable} = 0$.}
+    \item \textcolor{blue}{\textbf{Slow-Release (Optimize Latency):} If the system is cleared of risk debt ($Debt_{risk} < \epsilon$, where $\epsilon$ is the debt clearance threshold) and has remained stable for a consecutive number of slots ($count_{stable} \ge N_{stable}$), the controller cautiously decrements the advance time to reduce scheduling latency:}
+          \begin{equation}
+          S_{next} = \max(S_{curr} - 1, 1)
+          \end{equation}
+          \textcolor{blue}{and resets $count_{stable} = 0$.}
+    \item \textcolor{blue}{\textbf{Maintain Baseline:} Otherwise, the controller holds the current timing, $S_{next} = S_{curr}$, and increments $count_{stable}$ if $Risk_{pred} \le 0$.}
+\end{itemize}
+
+The core adjustment strategy is condensed in Algorithm~\ref{alg:delay_management}.
 
 \begin{algorithm}[H]
-\iffalse
-\caption{延遲管理 (Delay Management)}
-\fi
 \caption{Delay Management}
 \label{alg:delay_management}
 \small
@@ -86,30 +161,29 @@ Conversely, to optimize latency during safe operations, the algorithm checks if 
 \Ensure $S_{next}$ (Trigger timing for the next MAC schedule)
 
 \Statex \textbf{Notation:} 
-\Statex $\mu_{delay}$ (EWMA mean delay), $dev_{delay}$ (EWMA mean absolute deviation / Jitter)
+\Statex $\mu_{delay}$ (EWMA mean delay), $J_i$ (RFC 3550 Interarrival Jitter)
 \Statex $Risk_{pred}$ (Predicted timing risk), $Debt_{risk}$ (History-weighted risk debt)
 \Statex $count_{stable}$ (Consecutive stable arrivals counter)
 \Statex $N_{stable}$ (Adaptive stability threshold), $S_{max}$ (Maximum advance-time limit)
-\Statex $\alpha, \beta$ (Smoothing factors, where $\alpha=1/8, \beta=1/4$)
+\Statex $\alpha$ (Smoothing factor, where $\alpha=1/8$)
 \Statex $\epsilon$ (Debt clearance threshold)
 
-\Statex \textbf{Phase 1: Delay, Risk and Debt Estimation}
+\Statex \textbf{Phase 1: Risk and Debt Estimation}
 \State $error \gets \Delta t_{arrive} - \mu_{delay}$
 \State $\mu_{delay} \gets \mu_{delay} + \alpha \cdot error$
-\State $dev_{delay} \gets dev_{delay} + \beta(|error| - dev_{delay})$
-\State $Risk_{pred} \gets \max(\Delta t_{arrive}, \mu_{delay}) + dev_{delay}$ \Comment{Evaluate tail risk}
-\State $Debt_{risk} \gets Debt_{risk} + \alpha \cdot (\max(0, Risk_{pred}) - Debt_{risk})$ \Comment{Accumulate or decay debt}
+\State $Risk_{pred} \gets \max(\Delta t_{arrive}, \mu_{delay}) + J_i$
+\State $Debt_{risk} \gets Debt_{risk} + \alpha \cdot (\max(0, Risk_{pred}) - Debt_{risk})$
 \State $IsDebtFree \gets (Debt_{risk} < \epsilon)$
 
-\Statex \textbf{Phase 2: Trade-off Actuation (Throughput vs. Latency)}
+\Statex \textbf{Phase 2: Asymmetric Timing Adjustment (FASR)}
 \If{$\Delta t_{arrive} > 0 \lor Risk_{pred} > 0$} 
-    \State $S_{next} \gets \min(S_{curr} + 1, S_{max})$ \Comment{Preserve throughput}
+    \State $S_{next} \gets \min(S_{curr} + 1, S_{max})$ \Comment{Fast-Attack}
     \State $count_{stable} \gets 0$
 \ElsIf{$IsDebtFree \land (count_{stable} \ge N_{stable})$} 
-    \State $S_{next} \gets \max(S_{curr} - 1, 1)$ \Comment{Optimize latency}
+    \State $S_{next} \gets \max(S_{curr} - 1, 1)$ \Comment{Slow-Release}
     \State $count_{stable} \gets 0$
 \Else 
-    \State $S_{next} \gets S_{curr}$ \Comment{Maintain current timing}
+    \State $S_{next} \gets S_{curr}$ \Comment{Maintain timing}
     \If{$Risk_{pred} \le 0$}
         \State $count_{stable} \gets count_{stable} + 1$
     \EndIf
@@ -117,5 +191,10 @@ Conversely, to optimize latency during safe operations, the algorithm checks if 
 \State \Return $S_{next}$
 \end{algorithmic}
 \end{algorithm}
+
+\section{Coordination between Inner and Outer Loops}
+\label{subsec:loop_coordination}
+
+\textcolor{blue}{To ensure stable operation under real-world conditions, the inner and outer loops must coordinate without inducing control loop oscillations. The microsecond-level Node Sync (Inner-Loop) focuses strictly on correcting clock phase offsets to align the VNF's scheduling thread with the PNF's slot transitions. Because it directly shifts the VNF's time base, any clock adjustment ($S_{adj}, \mu s_{adj}$) temporarily shifts the arrival timestamp reference. The outer loop's Delay Manager (Outer-Loop) is designed to absorb this transient shifting. By relying on the history-weighted risk debt ($Debt_{risk}$), the outer loop avoids reacting to the temporary timing offsets caused by clock adjustments, allowing the inner loop to converge. Once the inner loop locks synchronization ($sync\_locked = 1$), the time base stabilizes, allowing the outer loop to achieve precise slot-level optimizations ($S_{ahead}$).}
 
 \end{document}

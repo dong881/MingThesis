@@ -9,6 +9,8 @@
 \usepackage[caption=false,font=footnotesize]{subfig}
 \usepackage{tabularx}
 \usepackage{color}
+\usepackage{tikz}
+\usetikzlibrary{shapes,arrows,positioning,calc}
 \usepackage{booktabs}
 \usepackage{url}
 \usepackage{algorithm}
@@ -59,7 +61,25 @@ nFAPI, O-RAN, Functional Split, Adaptive Control.
 
 \textcolor{blue}{Beyond hardware acceleration, software-driven delay management strategies have also been explored from various perspectives. At the intra-node computational level, Lee \textit{et al.} \cite{Lee2022} proposed an adaptive Layer 1 transmission strategy that opportunistically advances transmissions when software processing finishes early. From a network orchestration perspective, Adamuz-Hinojosa \textit{et al.} \cite{Adamuz2024ORANUS} introduced ORANUS, employing Stochastic Network Calculus (SNC) to provide mathematical latency bounds for ultra-reliable low-latency communications (uRLLC). Moreover, Lv \textit{et al.} \cite{Lv2024QoS} emphasized User Equipment (UE) QoS support by integrating MAC resource allocation with high-level network orchestration. While these frameworks \cite{Lee2022, Adamuz2024ORANUS, Lv2024QoS} provide robust solutions for processing variance, capacity bounds, and QoS scheduling, they do not directly address the critical synchronization failures caused by unpredictable fronthaul network jitter in intermediate-layer splits.}
 
-\textcolor{blue}{To address the limitations of high hardware costs and strict synchronization requirements, this paper proposes a cost-effective, software-based solution tailored for non-ideal fronthaul environments. Unlike X5G's reliance on hardware acceleration to bypass latency constraints, our work introduces an adaptive slot-ahead control mechanism based on Exponentially Weighted Moving Average (EWMA) delay management for the nFAPI (Split Option 6) architecture. This approach dynamically tracks and reduces network jitter to actively adapt to unpredictable network congestion using general-purpose Commercial Off-the-Shelf (COTS) servers. Experimental results demonstrate that our proposed method ensures stable Hybrid Automatic Repeat Request (HARQ) Round-Trip Times (RTT) and stable system throughput without the need for high-end specialized equipment or strict hardware synchronization, thereby offering a more flexible and economically viable alternative for O-RAN deployments.}
+\textcolor{blue}{To address the limitations of high hardware costs and strict synchronization requirements, this paper proposes a cost-effective, software-based solution tailored for non-ideal fronthaul environments. Specifically, we focus on the fact that the Small Cell Forum (SCF) 225 nFAPI specification \cite{SCF225} defines the standard \texttt{Timing Info} message and interface-level delay management fields, yet existing open-source implementations only support static parameter initialization. Our work introduces an adaptive slot-ahead timing control mechanism based on Exponentially Weighted Moving Average (EWMA) delay management to complete this standardized dynamic feedback loop. This approach dynamically tracks and filters network jitter using general-purpose Commercial Off-the-Shelf (COTS) servers. Experimental results demonstrate that our proposed method ensures stable Hybrid Automatic Repeat Request (HARQ) Round-Trip Times (RTT) and stable system throughput without the need for high-end specialized equipment or strict hardware synchronization, thereby offering a more flexible and economically viable alternative for O-RAN deployments.}
+
+\textcolor{blue}{To clearly position the proposed work within the current state-of-the-art (SOTA) literature, Table~\ref{tab:sota_comparison} summarizes the comparison across key architectural and performance characteristics.}
+
+\begin{table}[htbp]
+\caption{Comparison of Proposed Work with State-of-the-Art Solutions}
+\label{tab:sota_comparison}
+\centering
+\small
+\begin{tabularx}{\columnwidth}{@{}p{1.8cm}|>{\centering\arraybackslash}X|>{\centering\arraybackslash}X|>{\centering\arraybackslash}X@{}}
+\toprule
+\textbf{Metric / Feature} & \textbf{X5G \cite{11039666}} & \textbf{Lee \textit{et al.} \cite{Lee2022}} & \textbf{Proposed Work} \\ \midrule
+Split Option & Split 7.2 & Split 6 (FAPI) & Split 6 (nFAPI) \\
+Fronthaul Type & Fiber / TSN & Shared Memory & Packet-switched Ethernet \\
+Hardware Dependency & GPU / SmartNIC / PTP & COTS (No Accel.) & COTS (No Accel.) \\
+Control Resolution & Symbol-level & OS / Process-level & Slot / TTI-level \\
+Adaptation Domain & Hardware Offload & Intra-node CPU & Cross-node Jitter \& Delay \\ \bottomrule
+\end{tabularx}
+\end{table}
 
 \subsection{Research Scope and Contributions}
 
@@ -102,12 +122,13 @@ nFAPI, O-RAN, Functional Split, Adaptive Control.
   \label{fig:System-Architecture}
 \end{figure}
 
-\subsection{O-DU High: MAC and Delay Manager}
+\subsection{O-DU High: MAC, Scheduler, and Dual-Loop Timing Core}
 \label{subsec:B_odu_high}
-\textcolor{blue}{Within the Media Access Control (MAC) layer of the O-DU High, the core components handling timing mechanisms include the Scheduler and the nFAPI Delay Manager:
+\textcolor{blue}{Within the O-DU High virtualized network function, the timing control is organized as a Dual-Loop Control System. The core components handling this timing core include the Scheduler, the Node Sync Module (Inner-Loop), and the nFAPI Delay Manager (Outer-Loop):
 \begin{itemize}
 \item \textbf{Scheduler:} Critical for allocating the available radio resources (such as time-frequency resource blocks) and determining the exact priority and timing of downlink/uplink data transmissions.
-\item \textbf{nFAPI Delay Manager:} This resides as the crucial control unit of this delay-aware architecture. Because unpredictable, unstable latency exists in the switch between the VNF and PNF, the Delay Manager continuously receives timing feedback from the lower physical layer. It uses this to dynamically calculate network jitter and actively adjust the \textbf{slot-ahead} ($S_{ahead}$) to trigger the scheduler. This calculation guarantees that the scheduling instructions (\texttt{Sched data}) are generated ahead of time to account for network delays.
+\item \textbf{Node Sync Module (Inner-Loop):} Responsible for microsecond-level clock phase alignment. This module periodically exchanges NTP-style timestamps ($t_1 \sim t_4$) with the PNF via standard \textit{DL/UL\_node\_sync} messages. It calculates the instantaneous clock offset and applies slot-level ($S_{adj}$) and microsecond-level ($\mu s_{adj}$) adjustments to align the VNF's local clock to the PNF baseline, eliminating long-term hardware clock drift.
+\item \textbf{nFAPI Delay Manager (Outer-Loop):} Operates on top of the stabilized clock phase established by the inner loop. The delay manager utilizes the arrival offset ($\Delta t_{arrive}$) feedback from the PNF to dynamically estimate transport network jitter. It then actively adjusts the slots ahead ($S_{ahead}$) trigger offset of the scheduler. This outer-loop control compensates for the non-deterministic packet transport delays and VNF processing delays without inducing synchronization loss.
 \end{itemize}}
 
 \subsection{O-DU Low: High PHY and Timing Window}
@@ -136,18 +157,52 @@ Note that RTT denotes the Round-Trip Time. To validate the split-architecture st
 \section{Proposed Method}
 \label{sec:proposed_method}
 
-\textcolor{blue}{This section details the proposed dynamic timing adjustment algorithm. To resolve the unstable latency during packet transmission between the PNF and VNF, we propose an Adaptive Slots Ahead mechanism.}
+\textcolor{blue}{This section details the proposed dynamic timing adjustment algorithm. To resolve the unstable latency during packet transmission between the PNF and VNF, we propose a Dual-Loop Timing Architecture consisting of microsecond-level clock phase alignment and slot-level adaptive delay management.}
 
-\subsection{Delay Management Architecture}
+\subsection{Dual-Loop Timing Architecture}
 \label{subsec:timing_control_architecture}
 
-\textcolor{blue}{The timing control of this system focuses on the logical aspects of synchronization and delay management, ensuring that the slots ahead on the VNF side can flexibly cope with network jitter without inducing unexpected oscillations. The architecture operates through two primary logical components that interact seamlessly:
-\begin{enumerate}
-    \item \textbf{Node Sync:} Ensures frame and slot boundary alignment between the VNF and PNF. It monitors the timing offset to maintain synchronization, absorbing transport jitter.
-    \item \textbf{Delay Management:} Focuses on slot-level delay management. It dynamically analyzes the statistical data reported by the PNF through the convergence optimization algorithm to determine the target slot-ahead ($S_{next}$), guaranteeing that scheduling instructions always meet the PNF's strict timing window constraints.
-\end{enumerate}}
+\textcolor{blue}{The timing control of this system is organized as a closed-loop Dual-Loop Control System, ensuring that the VNF-side scheduling can dynamically track and compensate for both microsecond-level clock drift and slot-level transport latency variation. As shown in Fig.~\ref{fig:block_diagram}, the system establishes a feedback loop consisting of two primary components:}
 
-\subsection{Node Sync}
+\begin{figure}[!htbp]
+\centering
+\resizebox{\columnwidth}{!}{
+\begin{tikzpicture}[auto, node distance=2.2cm,>=latex']
+    \tikzstyle{block} = [draw, rectangle, minimum height=3em, minimum width=7em, text centered, draw=black, fill=blue!10]
+    \tikzstyle{sum} = [draw, circle, node distance=1.5cm, minimum size=2em, text centered, draw=black, fill=gray!20]
+    \tikzstyle{input} = [coordinate]
+    \tikzstyle{output} = [coordinate]
+
+    % Nodes
+    \node [input, name=input] {};
+    \node [sum, right of=input, node distance=1.8cm] (sum) {+};
+    \node [block, right of=sum, node distance=3.2cm] (controller) {\begin{tabular}{c} Asymmetric FASR \\ Controller \end{tabular}};
+    \node [block, right of=controller, node distance=4.5cm] (system) {\begin{tabular}{c} VNF Scheduler \\ \& nFAPI Path \end{tabular}};
+    \node [output, right of=system, node distance=2.5cm] (output) {};
+    \node [block, below of=controller, node distance=2.2cm] (jitter_est) {\begin{tabular}{c} RFC 3550 Jitter \\ Estimator (Observer) \end{tabular}};
+    \node [block, below of=system, node distance=2.2cm] (pnf_window) {\begin{tabular}{c} PNF Timing Window \\ \& Clock Drift \end{tabular}};
+
+    % Connections
+    \draw [draw,->] (input) -- node {Target Margin} (sum);
+    \draw [->] (sum) -- node {Error} (controller);
+    \draw [->] (controller) -- node {$S_{ahead}$ (Control Output)} (system);
+    \draw [->] (system) -- node [name=y] {Control Packets} (output);
+    \draw [->] (y) |- (pnf_window);
+    \draw [->] (pnf_window) -- node [near start] {$\Delta t_{arrive}$ (Feedback)} (jitter_est);
+    \draw [->] (jitter_est) -| node[pos=0.9] {-} (sum);
+\end{tikzpicture}
+}
+\caption{Dual-Loop Timing Control System Block Diagram.}
+\label{fig:block_diagram}
+\end{figure}
+
+\textcolor{blue}{The two control loops cooperate as follows:}
+\begin{enumerate}
+    \item \textcolor{blue}{\textbf{Inner-Loop (Node Sync):} Maintains phase and slot boundary alignment between the VNF and PNF. It periodically exchanges timestamps to calculate the absolute phase offset, correcting for hardware clock drift.}
+    \item \textcolor{blue}{\textbf{Outer-Loop (Delay Management):} Tracks and estimates packet transport delays and jitter at the slot level, dynamically adjusting the slots ahead ($S_{ahead}$) to guarantee that control messages fall within the PNF's strict timing window.}
+\end{enumerate}
+
+\subsection{Inner-Loop: Node Sync}
 \label{subsec:node_sync}
 \textcolor{blue}{To achieve microsecond-level phase alignment, the system utilizes an IEEE 1588 (PTP) style timestamp exchange. When the VNF receives the \textit{UL\_node\_sync} message, it calculates the instantaneous timing offset ($offset$) based on four timestamps ($t_1$ to $t_4$). To avoid instantaneous spikes and prevent the system from reacting overly sensitively to raw input data, a smoothing preprocessing step is necessary. However, traditional moving averages incur high computational costs to record and maintain historical data within a sliding window. Therefore, the algorithm utilizes an Exponentially Weighted Moving Average (EWMA) model to process the $offset$ and its variation ($error$). This design exponentially decays the weight of historical data while applying only a specific weight to new data, ensuring the system is responsive yet stable. Specifically, it generates an average offset ($\mu_{offset}$) and a mean absolute deviation ($dev_{offset}$). The smoothing factors $\alpha$ and $\beta$ are used for these updates. Drawing inspiration from the TCP Congestion Avoidance and Control mechanisms specified in RFC 6298~\cite{rfc6298, 10.1145/52325.52356}, we set $\alpha = 1/8$ for the mean offset and $\beta = 1/4$ for the jitter variation. This configuration, proven effective in TCP over many years, makes jitter detection more sensitive. Furthermore, to improve execution efficiency, these factors are designed as negative powers of 2 ($\alpha = 2^{-3}$, $\beta = 2^{-2}$), allowing the computation logic to be implemented using highly efficient bitwise shift operations. A dynamic synchronization threshold ($Threshold$) is then derived directly from the estimated jitter ($dev_{offset}$). If the absolute $offset$ exceeds this $Threshold$, the system breaks the $offset$ down into a slot adjustment ($S_{adj}$) and a microsecond-level adjustment ($\mu s_{adj}$) based on the slot duration ($\text{slot\_duration}$). These parameters are subsequently consumed by the VNF Timing Actuator to precisely align the local clock. The process is summarized in Algorithm~\ref{alg:node_sync_simplified}.}
 
@@ -165,7 +220,7 @@ Note that RTT denotes the Round-Trip Time. To validate the split-architecture st
 \Statex $\alpha, \beta$ (Smoothing factors, where $\alpha=1/8, \beta=1/4$)
 \Statex $\text{slot\_duration}$ (Slot duration in \textmu s)
 
-\Statex \textbf{Phase I: Timestamp Processing and Wrap-around Protection}
+\Statex \textbf{Phase I: Timing Offset Calculation}
 \State $d_1 \gets t_2 - t_1$
 \State $d_2 \gets t_4 - t_3$
 
@@ -173,7 +228,7 @@ Note that RTT denotes the Round-Trip Time. To validate the split-architecture st
 \State $offset \gets (d_1 - d_2) / 2$
 \State $error \gets offset - \mu_{offset}$
 \State $\mu_{offset} \gets \mu_{offset} + \alpha \cdot error$
-\State $dev_{offset} \gets dev_{offset} + \beta(|error| - dev_{offset})$
+\State $dev_{offset} \gets $ $dev_{offset} + \beta(|error| - dev_{offset})$
 \State $Threshold \gets dev_{offset}$
 
 \Statex \textbf{Phase III: Phase Alignment}
@@ -189,12 +244,56 @@ Note that RTT denotes the Round-Trip Time. To validate the split-architecture st
 \end{algorithmic}
 \end{algorithm}
 
-\subsection{Delay Management}
+\subsection{Outer-Loop: Delay Management}
 \label{subsec:convergence_optimization}
 
-\textcolor{blue}{To counteract changing network latency and maintain scheduling stability, this paper proposes a dynamic delay management strategy. The algorithm introduces the concepts of predicted risk and historical risk debt to intelligently trade off between throughput and latency. Upon receiving the worst-case late arrival offset ($\Delta t_{arrive}$), it first applies the aforementioned EWMA model to calculate the mean delay ($\mu_{delay}$) and jitter deviation ($dev_{delay}$). Consistent with the Node Sync design inspired by RFC 6298~\cite{rfc6298, 10.1145/52325.52356}, the smoothing factors are set to $\alpha = 1/8$ and $\beta = 1/4$, allowing for efficient calculation via bitwise shift operations and providing sensitive tracking of network jitter.}
+\textcolor{blue}{To counteract changing network latency and maintain scheduling stability, the outer loop implements a dynamic delay management strategy. This strategy operates as an Asymmetric Feedback Controller based on a Risk-Aware Predictive Model, incorporating standard telecommunication jitter measurements to calculate and manage risk debt.}
 
-\textcolor{blue}{The system evaluates the potential tail risk ($Risk_{pred}$) based on the maximum of the observed offset and mean delay, plus the jitter deviation. This risk is continuously accumulated or decayed into a history-weighted risk debt ($Debt_{risk}$). If a deadline violation occurs ($\Delta t_{arrive} > 0$) or high risk is predicted ($Risk_{pred} > 0$), the algorithm immediately increments the current trigger timing ($S_{curr}$) to preserve throughput. Conversely, if the historical debt is fully cleared ($Debt_{risk} < \epsilon$) and sustained stability is confirmed ($count_{stable} \ge N_{stable}$), the algorithm decrements the advance time to optimize latency. Otherwise, it maintains the current timing and accumulates evidence of stability. The core mechanism is condensed in Algorithm~\ref{alg:delay_management}.}
+\subsubsection{Standardized Interarrival Jitter Calculation}
+\textcolor{blue}{Rather than using an ad-hoc smoothing model, the outer loop strictly implements the standardized interarrival jitter calculation specified in IETF RFC 3550 (RTP) Section 6.4.1. Let $R_i$ be the arrival timestamp of packet $i$ at the physical layer (PNF), and $S_i$ be the transmit timestamp extracted from the nFAPI P7 header of packet $i$. The packet transit time difference $D_i$ between consecutive packets is defined as:}
+
+\begin{equation}
+D_i = (R_i - R_{i-1}) - (S_i - S_{i-1})
+\end{equation}
+
+\textcolor{blue}{The smoothed interarrival jitter $J_i$ is updated recursively using the Exponentially Weighted Moving Average (EWMA) model:}
+
+\begin{equation}
+J_i = J_{i-1} + \frac{|D_i| - J_{i-1}}{16}
+\end{equation}
+
+\textcolor{blue}{where the divisor $16$ serves as the smoothing factor, optimizing the trade-off between noise reduction and responsiveness under carrier-grade network conditions. This standardized jitter metric is periodically reported by the PNF within the nFAPI \texttt{Timing Info} message.}
+
+\subsubsection{Asymmetric Predictive Feedback Control}
+\textcolor{blue}{Upon receiving the worst-case late arrival offset ($\Delta t_{arrive}$) and the standardized jitter $J_i$ reported by the PNF, the VNF Delay Manager evaluates the predicted tail risk ($Risk_{pred}$) for the next scheduling cycle:}
+
+\begin{equation}
+Risk_{pred} = \max(\Delta t_{arrive}, \mu_{delay}) + J_i
+\end{equation}
+
+\textcolor{blue}{where $\mu_{delay}$ is the EWMA mean of the late arrival offset. To prevent rapid oscillations, we introduce a history-weighted risk debt ($Debt_{risk}$), which represents a decaying memory of past timing instability:}
+
+\begin{equation}
+Debt_{risk} \gets Debt_{risk} + \alpha \cdot (\max(0, Risk_{pred}) - Debt_{risk})
+\end{equation}
+
+\textcolor{blue}{The update of the slots ahead $S_{ahead}$ is then governed by the Fast-Attack / Slow-Release (FASR) asymmetric control law. Under FASR, the controller reacts instantly to positive risk to preserve connection reliability, while slowly relaxing the timing margin only when the system has remained stable for a sustained duration:}
+
+\begin{itemize}
+    \item \textbf{Fast-Attack (Preserve Throughput):} \textcolor{blue}{If a timing violation is detected ($\Delta t_{arrive} > 0$) or the tail risk is positive ($Risk_{pred} > 0$), the controller immediately increments the slots ahead parameter to prevent scheduling timeouts:}
+          \begin{equation}
+          S_{next} = \min(S_{curr} + 1, S_{max})
+          \end{equation}
+          \textcolor{blue}{and resets the stable observation counter $count_{stable} = 0$.}
+    \item \textbf{Slow-Release (Optimize Latency):} \textcolor{blue}{If the system is cleared of risk debt ($Debt_{risk} < \epsilon$, where $\epsilon$ is the debt clearance threshold) and has remained stable for a consecutive number of slots ($count_{stable} \ge N_{stable}$), the controller cautiously decrements the advance time to reduce scheduling latency:}
+          \begin{equation}
+          S_{next} = \max(S_{curr} - 1, 1)
+          \end{equation}
+          \textcolor{blue}{and resets $count_{stable} = 0$.}
+    \item \textbf{Maintain Baseline:} \textcolor{blue}{Otherwise, the controller holds the current timing, $S_{next} = S_{curr}$, and increments $count_{stable}$ if $Risk_{pred} \le 0$.}
+\end{itemize}
+
+\textcolor{blue}{The core adjustment strategy is condensed in Algorithm~\ref{alg:delay_management}.}
 
 \begin{algorithm}
 \caption{Delay Management}
@@ -204,30 +303,29 @@ Note that RTT denotes the Round-Trip Time. To validate the split-architecture st
 \Ensure $S_{next}$ (Trigger timing for the next MAC schedule)
 
 \Statex \textbf{Notation:} 
-\Statex $\mu_{delay}$ (EWMA mean delay), $dev_{delay}$ (EWMA mean absolute deviation / Jitter)
+\Statex $\mu_{delay}$ (EWMA mean delay), $J_i$ (RFC 3550 Interarrival Jitter)
 \Statex $Risk_{pred}$ (Predicted timing risk), $Debt_{risk}$ (History-weighted risk debt)
 \Statex $count_{stable}$ (Consecutive stable arrivals counter)
 \Statex $N_{stable}$ (Adaptive stability threshold), $S_{max}$ (Maximum advance-time limit)
-\Statex $\alpha, \beta$ (Smoothing factors, where $\alpha=1/8, \beta=1/4$)
+\Statex $\alpha$ (Smoothing factor, where $\alpha=1/8$)
 \Statex $\epsilon$ (Debt clearance threshold)
 
-\Statex \textbf{Phase I: Delay, Risk and Debt Estimation}
+\Statex \textbf{Phase I: Risk and Debt Estimation}
 \State $error \gets \Delta t_{arrive} - \mu_{delay}$
 \State $\mu_{delay} \gets \mu_{delay} + \alpha \cdot error$
-\State $dev_{delay} \gets dev_{delay} + \beta(|error| - dev_{delay})$
-\State $Risk_{pred} \gets \max(\Delta t_{arrive}, \mu_{delay}) + dev_{delay}$ \Comment{Evaluate tail risk}
-\State $Debt_{risk} \gets Debt_{risk} + \alpha \cdot (\max(0, Risk_{pred}) - Debt_{risk})$ \Comment{Accumulate or decay debt}
+\State $Risk_{pred} \gets \max(\Delta t_{arrive}, \mu_{delay}) + J_i$
+\State $Debt_{risk} \gets Debt_{risk} + \alpha \cdot (\max(0, Risk_{pred}) - Debt_{risk})$
 \State $IsDebtFree \gets (Debt_{risk} < \epsilon)$
 
-\Statex \textbf{Phase II: Trade-off Actuation (Throughput vs. Latency)}
+\Statex \textbf{Phase II: Asymmetric Timing Adjustment (FASR)}
 \If{$\Delta t_{arrive} > 0 \lor Risk_{pred} > 0$} 
-    \State $S_{next} \gets \min(S_{curr} + 1, S_{max})$ \Comment{Preserve throughput}
+    \State $S_{next} \gets \min(S_{curr} + 1, S_{max})$ \Comment{Fast-Attack}
     \State $count_{stable} \gets 0$
 \ElsIf{$IsDebtFree \land (count_{stable} \ge N_{stable})$} 
-    \State $S_{next} \gets \max(S_{curr} - 1, 1)$ \Comment{Optimize latency}
+    \State $S_{next} \gets \max(S_{curr} - 1, 1)$ \Comment{Slow-Release}
     \State $count_{stable} \gets 0$
 \Else 
-    \State $S_{next} \gets S_{curr}$ \Comment{Maintain current timing}
+    \State $S_{next} \gets S_{curr}$ \Comment{Maintain timing}
     \If{$Risk_{pred} \le 0$}
         \State $count_{stable} \gets count_{stable} + 1$
     \EndIf
@@ -235,6 +333,11 @@ Note that RTT denotes the Round-Trip Time. To validate the split-architecture st
 \State \Return $S_{next}$
 \end{algorithmic}
 \end{algorithm}
+
+\subsection{Coordination between Inner and Outer Loops}
+\label{subsec:loop_coordination}
+
+\textcolor{blue}{To ensure stable operation under real-world conditions, the inner and outer loops must coordinate without inducing control loop oscillations. The microsecond-level Node Sync (Inner-Loop) focuses strictly on correcting clock phase offsets to align the VNF's scheduling thread with the PNF's slot transitions. Because it directly shifts the VNF's time base, any clock adjustment ($S_{adj}, \mu s_{adj}$) temporarily shifts the arrival timestamp reference. The outer loop's Delay Manager (Outer-Loop) is designed to absorb this transient shifting. By relying on the history-weighted risk debt ($Debt_{risk}$), the outer loop avoids reacting to the temporary timing offsets caused by clock adjustments, allowing the inner loop to converge. Once the inner loop locks synchronization ($sync\_locked = 1$), the time base stabilizes, allowing the outer loop to achieve precise slot-level optimizations ($S_{ahead}$).}
 
 \section{Experimental Results}
 \label{sec:experiments}
@@ -289,10 +392,10 @@ Fronthaul & O-RAN F release \\
   \label{fig:rapp_architecture}
 \end{figure}
 
-\subsection{Software Implementation and CI/CD Validation}
+\subsection{Rigorous System-Level Validation and Generalization}
 \label{subsec:software_validation}
 
-\textcolor{blue}{To show the practical use and compatibility of the proposed adaptive timing control, we have merged our code into the official OpenAirInterface (OAI) repository. In addition to our local automated testbed using the rApp framework, the proposed software implementation was also verified through the official OAI automatic Continuous Integration and Continuous Deployment (CI/CD) pipeline. Specifically, the code passed all image building and cross-compilation tests on x86 and ARM64 systems, including Red Hat Enterprise Linux (RHEL) clusters and NVIDIA Jetson edge platforms. Furthermore, our implementation successfully completed key system-level tests, including 5G Standalone (SA) integration with the FlexRIC controller, real radio frequency (RF) transmissions using USRP B200 and AW2S radio units, F1/N2 handover procedures, and 3GPP-compliant physical layer simulations. These results confirm that our proposed timing control is stable and ready for diverse commercial hardware deployments.}
+\textcolor{blue}{To prove the stability, generalization capability, and compatibility of the proposed dual-loop timing control and nFAPI modifications, our software implementation was submitted and successfully merged into the official upstream OpenAirInterface (OAI) repository. Beyond our localized end-to-end evaluation using the rApp framework, the proposed solution underwent rigorous testing in the official OAI Continuous Integration and Continuous Deployment (CI/CD) pipeline. Specifically, the code successfully passed all image building and cross-compilation tests across standard x86 and ARM64-based architectures, including enterprise-grade Red Hat Enterprise Linux (RHEL) clusters and NVIDIA Jetson edge platforms. Furthermore, our implementation successfully completed key system-level integration and physical layer regression tests. These tests include 5G Standalone (SA) end-to-end integration, real radio frequency (RF) transmissions using USRP B200 and AW2S radio units, standard F1/N2 interface control-plane handover procedures, and 3GPP-compliant physical layer channel simulations. These regression and compilation results confirm that our proposed software-defined timing loops are highly robust, backward-compatible, and ready for diverse commercial cloud hardware deployments without introducing any hardware dependency.}
 
 \subsection{Scenario I: Validation of EWMA for PNF Timing Info}
 \label{subsec:scenario_1}
