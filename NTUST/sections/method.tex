@@ -27,7 +27,7 @@ This chapter details the proposed dynamic timing adjustment algorithm. To addres
     % Nodes
     \node [input, name=input] {};
     \node [sum, right of=input, node distance=1.8cm] (sum) {+};
-    \node [block, right of=sum, node distance=3.2cm] (controller) {\begin{tabular}{c} Asymmetric FASR \\ Controller \end{tabular}};
+    \node [block, right of=sum, node distance=3.2cm] (controller) {\begin{tabular}{c} Asymmetric RCGR \\ Controller \end{tabular}};
     \node [block, right of=controller, node distance=4.5cm] (system) {\begin{tabular}{c} VNF Scheduler \\ \& nFAPI Path \end{tabular}};
     \node [output, right of=system, node distance=2.5cm] (output) {};
     \node [block, below of=controller, node distance=2.2cm] (jitter_est) {\begin{tabular}{c} RFC 3550 Jitter \\ Estimator (Observer) \end{tabular}};
@@ -56,43 +56,70 @@ This chapter details the proposed dynamic timing adjustment algorithm. To addres
 \fi
 \section{Inner-Loop: Node Sync}
 \label{subsec:node_sync}
-To perform software-level clock synchronization, the system adopts a timestamp exchange mechanism similar to the Network Time Protocol (NTP). When the VNF receives the \textit{UL\_node\_sync} message, it calculates the instantaneous timing offset ($offset$) based on four timestamps ($t_1$ to $t_4$). To avoid instantaneous spikes and prevent the system from reacting overly sensitively to raw input data, a smoothing preprocessing step is necessary. However, traditional moving averages incur high computational costs to record and maintain historical data within a sliding window. Therefore, the algorithm utilizes an Exponentially Weighted Moving Average (EWMA) model to process the $offset$ and its variation ($error$). This design exponentially decays the weight of historical data while applying only a specific weight to new data, ensuring the system is responsive yet stable. Specifically, it generates an average offset ($\mu_{offset}$) and a mean absolute deviation ($dev_{offset}$). The smoothing factors $\alpha$ and $\beta$ are used for these updates. Drawing inspiration from the TCP Congestion Avoidance and Control mechanisms specified in RFC 6298~\cite{rfc6298, 10.1145/52325.52356}, we set $\alpha = 1/8$ for the mean offset and $\beta = 1/4$ for the jitter variation. This configuration, proven effective in TCP over many years, makes jitter detection more sensitive. Furthermore, to improve execution efficiency, these factors are designed as negative powers of 2 ($\alpha = 2^{-3}$, $\beta = 2^{-2}$), allowing the computation logic to be implemented using highly efficient bitwise shift operations. Then, a dynamic synchronization threshold ($Threshold$) is derived directly from the estimated jitter ($dev_{offset}$). If the absolute offset exceeds this threshold, the system decomposes the offset into a slot adjustment ($S_{adj}$) and a microsecond adjustment ($\mu s_{adj}$) based on the slot duration ($\text{slot\_duration}$). These parameters are subsequently used by the VNF Timing Actuator to precisely align the local clock. This process is summarized in Algorithm~\ref{alg:node_sync_simplified}.
+\textcolor{blue}{To perform software-level clock synchronization, the system adopts a timestamp exchange mechanism similar to the Network Time Protocol (NTP). The VNF periodically transmits a downlink node synchronization message with a local timestamp $t_1$. Upon receiving the message, the PNF records the local arrival timestamp $t_2$ and transmits an uplink node synchronization message back to the VNF, including the transmit timestamp $t_3$ and the echoed $t_2$. When the VNF receives the message, it records its local arrival timestamp $t_4$. Because the nFAPI timestamps are constrained by a 1024 subframe number (SFN) loop, they wrap around every $10.24$~seconds ($10240000$~\textmu s). The algorithm first calculates the differences $d_1 = t_2 - t_1$ and $d_2 = t_4 - t_3$. If these differences exceed half of the wrap-around period ($5120000$~\textmu s), they are adjusted by adding or subtracting the full wrap-around period ($10240000$~\textmu s) to correct for the wrap-around boundary. The VNF then calculates the instantaneous clock offset:}
+\begin{equation}
+\mathit{offset} = \frac{d_1 - d_2}{2}
+\end{equation}
+\textcolor{blue}{To prevent timing adjustments from causing control loop oscillations, the synchronization control loop implements a state-based dual-threshold hysteresis mechanism. The system has two synchronization states: locked ($\mathit{sync\_locked} = 1$) and unlocked ($\mathit{sync\_locked} = 0$). In the locked state, the VNF monitors the drift of the local clock. If the absolute offset exceeds the wide tolerance limit $\delta_{\mathrm{locked}}$ ($800$~\textmu s):}
+\begin{equation}
+|\mathit{offset}| > \delta_{\mathrm{locked}}
+\end{equation}
+\textcolor{blue}{the VNF unlocks the synchronization ($\mathit{sync\_locked} = 0$) to trigger re-synchronization. In the unlocked state, the VNF checks whether the offset has converged within the narrow tolerance limit $\delta_{\mathrm{sync}}$ ($20$~\textmu s). If $|\mathit{offset}| \le \delta_{\mathrm{sync}}$, the system locks the synchronization state ($\mathit{sync\_locked} = 1$). Otherwise, the VNF decomposes the offset into a slot-level adjustment $S_{\mathrm{adj}}$ and a microsecond-level adjustment $\mu s_{\mathrm{adj}}$ based on the slot duration $T_{\mathrm{slot}}$:}
+\begin{equation}
+S_{\mathrm{adj}} = \mathit{offset} / T_{\mathrm{slot}}
+\end{equation}
+\begin{equation}
+\mu s_{\mathrm{adj}} = \mathit{offset} \pmod{T_{\mathrm{slot}}}
+\end{equation}
+\textcolor{blue}{These adjustments are accumulated into the global adjustment variables:}
+\begin{equation}
+\mathit{slot\_adjustment} \gets \mathit{slot\_adjustment} + S_{\mathrm{adj}}
+\end{equation}
+\begin{equation}
+\mathit{us\_adjustment} \gets \mathit{us\_adjustment} - \mu s_{\mathrm{adj}}
+\end{equation}
+\textcolor{blue}{The negative sign in the microsecond adjustment reduces the local thread sleep time when the VNF clock is behind, speeding up the slot transition rate to catch up. The synchronization process is summarized in Algorithm~\ref{alg:node_sync_simplified}.}
 
 \begin{algorithm}[H]
 \caption{Node Sync}
 \label{alg:node_sync_simplified}
 \small
 \begin{algorithmic}[1]
-\Require $t_1, t_2, t_3$ (PNF \textit{UL\_node\_sync}), $t_4$ (VNF local reception timestamp)
-\Ensure $S_{adj}$ (Slot adjustment), $\mu s_{adj}$ (Microsecond adjustment)
+\Require $t_1, t_2, t_3$ (Timestamps from PNF \textit{UL\_node\_sync}), $t_4$ (VNF local receive timestamp)
+\Ensure $\mathit{slot\_adjustment}$ (Slot adjustment accumulator), $\mathit{us\_adjustment}$ (Microsecond adjustment accumulator)
 
 \Statex \textbf{Notation:} 
-\Statex $offset$ (Instantaneous timing offset), $\mu_{offset}$ (EWMA mean offset)
-\Statex $dev_{offset}$ (EWMA mean absolute deviation / jitter)
-\Statex $Threshold$ (Dynamic synchronization threshold), $\alpha, \beta$ (Smoothing factors)
-\Statex $\text{slot\_duration}$ (Slot duration in \textmu s)
+\Statex $\mathit{offset}$ (Instantaneous timing offset), $\mathit{sync\_locked}$ (Synchronization lock state)
+\Statex $\delta_{\mathrm{sync}}$ (Narrow tolerance, $20$ \textmu s), $\delta_{\mathrm{locked}}$ (Wide tolerance, $800$ \textmu s)
+\Statex $T_{\mathrm{slot}}$ (Slot duration in \textmu s), $T_{\mathrm{wrap}}$ (Wrap-around period, $10240000$ \textmu s)
 
-\Statex \textbf{Phase 1: Timing Offset Calculation}
+\Statex \textbf{Phase I: Timing Offset Calculation with Wrap-Around Protection}
 \State $d_1 \gets t_2 - t_1$
 \State $d_2 \gets t_4 - t_3$
+\While{$d_1 > T_{\mathrm{wrap}} / 2$} $d_1 \gets d_1 - T_{\mathrm{wrap}}$ \EndWhile
+\While{$d_1 < -T_{\mathrm{wrap}} / 2$} $d_1 \gets d_1 + T_{\mathrm{wrap}}$ \EndWhile
+\While{$d_2 > T_{\mathrm{wrap}} / 2$} $d_2 \gets d_2 - T_{\mathrm{wrap}}$ \EndWhile
+\While{$d_2 < -T_{\mathrm{wrap}} / 2$} $d_2 \gets d_2 + T_{\mathrm{wrap}}$ \EndWhile
+\State $\mathit{offset} \gets (d_1 - d_2) / 2$
 
-\Statex \textbf{Phase 2: Offset and Dynamic Jitter Estimation}
-\State $offset \gets (d_1 - d_2) / 2$
-\State $error \gets offset - \mu_{offset}$
-\State $\mu_{offset} \gets \mu_{offset} + \alpha \cdot error$
-\State $dev_{offset} \gets dev_{offset} + \beta(|error| - dev_{offset})$
-\State $Threshold \gets dev_{offset}$
-
-\Statex \textbf{Phase 3: Clock Synchronization}
-\If{$|offset| > Threshold$}
-    \State $S_{adj} \gets \lfloor offset / \text{slot\_duration} \rfloor$
-    \State $\mu s_{adj} \gets offset \pmod{\text{slot\_duration}}$
-    \State Apply $S_{adj}$ and $\mu s_{adj}$ to adjust the local clock
-\Else
-    \State State $\gets$ \textbf{Synchronized}
-    \State $S_{adj} \gets 0$, $\mu s_{adj} \gets 0$
+\Statex \textbf{Phase II: Hysteresis Lock and Clock Adjustment}
+\If{$\mathit{sync\_locked} = 1$}
+    \If{$\mathit{offset} < -\delta_{\mathrm{locked}} \lor \mathit{offset} > \delta_{\mathrm{locked}}$}
+        \State $\mathit{sync\_locked} \gets 0$ \Comment{Unlock due to excessive clock drift}
+    \EndIf
 \EndIf
-\State \Return $S_{adj}, \mu s_{adj}$
+
+\If{$\mathit{sync\_locked} = 0$}
+    \If{$\mathit{offset} \ge -\delta_{\mathrm{sync}} \land \mathit{offset} \le \delta_{\mathrm{sync}}$}
+        \State $\mathit{sync\_locked} \gets 1$ \Comment{Lock synchronization}
+    \Else
+        \State $S_{\mathrm{adj}} \gets \mathit{offset} / T_{\mathrm{slot}}$ \Comment{Integer division}
+        \State $\mu s_{\mathrm{adj}} \gets \mathit{offset} \pmod{T_{\mathrm{slot}}}$
+        \State $\mathit{slot\_adjustment} \gets \mathit{slot\_adjustment} + S_{\mathrm{adj}}$
+        \State $\mathit{us\_adjustment} \gets \mathit{us\_adjustment} - \mu s_{\mathrm{adj}}$
+    \EndIf
+\EndIf
+\State \Return $\mathit{slot\_adjustment}, \mathit{us\_adjustment}$
 \end{algorithmic}
 \end{algorithm}
 
@@ -120,8 +147,8 @@ J_i = J_{i-1} + \frac{|D_i| - J_{i-1}}{16}
 
 \textcolor{blue}{where the divisor $16$ serves as the smoothing factor, optimizing the trade-off between noise reduction and responsiveness under carrier-grade network conditions. This standardized jitter metric is periodically reported by the PNF within the nFAPI \texttt{Timing Info} message.}
 
+\label{subsubsec:rcgr_control}
 \subsection{Asymmetric Predictive Feedback Control}
-\label{subsubsec:fasr_control}
 \textcolor{blue}{Upon receiving the worst-case late arrival offset ($\Delta t_{arrive}$) and the standardized jitter $J_i$ reported by the PNF, the VNF Delay Manager evaluates the predicted tail risk ($Risk_{pred}$) for the next scheduling cycle:}
 
 \begin{equation}
@@ -134,15 +161,15 @@ Risk_{pred} = \max(\Delta t_{arrive}, \mu_{delay}) + J_i
 Debt_{risk} \gets Debt_{risk} + \alpha \cdot (\max(0, Risk_{pred}) - Debt_{risk})
 \end{equation}
 
-\textcolor{blue}{The update of the slots ahead $S_{ahead}$ is then governed by the Fast-Attack / Slow-Release (FASR) asymmetric control law. Under FASR, the controller reacts instantly to positive risk to preserve connection reliability, while slowly relaxing the timing margin only when the system has remained stable for a sustained duration:}
+\textcolor{blue}{The update of the slots ahead $S_{ahead}$ is then governed by the Rapid-Compensation / Gradual-Relaxation (RCGR) asymmetric control law. Under RCGR, the controller reacts instantly to positive risk to preserve connection reliability, while slowly relaxing the timing margin only when the system has remained stable for a sustained duration:}
 
 \begin{itemize}
-    \item \textcolor{blue}{\textbf{Fast-Attack (Preserve Throughput):} If a timing violation is detected ($\Delta t_{arrive} > 0$) or the tail risk is positive ($Risk_{pred} > 0$), the controller immediately increments the slots ahead parameter to prevent scheduling timeouts:}
+    \item \textcolor{blue}{\textbf{Rapid Compensation (Preserve Throughput):} If a timing violation is detected ($\Delta t_{arrive} > 0$) or the tail risk is positive ($Risk_{pred} > 0$), the controller immediately increments the slots ahead parameter to prevent scheduling timeouts:}
           \begin{equation}
           S_{next} = \min(S_{curr} + 1, S_{max})
           \end{equation}
           \textcolor{blue}{and resets the stable observation counter $count_{stable} = 0$.}
-    \item \textcolor{blue}{\textbf{Slow-Release (Optimize Latency):} If the system is cleared of risk debt ($Debt_{risk} < \epsilon$, where $\epsilon$ is the debt clearance threshold) and has remained stable for a consecutive number of slots ($count_{stable} \ge N_{stable}$), the controller cautiously decrements the advance time to reduce scheduling latency:}
+    \item \textcolor{blue}{\textbf{Gradual Relaxation (Optimize Latency):} If the system is cleared of risk debt ($Debt_{risk} < \epsilon$, where $\epsilon$ is the debt clearance threshold) and has remained stable for a consecutive number of slots ($count_{stable} \ge N_{stable}$), the controller cautiously decrements the advance time to reduce scheduling latency:}
           \begin{equation}
           S_{next} = \max(S_{curr} - 1, 1)
           \end{equation}
@@ -175,12 +202,12 @@ The core adjustment strategy is condensed in Algorithm~\ref{alg:delay_management
 \State $Debt_{risk} \gets Debt_{risk} + \alpha \cdot (\max(0, Risk_{pred}) - Debt_{risk})$
 \State $IsDebtFree \gets (Debt_{risk} < \epsilon)$
 
-\Statex \textbf{Phase 2: Asymmetric Timing Adjustment (FASR)}
+\Statex \textbf{Phase 2: Asymmetric Timing Adjustment (RCGR)}
 \If{$\Delta t_{arrive} > 0 \lor Risk_{pred} > 0$} 
-    \State $S_{next} \gets \min(S_{curr} + 1, S_{max})$ \Comment{Fast-Attack}
+    \State $S_{next} \gets \min(S_{curr} + 1, S_{max})$ \Comment{Rapid Compensation}
     \State $count_{stable} \gets 0$
 \ElsIf{$IsDebtFree \land (count_{stable} \ge N_{stable})$} 
-    \State $S_{next} \gets \max(S_{curr} - 1, 1)$ \Comment{Slow-Release}
+    \State $S_{next} \gets \max(S_{curr} - 1, 1)$ \Comment{Gradual Relaxation}
     \State $count_{stable} \gets 0$
 \Else 
     \State $S_{next} \gets S_{curr}$ \Comment{Maintain timing}
