@@ -1,0 +1,3997 @@
+diff --git a/common/utils/system.c b/common/utils/system.c
+index cb6f914f9589e65cf6625b39eb7476177b2a6e55..7150bf3fb6c15ca7dd49b3ca86ffa4ba6c8f492b 100644
+--- a/common/utils/system.c
++++ b/common/utils/system.c
+@@ -270,8 +270,9 @@ void threadCreate(pthread_t* t, void * (*func)(void*), void * param, char* name,
+   strncpy(short_name, name, sizeof(short_name) - 1);
+   short_name[sizeof(short_name) - 1] = '\0';
+   ret = pthread_setname_np(*t, short_name);
+-  AssertFatal(ret == 0, "Error in pthread_setname_np(): ret: %d, errno: %d\n", ret, errno);
+-
++  if (ret != 0) {
++    LOG_E(UTIL, "Error in pthread_setname_np() for %s: ret: %d, errno: %d\n", short_name, ret, errno);
++  }
+   if (affinity != -1 ) {
+     cpu_set_t cpuset;
+     CPU_ZERO(&cpuset);
+diff --git a/nfapi/oai_integration/nfapi_pnf.c b/nfapi/oai_integration/nfapi_pnf.c
+index 187580cd942c9d0b04c199294c69882b1211460c..c5fa446a2de6aece85f35b91fd0541e188168818 100644
+--- a/nfapi/oai_integration/nfapi_pnf.c
++++ b/nfapi/oai_integration/nfapi_pnf.c
+@@ -121,9 +121,13 @@ typedef struct {
+   uint8_t first_subframe_ind;
+ 
+   // timing information recevied from the vnf
+-  uint8_t timing_window;
++  uint16_t timing_window;
+   uint8_t timing_info_mode;
+   uint8_t timing_info_period;
++  uint32_t dl_tti_timing_offset;
++  uint32_t ul_tti_timing_offset;
++  uint32_t ul_dci_timing_offset;
++  uint32_t tx_data_timing_offset;
+ 
+ } phy_info;
+ 
+@@ -991,7 +995,22 @@ int nr_config_request(nfapi_pnf_config_t *config, nfapi_pnf_phy_config_t *phy, n
+     phy_info->timing_info_mode = 0;
+     printf("NO timing info mode provided\n");
+   }
+-  // TODO: Read the P7 message offset values
++  if (req->nfapi_config.dl_tti_timing_offset.tl.tag == NFAPI_NR_NFAPI_DL_TTI_TIMING_OFFSET) {
++    phy_info->dl_tti_timing_offset = req->nfapi_config.dl_tti_timing_offset.value;
++    num_tlv++;
++  }
++  if (req->nfapi_config.ul_tti_timing_offset.tl.tag == NFAPI_NR_NFAPI_UL_TTI_TIMING_OFFSET) {
++    phy_info->ul_tti_timing_offset = req->nfapi_config.ul_tti_timing_offset.value;
++    num_tlv++;
++  }
++  if (req->nfapi_config.ul_dci_timing_offset.tl.tag == NFAPI_NR_NFAPI_UL_DCI_TIMING_OFFSET) {
++    phy_info->ul_dci_timing_offset = req->nfapi_config.ul_dci_timing_offset.value;
++    num_tlv++;
++  }
++  if (req->nfapi_config.tx_data_timing_offset.tl.tag == NFAPI_NR_NFAPI_TX_DATA_TIMING_OFFSET) {
++    phy_info->tx_data_timing_offset = req->nfapi_config.tx_data_timing_offset.value;
++    num_tlv++;
++  }
+   if (req->nfapi_config.timing_info_period.tl.tag == NFAPI_NR_NFAPI_TIMING_INFO_PERIOD_TAG) {
+     printf("timing info period provided value:%d\n", req->nfapi_config.timing_info_period.value);
+     phy_info->timing_info_period = req->nfapi_config.timing_info_period.value;
+@@ -1630,10 +1649,13 @@ int nr_start_request(nfapi_pnf_config_t *config, nfapi_pnf_phy_config_t *phy, nf
+   p7_config->subframe_buffer_size = phy_info->timing_window;
+   p7_config->slot_buffer_size = phy_info->timing_window; // TODO: check if correct for NR
+   printf("subframe_buffer_size configured using phy_info->timing_window:%d\n", phy_info->timing_window);
++  // Reset timing info defaults from nfapi_pnf_p7_config_create, use VNF config values instead
++  p7_config->timing_info_mode_periodic = 0;
++  p7_config->timing_info_mode_aperiodic = 0;
++  p7_config->timing_info_period = phy_info->timing_info_period;
+ 
+   if (phy_info->timing_info_mode & 0x1) {
+     p7_config->timing_info_mode_periodic = 1;
+-    p7_config->timing_info_period = phy_info->timing_info_period;
+   }
+ 
+   if (phy_info->timing_info_mode & 0x2) {
+@@ -1722,6 +1744,11 @@ int nr_start_request(nfapi_pnf_config_t *config, nfapi_pnf_phy_config_t *phy, nf
+   DevAssert(scs->tl.tag == NFAPI_NR_CONFIG_SCS_COMMON_TAG);
+   pnf_p7_t* pnf_p7 = (pnf_p7_t*)(p7_config);
+   pnf_p7->mu = scs->value;
++  pnf_p7->timing_window = phy_info->timing_window;
++  pnf_p7->dl_tti_timing_offset = phy_info->dl_tti_timing_offset;
++  pnf_p7->ul_tti_timing_offset = phy_info->ul_tti_timing_offset;
++  pnf_p7->ul_dci_timing_offset = phy_info->ul_dci_timing_offset;
++  pnf_p7->tx_data_timing_offset = phy_info->tx_data_timing_offset;
+ 
+   // Need to wait for main thread to create RU structures
+   while (config_sync_var < 0) {
+@@ -2304,8 +2331,10 @@ void handle_nr_slot_ind(uint16_t sfn, uint16_t slot, NR_Sched_Rsp_t *sched_resp)
+   sfnslot_add_slot(mu, &sfn_tx, &slot_tx, slot_ahead); // modify: do in place
+ 
+   // printf("send slot indication for sfn/slot:%4d.%2d current:%4d.%2d\n", sfn_tx, slot_tx, sfn, slot);
++#ifdef ENABLE_WLS
+   nfapi_nr_slot_indication_scf_t ind = {.sfn = sfn_tx, .slot = slot_tx};
+   oai_nfapi_nr_slot_indication(&ind);
++#endif
+ 
+   // copy data from appropriate p7 slot buffers into channel structures for PHY processing
+   nfapi_pnf_p7_get_msgs(config,
+diff --git a/nfapi/oai_integration/nfapi_vnf.c b/nfapi/oai_integration/nfapi_vnf.c
+index 2381f00be54cd5a361113d44998aa7ebc01b7a31..38e810e19aa7946789e1d06cb0d71f5495790c4b 100644
+--- a/nfapi/oai_integration/nfapi_vnf.c
++++ b/nfapi/oai_integration/nfapi_vnf.c
+@@ -56,6 +56,8 @@ static nfapi_vnf_config_t *config;
+ extern RAN_CONTEXT_t RC;
+ extern UL_RCC_IND_t  UL_RCC_INFO;
+ 
++static volatile int nr_start_resp_received = 0;
++
+ nfapi_vnf_config_t * get_config()
+ {
+   return config;
+@@ -941,6 +943,156 @@ int phy_nr_slot_indication(nfapi_nr_slot_indication_scf_t *ind)
+   return 1;
+ }
+ 
++#ifndef ENABLE_WLS
++static inline void timespec_add_us(struct timespec *t, long us)
++{
++  t->tv_nsec += us * 1000;
++  if (t->tv_nsec >= 1000000000) {
++    t->tv_sec += t->tv_nsec / 1000000000;
++    t->tv_nsec %= 1000000000;
++  } else if (t->tv_nsec < 0) {
++    long sec_diff = (-t->tv_nsec / 1000000000) + 1;
++    t->tv_sec -= sec_diff;
++    t->tv_nsec += sec_diff * 1000000000;
++  }
++}
++
++#define P7_SYNC_PERIOD_SLOTS_DEFAULT 10
++#define P7_SYNC_MAX_CATCHUP_BURST 2
++int vnf_nr_build_send_dl_node_sync(vnf_p7_t* vnf_p7, nfapi_vnf_p7_connection_info_t* p7_info);
++
++static inline void p7_sync_init(nfapi_vnf_p7_connection_info_t *p7_info)
++{
++    p7_info->sync_slot_counter = 0;
++    p7_info->sync_period_slots = P7_SYNC_PERIOD_SLOTS_DEFAULT;
++    NFAPI_TRACE(NFAPI_TRACE_INFO, "[P7_SYNC] Initialized: period=%u slots\n",
++                p7_info->sync_period_slots);
++}
++
++void *vnf_timing_thread(void *arg)
++{
++  LOG_I(NFAPI_VNF, "Starting VNF autonomous timing thread\n");
++  vnf_p7_info *p7_vnf = (vnf_p7_info *)arg;
++  vnf_p7_t *vnf_p7 = (vnf_p7_t *)p7_vnf->config;
++
++  int mu = -1;
++  nfapi_vnf_p7_connection_info_t *p7_info = NULL;
++
++  while (1) {
++    if (nr_start_resp_received) {
++      if (vnf_p7->p7_connections) {
++        p7_info = vnf_p7->p7_connections;
++        if (RC.nrmac && RC.nrmac[0]) {
++          nfapi_nr_config_request_scf_t *req = &RC.nrmac[0]->config[0];
++          const nfapi_uint8_tlv_t *scs = &req->ssb_config.scs_common;
++          if (scs && scs->tl.tag == NFAPI_NR_CONFIG_SCS_COMMON_TAG) {
++            mu = scs->value;
++          }
++        }
++        if (mu < 0 && RC.gNB && RC.gNB[0] && RC.gNB[0]->configured && RC.gNB[0]->frame_parms.numerology_index >= 0) {
++          mu = RC.gNB[0]->frame_parms.numerology_index;
++        }
++        if (mu >= 0)
++          break;
++      }
++    }
++    usleep(1000000);
++    LOG_I(NFAPI_VNF, "Waiting for gNB or NFAPI NR configuration... mu:%d start_resp:%d\n", mu, nr_start_resp_received);
++  }
++  pthread_mutex_lock(&p7_info->mutex);
++  while (!p7_info->initial_timinginfo_received) {
++    pthread_cond_wait(&p7_info->initial_timinginfo_cond, &p7_info->mutex);
++  }
++  pthread_mutex_unlock(&p7_info->mutex);
++  AssertFatal(mu >= 0 && mu <= 5, "Invalid mu %d\n", mu);
++  p7_info->mu = mu;
++  p7_info->slot_duration_us = 1000 >> p7_info->mu;
++  if (p7_info->initial_timinginfo_received) {
++    int sfnslot_dec = NFAPI_SFNSLOT2DEC(p7_info->mu, p7_info->sfn, p7_info->slot);
++    sfnslot_dec = (sfnslot_dec + 1) % NFAPI_MAX_SFNSLOTDEC(p7_info->mu);
++    p7_info->sfn = NFAPI_SFNSLOTDEC2SFN(p7_info->mu, sfnslot_dec);
++    p7_info->slot = NFAPI_SFNSLOTDEC2SLOT(p7_info->mu, sfnslot_dec);
++  }
++  p7_info->running = 1;
++  p7_info->thread = pthread_self();
++  p7_sync_init(p7_info);
++  clock_gettime(CLOCK_MONOTONIC, &p7_info->next_slot_time);
++  vnf_p7->slot_start_time_hr = vnf_get_current_time_hr();
++  vnf_nr_build_send_dl_node_sync(vnf_p7, p7_info);
++
++  const int max_sfnslotdec = NFAPI_MAX_SFNSLOTDEC(p7_info->mu);
++  const int extreme_gap_threshold = max_sfnslotdec / 4;
++  int last_mac_ind_dec = -1;
++
++  int sfnslot_dec = NFAPI_SFNSLOT2DEC(p7_info->mu, p7_info->sfn, p7_info->slot);
++
++  while (p7_info->running) {
++    pthread_mutex_lock(&p7_info->mutex);
++    p7_info->total_advanced_us = p7_info->slot_ahead * p7_info->slot_duration_us;
++    if (p7_info->slot_adjustment != 0) {
++      sfnslot_dec = (sfnslot_dec + p7_info->slot_adjustment + max_sfnslotdec) % max_sfnslotdec;
++      if (p7_info->sync_locked)
++        p7_info->total_advanced_us += p7_info->slot_adjustment * (int32_t)p7_info->slot_duration_us;
++      p7_info->slot_adjustment = 0;
++    }
++    int32_t current_pending_us = p7_info->pending_us;
++    if (p7_info->sync_locked) {
++      p7_info->total_advanced_us -= current_pending_us;
++    }
++    p7_info->pending_us = 0;
++    pthread_mutex_unlock(&p7_info->mutex);
++
++    timespec_add_us(&p7_info->next_slot_time, p7_info->slot_duration_us + current_pending_us);
++    if (clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &p7_info->next_slot_time, NULL) != 0)
++      continue;
++    vnf_p7->slot_start_time_hr = vnf_get_current_time_hr();
++
++    p7_info->sfn = NFAPI_SFNSLOTDEC2SFN(p7_info->mu, sfnslot_dec);
++    p7_info->slot = NFAPI_SFNSLOTDEC2SLOT(p7_info->mu, sfnslot_dec);
++
++    if (p7_info->sync_slot_counter >= p7_info->sync_period_slots) {
++      p7_info->sync_slot_counter = 0;
++      vnf_nr_build_send_dl_node_sync(vnf_p7, p7_info);
++    } else {
++      p7_info->sync_slot_counter++;
++    }
++
++    int target_ind_dec = (sfnslot_dec + p7_info->slot_ahead) % max_sfnslotdec;
++    if (last_mac_ind_dec == -1) {
++      last_mac_ind_dec = (target_ind_dec - 1 + max_sfnslotdec) % max_sfnslotdec;
++    }
++
++    int diff_mac = (target_ind_dec - last_mac_ind_dec + max_sfnslotdec) % max_sfnslotdec;
++    if (diff_mac > 0 && diff_mac < max_sfnslotdec / 2) {
++      if (!p7_info->sync_locked || diff_mac > extreme_gap_threshold) {
++        if (p7_info->sync_locked) {
++          NFAPI_TRACE(NFAPI_TRACE_WARN, "[P7_SYNC] Extreme VNF gap (%d slots). Jumping to latest to avoid deadlock.\n", diff_mac);
++        }
++        last_mac_ind_dec = target_ind_dec;
++        nfapi_nr_slot_indication_scf_t ind = {0};
++        ind.sfn = NFAPI_SFNSLOTDEC2SFN(p7_info->mu, last_mac_ind_dec);
++        ind.slot = NFAPI_SFNSLOTDEC2SLOT(p7_info->mu, last_mac_ind_dec);
++        ind.header.phy_id = p7_info->phy_id;
++        phy_nr_slot_indication(&ind);
++      } else {
++        int burst_counter = 0;
++        while (last_mac_ind_dec != target_ind_dec && burst_counter < P7_SYNC_MAX_CATCHUP_BURST) {
++          last_mac_ind_dec = (last_mac_ind_dec + 1) % max_sfnslotdec;
++          nfapi_nr_slot_indication_scf_t ind = {0};
++          ind.sfn = NFAPI_SFNSLOTDEC2SFN(p7_info->mu, last_mac_ind_dec);
++          ind.slot = NFAPI_SFNSLOTDEC2SLOT(p7_info->mu, last_mac_ind_dec);
++          ind.header.phy_id = p7_info->phy_id;
++          phy_nr_slot_indication(&ind);
++          burst_counter++;
++        }
++      }
++    }
++    sfnslot_dec = (sfnslot_dec + 1) % max_sfnslotdec;
++  }
++  return NULL;
++}
++#endif
++
+ int phy_nr_srs_indication(nfapi_nr_srs_indication_t *ind)
+ {
+   for (int i = 0; i < ind->number_of_pdus; ++i)
+@@ -1264,6 +1416,11 @@ void *configure_nr_p7_vnf(void *ptr)
+   p7_vnf->config->hdr_unpack_func = &fapi_nr_p7_message_header_unpack;
+   p7_vnf->config->pack_func = &fapi_nr_p7_message_pack;
+   p7_vnf->config->send_p7_msg = &aerial_nr_send_p7_message;
++#endif
++#ifndef ENABLE_WLS
++  // Start VNF autonomous timing thread
++  pthread_t t;
++  threadCreate(&t, &vnf_timing_thread, p7_vnf, "vnf_timing", -1, OAI_PRIORITY_RT);
+ #endif
+   return 0;
+ }
+@@ -1298,7 +1455,7 @@ void *vnf_p7_thread_start(void *ptr) {
+   p7_vnf->config->codec_config.deallocate = &vnf_deallocate;
+   p7_vnf->config->allocate_p7_vendor_ext = &phy_allocate_p7_vendor_ext;
+   p7_vnf->config->deallocate_p7_vendor_ext = &phy_deallocate_p7_vendor_ext;
+-  NFAPI_TRACE(NFAPI_TRACE_INFO, "[VNF] Creating VNF NFAPI P7 start thread %s\n", __FUNCTION__);
++  NFAPI_TRACE(NFAPI_TRACE_INFO, "[VNF] Creating VNF NFAPI start thread %s\n", __FUNCTION__);
+   pthread_create(&vnf_p7_start_pthread, NULL, &vnf_p7_start_thread, p7_vnf->config);
+   return 0;
+ }
+@@ -1418,11 +1575,20 @@ int nr_param_resp_cb(nfapi_vnf_config_t *config, int p5_idx, nfapi_nr_param_resp
+       req->num_tlv++;
+     }
+   }
+-//TODO: Assign tag and value for P7 message offsets
+-req->nfapi_config.dl_tti_timing_offset.tl.tag = NFAPI_NR_NFAPI_DL_TTI_TIMING_OFFSET;
+-req->nfapi_config.ul_tti_timing_offset.tl.tag = NFAPI_NR_NFAPI_UL_TTI_TIMING_OFFSET;
+-req->nfapi_config.ul_dci_timing_offset.tl.tag = NFAPI_NR_NFAPI_UL_DCI_TIMING_OFFSET;
+-req->nfapi_config.tx_data_timing_offset.tl.tag = NFAPI_NR_NFAPI_TX_DATA_TIMING_OFFSET;
++  // Assign tag and value for P7 message offsets
++  req->nfapi_config.dl_tti_timing_offset.tl.tag = NFAPI_NR_NFAPI_DL_TTI_TIMING_OFFSET;
++  req->nfapi_config.dl_tti_timing_offset.value = p7_vnf->dl_tti_timing_offset;
++
++  req->nfapi_config.ul_tti_timing_offset.tl.tag = NFAPI_NR_NFAPI_UL_TTI_TIMING_OFFSET;
++  req->nfapi_config.ul_tti_timing_offset.value = p7_vnf->ul_tti_timing_offset;
++
++  req->nfapi_config.ul_dci_timing_offset.tl.tag = NFAPI_NR_NFAPI_UL_DCI_TIMING_OFFSET;
++  req->nfapi_config.ul_dci_timing_offset.value = p7_vnf->ul_dci_timing_offset;
++
++  req->nfapi_config.tx_data_timing_offset.tl.tag = NFAPI_NR_NFAPI_TX_DATA_TIMING_OFFSET;
++  req->nfapi_config.tx_data_timing_offset.value = p7_vnf->tx_data_timing_offset;
++
++  req->num_tlv += 4;
+ 
+   vendor_ext_tlv_2 ve2;
+   memset(&ve2, 0, sizeof(ve2));
+@@ -1526,6 +1692,7 @@ int start_resp_cb(nfapi_vnf_config_t *config, int p5_idx, nfapi_start_response_t
+ 
+ int nr_start_resp_cb(nfapi_vnf_config_t *config, int p5_idx, nfapi_nr_start_response_scf_t *resp) {
+   NFAPI_TRACE(NFAPI_TRACE_INFO, "[VNF] Received NFAPI_START_RESP idx:%d phy_id:%d\n", p5_idx, resp->header.phy_id);
++  nr_start_resp_received = 1;
+   return 0;
+ }
+ 
+@@ -1704,8 +1871,12 @@ void configure_nr_nfapi_vnf(eth_params_t params)
+ #endif
+   vnf_info *vnf = calloc(1, sizeof(vnf_info));
+   memset(vnf->p7_vnfs, 0, sizeof(vnf->p7_vnfs));
+-  vnf->p7_vnfs[0].timing_window = 30;
+-  vnf->p7_vnfs[0].periodic_timing_enabled = 0;
++  vnf->p7_vnfs[0].timing_window = 4500;
++  vnf->p7_vnfs[0].dl_tti_timing_offset = 0;
++  vnf->p7_vnfs[0].ul_tti_timing_offset = 0;
++  vnf->p7_vnfs[0].ul_dci_timing_offset = 0;
++  vnf->p7_vnfs[0].tx_data_timing_offset = 0;
++  vnf->p7_vnfs[0].periodic_timing_enabled = 1;
+   vnf->p7_vnfs[0].aperiodic_timing_enabled = 0;
+   vnf->p7_vnfs[0].periodic_timing_period = 1;
+   vnf->p7_vnfs[0].config = nfapi_vnf_p7_config_create();
+@@ -1729,6 +1900,9 @@ void configure_nr_nfapi_vnf(eth_params_t params)
+   config->vnf_ipv6 = 0;
+   config->pnf_list = 0;
+   config->phy_list = 0;
++  config->timing_window = vnf->p7_vnfs[0].timing_window;
++  config->timing_info_mode = (vnf->p7_vnfs[0].aperiodic_timing_enabled << 1) | (vnf->p7_vnfs[0].periodic_timing_enabled);
++  config->timing_info_period = vnf->p7_vnfs[0].periodic_timing_period;
+ 
+   config->pnf_nr_connection_indication = &pnf_nr_connection_indication_cb;
+   config->pnf_disconnect_indication = &pnf_disconnection_indication_cb;
+diff --git a/nfapi/oai_integration/nfapi_vnf.h b/nfapi/oai_integration/nfapi_vnf.h
+index 5a6daa810ff975a445f5f488aaf0f33188301d36..0b0b398f64dadffdec7c9ccbffc5460576311b65 100644
+--- a/nfapi/oai_integration/nfapi_vnf.h
++++ b/nfapi/oai_integration/nfapi_vnf.h
+@@ -42,7 +42,7 @@ typedef struct {
+   uint8_t first_subframe_ind;
+ 
+   // timing information recevied from the vnf
+-  uint8_t timing_window;
++  uint16_t timing_window;
+   uint8_t timing_info_mode;
+   uint8_t timing_info_period;
+ 
+@@ -104,10 +104,14 @@ typedef struct {
+   int local_port;
+   char local_addr[80];
+ 
+-  unsigned timing_window;
++  uint16_t timing_window;
+   unsigned periodic_timing_enabled;
+   unsigned aperiodic_timing_enabled;
+   unsigned periodic_timing_period;
++  uint32_t dl_tti_timing_offset;
++  uint32_t ul_tti_timing_offset;
++  uint32_t ul_dci_timing_offset;
++  uint32_t tx_data_timing_offset;
+ 
+   // This is not really the right place if we have multiple PHY,
+   // should be part of the phy struct
+diff --git a/nfapi/oai_integration/socket/socket_pnf.c b/nfapi/oai_integration/socket/socket_pnf.c
+index f72417d00294c234fd911c88e6fbe40f29849600..c0f727dae31fb5e1e07e4619e075539f2d988b2c 100644
+--- a/nfapi/oai_integration/socket/socket_pnf.c
++++ b/nfapi/oai_integration/socket/socket_pnf.c
+@@ -799,12 +799,6 @@ int pnf_nr_p7_message_pump(pnf_p7_t *pnf_p7)
+       // update slot start timing
+       slot_start = pnf_timespec_add(slot_start, slot_duration);
+ 
+-      // increment sfn/slot
+-      if (++pnf_p7->slot == 20) {
+-        pnf_p7->slot = 0;
+-        pnf_p7->sfn = (pnf_p7->sfn + 1) % 1024;
+-      }
+-
+       continue;
+     } else if (selectRetval == -1 && (errno == EINTR)) {
+       // interrupted by signal
+diff --git a/nfapi/open-nFAPI/fapi/src/nr_fapi_p5.c b/nfapi/open-nFAPI/fapi/src/nr_fapi_p5.c
+index 2f9bc6e3f7705c932f0dfd4ad06a5d5421c3a7fe..03043cb0bcc5a07f35cd6ac9457e601521a4541b 100644
+--- a/nfapi/open-nFAPI/fapi/src/nr_fapi_p5.c
++++ b/nfapi/open-nFAPI/fapi/src/nr_fapi_p5.c
+@@ -535,7 +535,7 @@ uint8_t pack_nr_param_response(void *msg, uint8_t **ppWritePackedMsg, uint8_t *e
+                            &(pNfapiMsg->nfapi_config.timing_window),
+                            ppWritePackedMsg,
+                            end,
+-                           &pack_uint8_tlv_value)
++                           &pack_uint16_tlv_value)
+             && pack_nr_tlv(NFAPI_NR_NFAPI_TIMING_INFO_MODE_TAG,
+                            &(pNfapiMsg->nfapi_config.timing_info_mode),
+                            ppWritePackedMsg,
+@@ -546,6 +546,26 @@ uint8_t pack_nr_param_response(void *msg, uint8_t **ppWritePackedMsg, uint8_t *e
+                            ppWritePackedMsg,
+                            end,
+                            &pack_uint8_tlv_value)
++            && pack_nr_tlv(NFAPI_NR_NFAPI_DL_TTI_TIMING_OFFSET,
++                           &(pNfapiMsg->nfapi_config.dl_tti_timing_offset),
++                           ppWritePackedMsg,
++                           end,
++                           &pack_uint32_tlv_value)
++            && pack_nr_tlv(NFAPI_NR_NFAPI_UL_TTI_TIMING_OFFSET,
++                           &(pNfapiMsg->nfapi_config.ul_tti_timing_offset),
++                           ppWritePackedMsg,
++                           end,
++                           &pack_uint32_tlv_value)
++            && pack_nr_tlv(NFAPI_NR_NFAPI_UL_DCI_TIMING_OFFSET,
++                           &(pNfapiMsg->nfapi_config.ul_dci_timing_offset),
++                           ppWritePackedMsg,
++                           end,
++                           &pack_uint32_tlv_value)
++            && pack_nr_tlv(NFAPI_NR_NFAPI_TX_DATA_TIMING_OFFSET,
++                           &(pNfapiMsg->nfapi_config.tx_data_timing_offset),
++                           ppWritePackedMsg,
++                           end,
++                           &pack_uint32_tlv_value)
+             && pack_vendor_extension_tlv(pNfapiMsg->vendor_extension, ppWritePackedMsg, end, config);
+   return retval;
+ }
+@@ -692,9 +712,13 @@ uint8_t unpack_nr_param_response(uint8_t **ppReadPackedMsg, uint8_t *end, void *
+       {NFAPI_NR_NFAPI_P7_PNF_ADDRESS_IPV4_TAG, &pNfapiMsg->nfapi_config.p7_pnf_address_ipv4, &unpack_ipv4_address_value},
+       {NFAPI_NR_NFAPI_P7_PNF_ADDRESS_IPV6_TAG, &pNfapiMsg->nfapi_config.p7_pnf_address_ipv6, &unpack_ipv6_address_value},
+       {NFAPI_NR_NFAPI_P7_PNF_PORT_TAG, &pNfapiMsg->nfapi_config.p7_pnf_port, &unpack_uint16_tlv_value},
+-      {NFAPI_NR_NFAPI_TIMING_WINDOW_TAG, &pNfapiMsg->nfapi_config.timing_window, &unpack_uint8_tlv_value},
++      {NFAPI_NR_NFAPI_TIMING_WINDOW_TAG, &pNfapiMsg->nfapi_config.timing_window, &unpack_uint16_tlv_value},
+       {NFAPI_NR_NFAPI_TIMING_INFO_MODE_TAG, &pNfapiMsg->nfapi_config.timing_info_mode, &unpack_uint8_tlv_value},
+       {NFAPI_NR_NFAPI_TIMING_INFO_PERIOD_TAG, &pNfapiMsg->nfapi_config.timing_info_period, &unpack_uint8_tlv_value},
++      {NFAPI_NR_NFAPI_DL_TTI_TIMING_OFFSET, &(pNfapiMsg->nfapi_config.dl_tti_timing_offset), &unpack_uint32_tlv_value},
++      {NFAPI_NR_NFAPI_UL_TTI_TIMING_OFFSET, &(pNfapiMsg->nfapi_config.ul_tti_timing_offset), &unpack_uint32_tlv_value},
++      {NFAPI_NR_NFAPI_UL_DCI_TIMING_OFFSET, &(pNfapiMsg->nfapi_config.ul_dci_timing_offset), &unpack_uint32_tlv_value},
++      {NFAPI_NR_NFAPI_TX_DATA_TIMING_OFFSET, &(pNfapiMsg->nfapi_config.tx_data_timing_offset), &unpack_uint32_tlv_value},
+   };
+ 
+   return (pull8(ppReadPackedMsg, &pNfapiMsg->error_code, end) && pull8(ppReadPackedMsg, &pNfapiMsg->num_tlv, end)
+@@ -1191,7 +1215,7 @@ uint8_t pack_nr_config_request(void *msg, uint8_t **ppWritePackedMsg, uint8_t *e
+                         &(pNfapiMsg->nfapi_config.timing_window),
+                         ppWritePackedMsg,
+                         end,
+-                        &pack_uint8_tlv_value);
++                        &pack_uint16_tlv_value);
+   numTLVs++;
+ 
+   retval &= pack_nr_tlv(NFAPI_NR_NFAPI_TIMING_INFO_MODE_TAG,
+@@ -1207,6 +1231,34 @@ uint8_t pack_nr_config_request(void *msg, uint8_t **ppWritePackedMsg, uint8_t *e
+                         end,
+                         &pack_uint8_tlv_value);
+   numTLVs++;
++
++  retval &= pack_nr_tlv(NFAPI_NR_NFAPI_DL_TTI_TIMING_OFFSET,
++                        &(pNfapiMsg->nfapi_config.dl_tti_timing_offset),
++                        ppWritePackedMsg,
++                        end,
++                        &pack_uint32_tlv_value);
++  numTLVs++;
++
++  retval &= pack_nr_tlv(NFAPI_NR_NFAPI_UL_TTI_TIMING_OFFSET,
++                        &(pNfapiMsg->nfapi_config.ul_tti_timing_offset),
++                        ppWritePackedMsg,
++                        end,
++                        &pack_uint32_tlv_value);
++  numTLVs++;
++
++  retval &= pack_nr_tlv(NFAPI_NR_NFAPI_UL_DCI_TIMING_OFFSET,
++                        &(pNfapiMsg->nfapi_config.ul_dci_timing_offset),
++                        ppWritePackedMsg,
++                        end,
++                        &pack_uint32_tlv_value);
++  numTLVs++;
++
++  retval &= pack_nr_tlv(NFAPI_NR_NFAPI_TX_DATA_TIMING_OFFSET,
++                        &(pNfapiMsg->nfapi_config.tx_data_timing_offset),
++                        ppWritePackedMsg,
++                        end,
++                        &pack_uint32_tlv_value);
++  numTLVs++;
+   // END nFAPI TLVs included in CONFIG.request for IDLE and CONFIGURED states
+ 
+   if (pNfapiMsg->vendor_extension != 0 && config != 0) {
+@@ -1419,9 +1471,13 @@ uint8_t unpack_nr_config_request(uint8_t **ppReadPackedMsg, uint8_t *end, void *
+       {NFAPI_NR_NFAPI_P7_VNF_ADDRESS_IPV4_TAG, &(pNfapiMsg->nfapi_config.p7_vnf_address_ipv4), &unpack_ipv4_address_value},
+       {NFAPI_NR_NFAPI_P7_VNF_ADDRESS_IPV6_TAG, &(pNfapiMsg->nfapi_config.p7_vnf_address_ipv6), &unpack_ipv6_address_value},
+       {NFAPI_NR_NFAPI_P7_VNF_PORT_TAG, &(pNfapiMsg->nfapi_config.p7_vnf_port), &unpack_uint16_tlv_value},
+-      {NFAPI_NR_NFAPI_TIMING_WINDOW_TAG, &(pNfapiMsg->nfapi_config.timing_window), &unpack_uint8_tlv_value},
++      {NFAPI_NR_NFAPI_TIMING_WINDOW_TAG, &(pNfapiMsg->nfapi_config.timing_window), &unpack_uint16_tlv_value},
+       {NFAPI_NR_NFAPI_TIMING_INFO_MODE_TAG, &(pNfapiMsg->nfapi_config.timing_info_mode), &unpack_uint8_tlv_value},
+       {NFAPI_NR_NFAPI_TIMING_INFO_PERIOD_TAG, &(pNfapiMsg->nfapi_config.timing_info_period), &unpack_uint8_tlv_value},
++      {NFAPI_NR_NFAPI_DL_TTI_TIMING_OFFSET, &(pNfapiMsg->nfapi_config.dl_tti_timing_offset), &unpack_uint32_tlv_value},
++      {NFAPI_NR_NFAPI_UL_TTI_TIMING_OFFSET, &(pNfapiMsg->nfapi_config.ul_tti_timing_offset), &unpack_uint32_tlv_value},
++      {NFAPI_NR_NFAPI_UL_DCI_TIMING_OFFSET, &(pNfapiMsg->nfapi_config.ul_dci_timing_offset), &unpack_uint32_tlv_value},
++      {NFAPI_NR_NFAPI_TX_DATA_TIMING_OFFSET, &(pNfapiMsg->nfapi_config.tx_data_timing_offset), &unpack_uint32_tlv_value},
+       {NFAPI_NR_NFAPI_P7_PNF_ADDRESS_IPV6_TAG, &(pNfapiMsg->nfapi_config.p7_pnf_address_ipv6), &unpack_ipv6_address_value},
+       {NFAPI_NR_NFAPI_P7_PNF_PORT_TAG, &(pNfapiMsg->nfapi_config.p7_pnf_port), &unpack_uint16_tlv_value}};
+ 
+diff --git a/nfapi/open-nFAPI/nfapi/public_inc/nfapi_interface.h b/nfapi/open-nFAPI/nfapi/public_inc/nfapi_interface.h
+index 974ed556d836bde4c5229e1776201bed028fdb89..275cb01b118bc585bee461030ef4f3d9c8f63218 100644
+--- a/nfapi/open-nFAPI/nfapi/public_inc/nfapi_interface.h
++++ b/nfapi/open-nFAPI/nfapi/public_inc/nfapi_interface.h
+@@ -3700,7 +3700,7 @@ typedef struct
+   nfapi_ipv6_address_t p7_pnf_address_ipv6;
+   nfapi_uint16_tlv_t p7_pnf_port;
+ 
+-  nfapi_uint8_tlv_t timing_window; //Value: 0 → 30,000 microseconds 
++  nfapi_uint16_tlv_t timing_window; //Value: 0 → 30,000 microseconds 
+   nfapi_uint8_tlv_t timing_info_mode;
+   nfapi_uint8_tlv_t timing_info_period;
+ 
+diff --git a/nfapi/open-nFAPI/nfapi/public_inc/nfapi_nr_interface_scf.h b/nfapi/open-nFAPI/nfapi/public_inc/nfapi_nr_interface_scf.h
+index c779cd1a0f0e20d36d40f313641b44ee093a35e6..b6f4972aa630bec4a6cab1579c5c2ac5608a4a2c 100644
+--- a/nfapi/open-nFAPI/nfapi/public_inc/nfapi_nr_interface_scf.h
++++ b/nfapi/open-nFAPI/nfapi/public_inc/nfapi_nr_interface_scf.h
+@@ -1181,17 +1181,17 @@ typedef struct {
+   uint32_t time_since_last_timing_info;
+ 
+   uint32_t dl_tti_jitter;
+-  uint32_t tx_data_request_jitter;
++  uint32_t tx_data_jitter;
+   uint32_t ul_tti_jitter;
+   uint32_t ul_dci_jitter;
+ 
+   int32_t dl_tti_latest_delay;
+-  int32_t tx_data_request_latest_delay;
++  int32_t tx_data_latest_delay;
+   int32_t ul_tti_latest_delay;
+   int32_t ul_dci_latest_delay;
+ 
+   int32_t dl_tti_earliest_arrival;
+-  int32_t tx_data_request_earliest_arrival;
++  int32_t tx_data_earliest_arrival;
+   int32_t ul_tti_earliest_arrival;
+   int32_t ul_dci_earliest_arrival;
+   nfapi_vendor_extension_tlv_t vendor_extension;
+diff --git a/nfapi/open-nFAPI/nfapi/src/nfapi_p7.c b/nfapi/open-nFAPI/nfapi/src/nfapi_p7.c
+index e00924025e70a8e46cc622c4a4a1f055a5803104..f2dc0f2c08ce9084440d638492de2c23795dc112 100644
+--- a/nfapi/open-nFAPI/nfapi/src/nfapi_p7.c
++++ b/nfapi/open-nFAPI/nfapi/src/nfapi_p7.c
+@@ -2445,14 +2445,14 @@ uint8_t pack_nr_timing_info(void *msg, uint8_t **ppWritePackedMsg, uint8_t *end,
+   return (push32(pNfapiMsg->last_sfn, ppWritePackedMsg, end) && push32(pNfapiMsg->last_slot, ppWritePackedMsg, end)
+           && push32(pNfapiMsg->time_since_last_timing_info, ppWritePackedMsg, end)
+           && push32(pNfapiMsg->dl_tti_jitter, ppWritePackedMsg, end)
+-          && push32(pNfapiMsg->tx_data_request_jitter, ppWritePackedMsg, end)
++          && push32(pNfapiMsg->tx_data_jitter, ppWritePackedMsg, end)
+           && push32(pNfapiMsg->ul_tti_jitter, ppWritePackedMsg, end) && push32(pNfapiMsg->ul_dci_jitter, ppWritePackedMsg, end)
+           && pushs32(pNfapiMsg->dl_tti_latest_delay, ppWritePackedMsg, end)
+-          && pushs32(pNfapiMsg->tx_data_request_latest_delay, ppWritePackedMsg, end)
++          && pushs32(pNfapiMsg->tx_data_latest_delay, ppWritePackedMsg, end)
+           && pushs32(pNfapiMsg->ul_tti_latest_delay, ppWritePackedMsg, end)
+           && pushs32(pNfapiMsg->ul_dci_latest_delay, ppWritePackedMsg, end)
+           && pushs32(pNfapiMsg->dl_tti_earliest_arrival, ppWritePackedMsg, end)
+-          && pushs32(pNfapiMsg->tx_data_request_earliest_arrival, ppWritePackedMsg, end)
++          && pushs32(pNfapiMsg->tx_data_earliest_arrival, ppWritePackedMsg, end)
+           && pushs32(pNfapiMsg->ul_tti_earliest_arrival, ppWritePackedMsg, end)
+           && pushs32(pNfapiMsg->ul_dci_earliest_arrival, ppWritePackedMsg, end)
+           && pack_p7_vendor_extension_tlv(pNfapiMsg->vendor_extension, ppWritePackedMsg, end, config));
+@@ -5735,14 +5735,14 @@ static uint8_t unpack_nr_timing_info(uint8_t **ppReadPackedMsg, uint8_t *end, vo
+   return (pull32(ppReadPackedMsg, &pNfapiMsg->last_sfn, end) && pull32(ppReadPackedMsg, &pNfapiMsg->last_slot, end)
+           && pull32(ppReadPackedMsg, &pNfapiMsg->time_since_last_timing_info, end)
+           && pull32(ppReadPackedMsg, &pNfapiMsg->dl_tti_jitter, end)
+-          && pull32(ppReadPackedMsg, &pNfapiMsg->tx_data_request_jitter, end)
++          && pull32(ppReadPackedMsg, &pNfapiMsg->tx_data_jitter, end)
+           && pull32(ppReadPackedMsg, &pNfapiMsg->ul_tti_jitter, end) && pull32(ppReadPackedMsg, &pNfapiMsg->ul_dci_jitter, end)
+           && pulls32(ppReadPackedMsg, &pNfapiMsg->dl_tti_latest_delay, end)
+-          && pulls32(ppReadPackedMsg, &pNfapiMsg->tx_data_request_latest_delay, end)
++          && pulls32(ppReadPackedMsg, &pNfapiMsg->tx_data_latest_delay, end)
+           && pulls32(ppReadPackedMsg, &pNfapiMsg->ul_tti_latest_delay, end)
+           && pulls32(ppReadPackedMsg, &pNfapiMsg->ul_dci_latest_delay, end)
+           && pulls32(ppReadPackedMsg, &pNfapiMsg->dl_tti_earliest_arrival, end)
+-          && pulls32(ppReadPackedMsg, &pNfapiMsg->tx_data_request_earliest_arrival, end)
++          && pulls32(ppReadPackedMsg, &pNfapiMsg->tx_data_earliest_arrival, end)
+           && pulls32(ppReadPackedMsg, &pNfapiMsg->ul_tti_earliest_arrival, end)
+           && pulls32(ppReadPackedMsg, &pNfapiMsg->ul_dci_earliest_arrival, end)
+           && unpack_nr_p7_tlv_list(NULL, 0, ppReadPackedMsg, end, config, &pNfapiMsg->vendor_extension));
+diff --git a/nfapi/open-nFAPI/pnf/inc/pnf_p7.h b/nfapi/open-nFAPI/pnf/inc/pnf_p7.h
+index 611f6b41766ad50f6750a012ca9ce9199fded244..9fafe3022dd6491e12c9806c8ed2e8a9094850c7 100644
+--- a/nfapi/open-nFAPI/pnf/inc/pnf_p7.h
++++ b/nfapi/open-nFAPI/pnf/inc/pnf_p7.h
+@@ -108,19 +108,82 @@ typedef struct pnf_p7_s {
+ 
+ 	uint8_t timing_info_period_counter;
+ 	uint8_t timing_info_aperiodic_send; // 0:false 1:true
++	uint16_t timing_info_trigger_sfn;
++	uint16_t timing_info_trigger_slot;
+ 
+ 	uint32_t timing_info_ms_counter; // number of ms since last timing info
++	uint32_t timing_info_last_send_time_hr; // TIME_HR when last timing info was sent
+ 
+ 	uint32_t dl_config_jitter;
+ 	uint32_t ul_config_jitter;
+ 	uint32_t hi_dci0_jitter;
+ 	uint32_t tx_jitter;
+     
+-	//P7 NR
++	//P7 NR - RFC 3550 jitter calculation state
++	// Each message type has: jitter value (uint32_t), prev_transit (int64_t), and init flag
+ 	uint32_t dl_tti_jitter;
+ 	uint32_t ul_tti_jitter;
+ 	uint32_t ul_dci_jitter;
+ 	uint32_t tx_data_jitter;
++	
++	// RFC 3550 jitter state: previous transit time (arrival - transmit) in microseconds
++	int64_t dl_tti_prev_transit_us;
++	int64_t ul_tti_prev_transit_us;
++	int64_t ul_dci_prev_transit_us;
++	int64_t tx_data_prev_transit_us;
++	
++	// RFC 3550 jitter state (wrap-safe): previous receive time (TIME_HR) and transmit timestamp (µs)
++	// NOTE: In OAI nFAPI, P7 header transmit_timestamp is derived from SFN/slot and wraps every 10.24s.
++	//       Therefore we compute jitter from deltas (R(i)-R(i-1)) and (S(i)-S(i-1)) with wrap handling.
++	uint32_t dl_tti_prev_rx_time_hr;
++	uint32_t ul_tti_prev_rx_time_hr;
++	uint32_t ul_dci_prev_rx_time_hr;
++	uint32_t tx_data_prev_rx_time_hr;
++	
++	uint32_t dl_tti_prev_tx_ts_us;
++	uint32_t ul_tti_prev_tx_ts_us;
++	uint32_t ul_dci_prev_tx_ts_us;
++	uint32_t tx_data_prev_tx_ts_us;
++	
++	// Smoothed jitter estimate (as double for 1/16 smoothing factor)
++	double dl_tti_jitter_us;
++	double ul_tti_jitter_us;
++	double ul_dci_jitter_us;
++	double tx_data_jitter_us;
++	
++	// Init flags for RFC 3550 jitter calculation
++	uint8_t dl_tti_jitter_init;
++	uint8_t ul_tti_jitter_init;
++	uint8_t ul_dci_jitter_init;
++	uint8_t tx_data_jitter_init;
++	
++	// Timestamp unwrap state (32-bit to 64-bit conversion)
++	uint64_t ts_epoch_base;
++	uint32_t last_ts_32;
++
++	// Legacy fields (kept for compatibility)
++	int32_t dl_tti_prev_transit_time_diff;
++	int32_t ul_tti_prev_transit_time_diff;
++	int32_t ul_dci_prev_transit_time_diff;
++	int32_t tx_data_prev_transit_time_diff;
++
++	int32_t dl_tti_latest_delay;
++	int32_t dl_tti_earliest_arrival;
++	int32_t ul_tti_latest_delay;
++	int32_t ul_tti_earliest_arrival;
++	int32_t ul_dci_latest_delay;
++	int32_t ul_dci_earliest_arrival;
++	int32_t tx_data_latest_delay;
++	int32_t tx_data_earliest_arrival;
++	// Configuration
++	uint32_t dl_tti_timing_offset;
++	uint32_t ul_tti_timing_offset;
++	uint32_t ul_dci_timing_offset;
++	uint32_t tx_data_timing_offset;
++	uint32_t timing_window;
++	uint32_t timing_info_mode;
++	uint32_t timing_info_period;
++
+ 
+ 	uint32_t tick;
+ 	pnf_p7_stats_t stats;
+@@ -157,5 +220,42 @@ uint32_t pnf_get_current_time_hr(void);
+ struct timespec pnf_timespec_add(struct timespec lhs, struct timespec rhs);
+ void pnf_p7_free(pnf_p7_t* pnf_p7, void* ptr);
+ void* pnf_p7_malloc(pnf_p7_t* pnf_p7, size_t size);
++
++/*===========================================================================
++ * RFC 3550 Section 6.4.1 Interarrival Jitter Calculation
++ * 
++ * The jitter is calculated using the method defined in RFC 3550:
++ *   transit = arrival_time - transmit_timestamp
++ *   d = transit - prev_transit
++ *   jitter = jitter + (|d| - jitter) / 16
++ *
++ * For P7 Timing Info, we use:
++ *   - transmit_timestamp: P7 header's Transmit Timestamp (32-bit µs)
++ *   - arrival_time: PHY receive time (µs, from monotonic clock)
++ *===========================================================================*/
++
++typedef enum {
++    NFAPI_JITTER_DL_TTI = 0,
++    NFAPI_JITTER_UL_TTI,
++    NFAPI_JITTER_UL_DCI,
++    NFAPI_JITTER_TX_DATA,
++    NFAPI_JITTER_MAX
++} nfapi_jitter_msg_type_t;
++
++// Convert TIME_HR format to microseconds (within the 12-bit second cycle)
++uint64_t pnf_timehr_to_us(pnf_p7_t* pnf_p7, uint32_t time_hr);
++
++// Update jitter state using RFC 3550 algorithm
++void pnf_update_jitter(pnf_p7_t* pnf_p7, 
++                       nfapi_jitter_msg_type_t msg_type,
++                       uint32_t p7_tx_timestamp,
++                       uint32_t recv_time_hr);
++
++// Get jitter value for timing info (uint32_t in µs)
++uint32_t pnf_get_jitter(pnf_p7_t* pnf_p7, nfapi_jitter_msg_type_t msg_type);
++
++// Reset jitter state (e.g., on sync reset)
++void pnf_reset_jitter(pnf_p7_t* pnf_p7, nfapi_jitter_msg_type_t msg_type);
++
+ #endif /* _PNF_P7_H_ */
+ 
+diff --git a/nfapi/open-nFAPI/pnf/public_inc/nfapi_pnf_interface.h b/nfapi/open-nFAPI/pnf/public_inc/nfapi_pnf_interface.h
+index 7e6926627a88f20ea444f167cf6d186fdf904cf6..38b5e646d8cd96cd0bd2507848227964f0b79bdc 100644
+--- a/nfapi/open-nFAPI/pnf/public_inc/nfapi_pnf_interface.h
++++ b/nfapi/open-nFAPI/pnf/public_inc/nfapi_pnf_interface.h
+@@ -626,6 +626,11 @@ typedef struct
+ 	nfapi_nr_ul_tti_request_t  ul_tti_req;
+ 	nfapi_nr_ul_dci_request_t  ul_dci_req;
+ 	nfapi_nr_tx_data_request_t tx_data_req;
++	// Receive timestamps for timing calculation (time when packet was received)
++	uint32_t dl_tti_recv_time_hr;
++	uint32_t ul_tti_recv_time_hr;
++	uint32_t ul_dci_recv_time_hr;
++	uint32_t tx_data_recv_time_hr;
+ 
+ 	//TODO: check these two later
+ 	//nfapi_lbt_dl_config_request_t* lbt_dl_config_req;
+diff --git a/nfapi/open-nFAPI/pnf/src/pnf_p7.c b/nfapi/open-nFAPI/pnf/src/pnf_p7.c
+index 0b3ac77d869dfbfea9b183ba55eb7c2114f1f038..d99eb4454a8197e3c02461b7f93dafb2062917d0 100644
+--- a/nfapi/open-nFAPI/pnf/src/pnf_p7.c
++++ b/nfapi/open-nFAPI/pnf/src/pnf_p7.c
+@@ -4,6 +4,7 @@
+  * Copyright 2017 Cisco Systems, Inc.
+  */
+ 
++#define _GNU_SOURCE  // for asprintf
+ 
+ #include <sys/select.h>
+ #include <sys/time.h>
+@@ -16,6 +17,7 @@
+ #include <errno.h>
+ #include <pthread.h>
+ #include <stdio.h>
++#include <limits.h>
+ 
+ #include "pnf_p7.h"
+ #include "nr_fapi_p7_utils.h" // for 5G/NR message utils
+@@ -24,6 +26,8 @@
+ #include <SCHED_NR/phy_frame_config_nr.h>
+ 
+ extern int sf_ahead;
++// Used by the RFC3550 jitter calculation (defined later in this file)
++static inline int64_t timehr_diff_us(uint32_t time_hr_a, uint32_t time_hr_b);
+ 
+ static void add_slot(int mu, uint16_t *frameP, uint16_t *slotP, int offset)
+ {
+@@ -97,6 +101,200 @@ uint32_t pnf_get_current_time_hr(void)
+ 	uint32_t time_hr = TIME2TIMEHR(now);
+ 	return time_hr;
+ }
++/*===========================================================================
++ * RFC 3550 Section 6.4.1 Interarrival Jitter Implementation
++ *
++ * The interarrival jitter J is defined as the mean deviation of the 
++ * difference D in packet spacing at the receiver compared to the sender.
++ * It is calculated incrementally:
++ *   D(i) = (R(i) - R(i-1)) - (S(i) - S(i-1)) = (R(i) - S(i)) - (R(i-1) - S(i-1))
++ *   J(i) = J(i-1) + (|D(i)| - J(i-1)) / 16
++ * where:
++ *   S(i) = transmit timestamp of packet i (from P7 header, in µs)
++ *   R(i) = receive time of packet i (PHY local time, in µs)
++ *   D(i) = difference in transit time between consecutive packets
++ *   J    = smoothed jitter estimate
++ *===========================================================================*/
++// Convert TIME_HR format (12-bit sec + 20-bit usec) to microseconds
++// Note: TIME_HR seconds wrap every 4096 seconds; wrap-safe differences are handled by timehr_diff_us().
++uint64_t pnf_timehr_to_us(pnf_p7_t* pnf_p7, uint32_t time_hr)
++{
++    uint32_t sec = TIMEHR_SEC(time_hr);
++    uint32_t usec = TIMEHR_USEC(time_hr);
++    // Convert to 64-bit microseconds (relative, will wrap at 4096 seconds)
++    return (uint64_t)sec * 1000000ULL + (uint64_t)usec;
++}
++// In OAI nFAPI, P7 header transmit_timestamp is derived from SFN/slot and wraps every 10.24 seconds.
++// We therefore compute S(i)-S(i-1) using wrap-aware arithmetic.
++#define NFAPI_P7_TX_TS_WRAP_US 10240000u
++static inline int64_t p7_tx_ts_diff_us(uint32_t curr_tx_ts_us, uint32_t prev_tx_ts_us)
++{
++	// Compute minimal signed delta in range [-wrap/2, +wrap/2]
++	int64_t diff = (int64_t)curr_tx_ts_us - (int64_t)prev_tx_ts_us;
++	int64_t half = (int64_t)NFAPI_P7_TX_TS_WRAP_US / 2;
++
++	if (diff < -half)
++		diff += (int64_t)NFAPI_P7_TX_TS_WRAP_US;
++	else if (diff > half)
++		diff -= (int64_t)NFAPI_P7_TX_TS_WRAP_US;
++
++	return diff;
++}
++// Update jitter for a specific message type using RFC 3550 algorithm
++void pnf_update_jitter(pnf_p7_t* pnf_p7, 
++                       nfapi_jitter_msg_type_t msg_type,
++                       uint32_t p7_tx_timestamp,
++                       uint32_t recv_time_hr)
++{
++	if (!pnf_p7) return;
++
++	// Get pointers to the appropriate state variables based on message type
++	int64_t *prev_transit_us;
++	uint32_t *prev_rx_time_hr;
++	uint32_t *prev_tx_ts_us;
++	double *jitter_us;
++	uint8_t *jitter_init;
++	
++	switch (msg_type) {
++		case NFAPI_JITTER_DL_TTI:
++			prev_transit_us = &pnf_p7->dl_tti_prev_transit_us;
++			prev_rx_time_hr = &pnf_p7->dl_tti_prev_rx_time_hr;
++			prev_tx_ts_us = &pnf_p7->dl_tti_prev_tx_ts_us;
++			jitter_us = &pnf_p7->dl_tti_jitter_us;
++			jitter_init = &pnf_p7->dl_tti_jitter_init;
++			break;
++		case NFAPI_JITTER_UL_TTI:
++			prev_transit_us = &pnf_p7->ul_tti_prev_transit_us;
++			prev_rx_time_hr = &pnf_p7->ul_tti_prev_rx_time_hr;
++			prev_tx_ts_us = &pnf_p7->ul_tti_prev_tx_ts_us;
++			jitter_us = &pnf_p7->ul_tti_jitter_us;
++			jitter_init = &pnf_p7->ul_tti_jitter_init;
++			break;
++		case NFAPI_JITTER_UL_DCI:
++			prev_transit_us = &pnf_p7->ul_dci_prev_transit_us;
++			prev_rx_time_hr = &pnf_p7->ul_dci_prev_rx_time_hr;
++			prev_tx_ts_us = &pnf_p7->ul_dci_prev_tx_ts_us;
++			jitter_us = &pnf_p7->ul_dci_jitter_us;
++			jitter_init = &pnf_p7->ul_dci_jitter_init;
++			break;
++		case NFAPI_JITTER_TX_DATA:
++			prev_transit_us = &pnf_p7->tx_data_prev_transit_us;
++			prev_rx_time_hr = &pnf_p7->tx_data_prev_rx_time_hr;
++			prev_tx_ts_us = &pnf_p7->tx_data_prev_tx_ts_us;
++			jitter_us = &pnf_p7->tx_data_jitter_us;
++			jitter_init = &pnf_p7->tx_data_jitter_init;
++			break;
++		default:
++			return;
++	}
++
++	// First packet - initialize state
++	if (!(*jitter_init)) {
++		*prev_rx_time_hr = recv_time_hr;
++		*prev_tx_ts_us = p7_tx_timestamp;
++		*prev_transit_us = 0;
++		*jitter_us = 0.0;
++		*jitter_init = 1;
++		return;
++	}
++
++	// RFC3550 uses packet spacing deltas:
++	//   D(i) = (R(i)-R(i-1)) - (S(i)-S(i-1))
++	// Here:
++	//   R is local receive time (TIME_HR)
++	//   S is P7 transmit_timestamp (µs) which wraps every 10.24s
++	int64_t delta_r_us = timehr_diff_us(recv_time_hr, *prev_rx_time_hr);
++	int64_t delta_s_us = p7_tx_ts_diff_us(p7_tx_timestamp, *prev_tx_ts_us);
++
++	// Update history immediately (even if we decide to re-init)
++	*prev_rx_time_hr = recv_time_hr;
++	*prev_tx_ts_us = p7_tx_timestamp;
++
++	// If timestamps go backwards (re-ordering or discontinuity), re-initialize.
++	// This prevents spuriously treating small backwards steps as a wrap-around.
++	if (delta_r_us < 0 || delta_s_us < 0) {
++		*prev_transit_us = 0;
++		*jitter_us = 0.0;
++		return;
++	}
++
++	int64_t d = delta_r_us - delta_s_us;
++	if (d < 0) d = -d;
++
++	*jitter_us += ((double)d - *jitter_us) / 16.0;
++}
++
++// Get jitter value as uint32_t for Timing Info message
++uint32_t pnf_get_jitter(pnf_p7_t* pnf_p7, nfapi_jitter_msg_type_t msg_type)
++{
++	if (!pnf_p7) return 0;
++
++	double jitter;
++	uint8_t init;
++	
++	switch (msg_type) {
++		case NFAPI_JITTER_DL_TTI:
++			jitter = pnf_p7->dl_tti_jitter_us;
++			init = pnf_p7->dl_tti_jitter_init;
++			break;
++		case NFAPI_JITTER_UL_TTI:
++			jitter = pnf_p7->ul_tti_jitter_us;
++			init = pnf_p7->ul_tti_jitter_init;
++			break;
++		case NFAPI_JITTER_UL_DCI:
++			jitter = pnf_p7->ul_dci_jitter_us;
++			init = pnf_p7->ul_dci_jitter_init;
++			break;
++		case NFAPI_JITTER_TX_DATA:
++			jitter = pnf_p7->tx_data_jitter_us;
++			init = pnf_p7->tx_data_jitter_init;
++			break;
++		default:
++			return 0;
++	}
++	if (!init) return 0;
++	if (jitter < 0) jitter = 0;
++	if (jitter > 4294967295.0) return 0xFFFFFFFFu;
++	return (uint32_t)(jitter + 0.5);  // Round to nearest integer
++}
++
++// Reset jitter state for a specific message type
++void pnf_reset_jitter(pnf_p7_t* pnf_p7, nfapi_jitter_msg_type_t msg_type)
++{
++	if (!pnf_p7) return;
++	switch (msg_type) {
++		case NFAPI_JITTER_DL_TTI:
++			pnf_p7->dl_tti_jitter_init = 0;
++			pnf_p7->dl_tti_jitter_us = 0.0;
++			pnf_p7->dl_tti_prev_transit_us = 0;
++			pnf_p7->dl_tti_prev_rx_time_hr = 0;
++			pnf_p7->dl_tti_prev_tx_ts_us = 0;
++			break;
++		case NFAPI_JITTER_UL_TTI:
++			pnf_p7->ul_tti_jitter_init = 0;
++			pnf_p7->ul_tti_jitter_us = 0.0;
++			pnf_p7->ul_tti_prev_transit_us = 0;
++			pnf_p7->ul_tti_prev_rx_time_hr = 0;
++			pnf_p7->ul_tti_prev_tx_ts_us = 0;
++			break;
++		case NFAPI_JITTER_UL_DCI:
++			pnf_p7->ul_dci_jitter_init = 0;
++			pnf_p7->ul_dci_jitter_us = 0.0;
++			pnf_p7->ul_dci_prev_transit_us = 0;
++			pnf_p7->ul_dci_prev_rx_time_hr = 0;
++			pnf_p7->ul_dci_prev_tx_ts_us = 0;
++			break;
++		case NFAPI_JITTER_TX_DATA:
++			pnf_p7->tx_data_jitter_init = 0;
++			pnf_p7->tx_data_jitter_us = 0.0;
++			pnf_p7->tx_data_prev_transit_us = 0;
++			pnf_p7->tx_data_prev_rx_time_hr = 0;
++			pnf_p7->tx_data_prev_tx_ts_us = 0;
++			break;
++		default:
++			break;
++	}
++}
+ 
+ void* pnf_p7_malloc(pnf_p7_t* pnf_p7, size_t size)
+ {
+@@ -392,26 +590,33 @@ void pnf_p7_rx_reassembly_queue_remove_old_msgs(pnf_p7_t* pnf_p7, pnf_p7_rx_reas
+ }
+ 
+ 
+-static uint32_t get_slot_time(uint32_t now_hr, uint32_t slot_start_hr)
++/*! Compute signed difference between two TIMEHR timestamps in microseconds.
++ *  Handles 12-bit second wrap-around (every 4096 seconds) correctly
++ *  for differences up to ~2048 seconds.
++ */
++static inline int64_t timehr_diff_us(uint32_t time_hr_a, uint32_t time_hr_b)
+ {
+-	if(now_hr < slot_start_hr)
+-	{
+-		//NFAPI_TRACE(NFAPI_TRACE_INFO, "now is earlier than start of subframe now_hr:%u sf_start_hr:%u\n", now_hr, sf_start_hr);
+-		return 0;
+-	}
+-	else
+-	{
+-		uint32_t now_us = TIMEHR_USEC(now_hr);
+-		uint32_t slot_start_us = TIMEHR_USEC(slot_start_hr);
+-
+-		// if the us have wrapped adjust for it
+-		if(now_hr < slot_start_us)
+-		{
+-			now_us += 500000; 
+-		}
++	// Extract seconds and microseconds
++	int32_t sec_a = TIMEHR_SEC(time_hr_a);
++	int32_t sec_b = TIMEHR_SEC(time_hr_b);
++	int32_t usec_a = TIMEHR_USEC(time_hr_a);
++	int32_t usec_b = TIMEHR_USEC(time_hr_b);
++	
++	// Handle 12-bit second wrap-around
++	// sec_a - sec_b should be in range [-2048, 2047] for valid comparisons
++	int32_t sec_diff = sec_a - sec_b;
++	if (sec_diff > 2048) sec_diff -= 4096;   // sec_a wrapped, sec_b didn't
++	if (sec_diff < -2048) sec_diff += 4096;  // sec_b wrapped, sec_a didn't
++	
++	return (int64_t)sec_diff * 1000000 + (usec_a - usec_b);
++}
+ 
+-		return now_us - slot_start_us;
+-	}
++static uint32_t get_slot_time(uint32_t now_hr, uint32_t slot_start_hr)
++{
++	// Use proper signed difference to handle wrap-around
++	int64_t diff_us = timehr_diff_us(now_hr, slot_start_hr);
++	if (diff_us < 0) return 0;
++	return (uint32_t)diff_us;
+ }
+ 
+ static uint32_t get_sf_time(uint32_t now_hr, uint32_t sf_start_hr)
+@@ -437,6 +642,64 @@ static uint32_t get_sf_time(uint32_t now_hr, uint32_t sf_start_hr)
+ }
+ 
+ 
++static inline int32_t calc_slot_diff(pnf_p7_t* pnf_p7, uint16_t msg_sfn, uint16_t msg_slot)
++{
++    int32_t diff = NFAPI_SFNSLOT2DEC(pnf_p7->mu, msg_sfn, msg_slot) 
++                 - NFAPI_SFNSLOT2DEC(pnf_p7->mu, pnf_p7->sfn, pnf_p7->slot);
++    int32_t half_max = NFAPI_MAX_SFNSLOTDEC(pnf_p7->mu) / 2;
++    if (diff < -half_max) diff += 2 * half_max;
++    if (diff > half_max) diff -= 2 * half_max;
++    return diff;
++}
++
++// Forward declaration
++void pnf_nr_pack_and_send_timing_info(pnf_p7_t* pnf_p7);
++
++static bool check_nr_p7_timing(pnf_p7_t* pnf_p7, uint16_t msg_sfn, uint16_t msg_slot, 
++                               const char* name, uint32_t recv_time_hr, 
++                               uint32_t timing_offset, int32_t* latest_delay, int32_t* earliest_arrival)
++{
++	// Calculate difference in slots (handling wrap-around)
++	int32_t diff_slots = calc_slot_diff(pnf_p7, msg_sfn, msg_slot);
++	int64_t slot_len_us = 10000 / NFAPI_SLOTNUM(pnf_p7->mu);
++
++	// Calculate margin: Time remaining until deadline
++	int64_t time_since_slot_start = timehr_diff_us(recv_time_hr, pnf_p7->slot_start_time_hr);
++	int64_t delay_to_msg_slot = diff_slots * slot_len_us;
++	int64_t margin = delay_to_msg_slot - time_since_slot_start - timing_offset;
++
++	// Offset = RecvTime - (TargetTime - TimingOffset) = -Margin
++	// Positive Value: Later than acceptable (LATE)
++	// Negative Value: Earlier than acceptable (EARLY)
++	int64_t offset = -margin;
++
++	// Update Latest Delay (Max Positive Offset)
++	if (offset > *latest_delay) {
++		*latest_delay = (int32_t)offset;
++	}
++
++	// Update Earliest Arrival (Min Negative Offset)
++	if (offset < *earliest_arrival) {
++		*earliest_arrival = (int32_t)offset;
++	}
++
++	if (margin < 0 || margin > (int64_t)pnf_p7->timing_window) {
++		if (margin < 0) {
++			NFAPI_TRACE(NFAPI_TRACE_WARN, "%s [%d.%d] TOO LATE by %ld us\n", name, msg_sfn, msg_slot, (long)(-margin));
++		} else {
++			NFAPI_TRACE(NFAPI_TRACE_WARN, "%s too early by %ld us (window:%u)\n",
++									name, (long)(margin - pnf_p7->timing_window), pnf_p7->timing_window);
++		}
++
++		if (pnf_p7->_public.timing_info_mode_aperiodic) {
++			pnf_p7->timing_info_aperiodic_send = 1;
++			pnf_p7->timing_info_trigger_sfn = msg_sfn;
++			pnf_p7->timing_info_trigger_slot = msg_slot;
++		}
++		return false;
++	}
++	return true; // Packet is within window
++}
+ 
+ int pnf_p7_send_message(pnf_p7_t* pnf_p7, uint8_t* msg, uint32_t len)
+ {
+@@ -597,28 +860,53 @@ void pnf_nr_pack_and_send_timing_info(pnf_p7_t* pnf_p7)
+ 	timing_info.header.message_id = NFAPI_TIMING_INFO;
+ 	timing_info.header.phy_id = pnf_p7->_public.phy_id;
+ 
+-	timing_info.last_sfn = pnf_p7->sfn;
+-	timing_info.last_slot = pnf_p7->slot;
+-	timing_info.time_since_last_timing_info = pnf_p7->timing_info_ms_counter;
+-
+-	timing_info.dl_tti_jitter = pnf_p7->dl_tti_jitter;
+-	timing_info.tx_data_request_jitter = pnf_p7->tx_data_jitter;
+-	timing_info.ul_tti_jitter = pnf_p7->ul_tti_jitter;
+-	timing_info.ul_dci_jitter = pnf_p7->ul_dci_jitter;
+-
+-	timing_info.dl_tti_latest_delay = 0;
+-	timing_info.tx_data_request_latest_delay = 0;
+-	timing_info.ul_tti_latest_delay = 0;
+-	timing_info.ul_dci_latest_delay = 0;
+-
+-	timing_info.dl_tti_earliest_arrival = 0;
+-	timing_info.tx_data_request_earliest_arrival = 0;
+-	timing_info.ul_tti_earliest_arrival = 0;
+-	timing_info.ul_dci_earliest_arrival = 0;
+-  AssertFatal(pnf_p7->_public.send_p7_msg, "The function pointer to pack and send P7 messages must be set");
+-  pnf_p7->_public.send_p7_msg(pnf_p7, &(timing_info.header), sizeof(timing_info));
+-
+-	pnf_p7->timing_info_ms_counter = 0;
++	uint32_t last_slot_dec = NFAPI_SFNSLOT2DEC(pnf_p7->mu, pnf_p7->sfn, pnf_p7->slot);
++	uint32_t max_slots = NFAPI_MAX_SFNSLOTDEC(pnf_p7->mu);
++	last_slot_dec = (last_slot_dec + max_slots - 1) % max_slots;
++	timing_info.last_sfn = NFAPI_SFNSLOTDEC2SFN(pnf_p7->mu, last_slot_dec);
++	timing_info.last_slot = NFAPI_SFNSLOTDEC2SLOT(pnf_p7->mu, last_slot_dec);
++	// Calculate actual elapsed time since last timing info using timestamps
++	uint32_t now_time_hr = pnf_get_current_time_hr();
++	int64_t elapsed_us = timehr_diff_us(now_time_hr, pnf_p7->timing_info_last_send_time_hr);
++	if (elapsed_us < 0) elapsed_us = 0; // Handle first call or wrap-around edge case
++	timing_info.time_since_last_timing_info = (uint32_t)(elapsed_us / 1000); // Convert to ms
++
++	// Use RFC 3550 calculated jitter values (in microseconds)
++	timing_info.dl_tti_jitter = pnf_get_jitter(pnf_p7, NFAPI_JITTER_DL_TTI);
++	timing_info.tx_data_jitter = pnf_get_jitter(pnf_p7, NFAPI_JITTER_TX_DATA);
++	timing_info.ul_tti_jitter = pnf_get_jitter(pnf_p7, NFAPI_JITTER_UL_TTI);
++	timing_info.ul_dci_jitter = pnf_get_jitter(pnf_p7, NFAPI_JITTER_UL_DCI);
++
++	// If latest_delay is still INT32_MIN, no packets of that type were received; report 0
++	// If earliest_arrival is still INT32_MAX, no packets of that type were received; report 0
++	timing_info.dl_tti_latest_delay = (pnf_p7->dl_tti_latest_delay == INT32_MIN) ? 0 : pnf_p7->dl_tti_latest_delay;
++	timing_info.tx_data_latest_delay = (pnf_p7->tx_data_latest_delay == INT32_MIN) ? 0 : pnf_p7->tx_data_latest_delay;
++	timing_info.ul_tti_latest_delay = (pnf_p7->ul_tti_latest_delay == INT32_MIN) ? 0 : pnf_p7->ul_tti_latest_delay;
++	timing_info.ul_dci_latest_delay = (pnf_p7->ul_dci_latest_delay == INT32_MIN) ? 0 : pnf_p7->ul_dci_latest_delay;
++
++	timing_info.dl_tti_earliest_arrival = (pnf_p7->dl_tti_earliest_arrival == INT32_MAX) ? 0 : pnf_p7->dl_tti_earliest_arrival;
++	timing_info.tx_data_earliest_arrival = (pnf_p7->tx_data_earliest_arrival == INT32_MAX) ? 0 : pnf_p7->tx_data_earliest_arrival;
++	timing_info.ul_tti_earliest_arrival = (pnf_p7->ul_tti_earliest_arrival == INT32_MAX) ? 0 : pnf_p7->ul_tti_earliest_arrival;
++	timing_info.ul_dci_earliest_arrival = (pnf_p7->ul_dci_earliest_arrival == INT32_MAX) ? 0 : pnf_p7->ul_dci_earliest_arrival;
++	AssertFatal(pnf_p7->_public.send_p7_msg, "The function pointer to pack and send P7 messages must be set");
++	pnf_p7->_public.send_p7_msg(pnf_p7, &(timing_info.header), sizeof(timing_info));
++
++	// Update last send time for next elapsed time calculation
++	pnf_p7->timing_info_last_send_time_hr = now_time_hr;
++	pnf_p7->timing_info_aperiodic_send = 0;
++	// Reset latest_delay and earliest_arrival for next timing info period
++	// Note: jitter state is NOT reset - it's a running average per RFC 3550
++	// Per SCF 225 Table 4-3: latest_delay can be negative (early), so use INT32_MIN as sentinel
++	// earliest_arrival uses INT32_MAX as sentinel
++	pnf_p7->dl_tti_latest_delay = INT32_MIN;
++	pnf_p7->ul_tti_latest_delay = INT32_MIN;
++	pnf_p7->ul_dci_latest_delay = INT32_MIN;
++	pnf_p7->tx_data_latest_delay = INT32_MIN;
++
++	pnf_p7->dl_tti_earliest_arrival = INT32_MAX;
++	pnf_p7->ul_tti_earliest_arrival = INT32_MAX;
++	pnf_p7->ul_dci_earliest_arrival = INT32_MAX;
++	pnf_p7->tx_data_earliest_arrival = INT32_MAX;
+ }
+ 
+ void send_dummy_subframe(pnf_p7_t* pnf_p7, uint16_t sfn_sf)
+@@ -692,6 +980,16 @@ int nr_pnf_p7_get_msgs(pnf_p7_t* pnf_p7,
+   if (pnf_p7->_public.slot_buffer_size != 0) // for now value is same as sf_buffer_size
+   {
+     // apply the shift to the incoming sfn_sf
++    // send the periodic timing info if configured
++    // This is done at the START of the slot processing to cover the previous slot completion
++    if (pnf_p7->_public.timing_info_mode_periodic && (++pnf_p7->timing_info_period_counter) >= pnf_p7->_public.timing_info_period) {
++      pnf_nr_pack_and_send_timing_info(pnf_p7);
++
++      pnf_p7->timing_info_period_counter = 0;
++    } else if (pnf_p7->_public.timing_info_mode_aperiodic && pnf_p7->timing_info_aperiodic_send) {
++      pnf_nr_pack_and_send_timing_info(pnf_p7);
++    }
++
+     if (pnf_p7->slot_shift != 0) // see in vnf_build_send_dl_node_sync
+     {
+       uint16_t shifted_slot = slot + pnf_p7->slot_shift;
+@@ -720,7 +1018,7 @@ int nr_pnf_p7_get_msgs(pnf_p7_t* pnf_p7,
+     ret_dl_tti->dl_tti_request_body.nPDUs = 0;
+     nfapi_nr_dl_tti_request_t* dl_tti_req = &tx_slot_buffer->dl_tti_req;
+     if (dl_tti_req->SFN == sfn && dl_tti_req->Slot == slot) {
+-      copy_dl_tti_request(dl_tti_req, ret_dl_tti);
++          copy_dl_tti_request(dl_tti_req, ret_dl_tti);
+       tx_slot_buffer->dl_tti_req.SFN = -1;
+       tx_slot_buffer->dl_tti_req.Slot = -1;
+     }
+@@ -730,7 +1028,7 @@ int nr_pnf_p7_get_msgs(pnf_p7_t* pnf_p7,
+     ret_tx_data->Number_of_PDUs = 0;
+     nfapi_nr_tx_data_request_t* txd = &tx_slot_buffer->tx_data_req;
+     if (txd->SFN == sfn && txd->Slot == slot) {
+-      copy_tx_data_request(txd, ret_tx_data);
++          copy_tx_data_request(txd, ret_tx_data);
+       tx_slot_buffer->tx_data_req.SFN = -1;
+       tx_slot_buffer->tx_data_req.Slot = -1;
+     }
+@@ -739,7 +1037,7 @@ int nr_pnf_p7_get_msgs(pnf_p7_t* pnf_p7,
+     ret_ul_tti->Slot = slot;
+     ret_ul_tti->n_pdus = 0;
+     if (tx_slot_buffer->ul_tti_req.SFN == sfn && tx_slot_buffer->ul_tti_req.Slot == slot) {
+-      copy_ul_tti_request(&tx_slot_buffer->ul_tti_req, ret_ul_tti);
++          copy_ul_tti_request(&tx_slot_buffer->ul_tti_req, ret_ul_tti);
+       tx_slot_buffer->ul_tti_req.SFN = -1;
+       tx_slot_buffer->ul_tti_req.Slot = -1;
+     }
+@@ -748,23 +1046,10 @@ int nr_pnf_p7_get_msgs(pnf_p7_t* pnf_p7,
+     ret_ul_dci->Slot = slot;
+     ret_ul_dci->numPdus = 0;
+     if (tx_slot_buffer->ul_dci_req.SFN == sfn && tx_slot_buffer->ul_dci_req.Slot == slot) {
+-      copy_ul_dci_request(&tx_slot_buffer->ul_dci_req, ret_ul_dci);
++          copy_ul_dci_request(&tx_slot_buffer->ul_dci_req, ret_ul_dci);
+       tx_slot_buffer->ul_dci_req.SFN = -1;
+       tx_slot_buffer->ul_dci_req.Slot = -1;
+     }
+-
+-    // send the periodic timing info if configured
+-    if (pnf_p7->_public.timing_info_mode_periodic && (pnf_p7->timing_info_period_counter++) == pnf_p7->_public.timing_info_period) {
+-      pnf_nr_pack_and_send_timing_info(pnf_p7);
+-
+-      pnf_p7->timing_info_period_counter = 0;
+-    } else if (pnf_p7->_public.timing_info_mode_aperiodic && pnf_p7->timing_info_aperiodic_send) {
+-      pnf_nr_pack_and_send_timing_info(pnf_p7);
+-
+-      pnf_p7->timing_info_aperiodic_send = 0;
+-    } else {
+-      pnf_p7->timing_info_ms_counter++;
+-    }
+   }
+ 
+   if (sfn % 128 == 0 && slot == 0) {
+@@ -1079,17 +1364,21 @@ int pnf_p7_subframe_ind(pnf_p7_t* pnf_p7, uint16_t phy_id, uint16_t sfn_sf)
+ 	return 0;
+ }
+ 
+-bool is_nr_p7_request_in_window(const uint16_t sfn, const uint16_t slot, const char* name, const pnf_p7_t* phy)
++bool is_nr_p7_request_in_buffer_size(const uint16_t sfn, const uint16_t slot, const char* name, const pnf_p7_t* phy)
+ {
+   const uint32_t recv = NFAPI_SFNSLOT2DEC(phy->mu, sfn, slot); // unpack sfn/slot
+   const uint32_t curr = NFAPI_SFNSLOT2DEC(phy->mu, phy->sfn, phy->slot);
+-  const uint8_t timing_window = phy->_public.slot_buffer_size; // TODO check
++  const uint16_t timing_window = phy->_public.slot_buffer_size; // TODO check
+   uint32_t diff = curr < recv ? recv - curr : curr - recv;
+   if (diff > NFAPI_MAX_SFNSLOTDEC(phy->mu) / 2)
+     diff = NFAPI_MAX_SFNSLOTDEC(phy->mu) - diff;
+   if (diff > timing_window) {
+-    NFAPI_TRACE(NFAPI_TRACE_WARN, "[%d] %s is out of window %d (delta:%d) [max:%d]\n", curr, name, recv, diff, timing_window);
+-    return false;
++    NFAPI_TRACE(NFAPI_TRACE_WARN, "%s is out of buffer window recv: %d.%d curr: %d.%d (delta:%d) [max:%d]\n", name,
++				sfn, slot,
++				phy->sfn, phy->slot,
++				diff * (curr < recv ? 1 : -1),
++				timing_window);
++	return false;
+   }
+   return true;
+ }
+@@ -1174,19 +1463,39 @@ uint8_t is_p7_request_in_window(uint16_t sfnsf, const char* name, pnf_p7_t* phy)
+ // P7 messages
+ void pnf_handle_dl_tti_request(void* pRecvMsg, int recvMsgLen, pnf_p7_t* pnf_p7)
+ {
+-  // NFAPI_TRACE(NFAPI_TRACE_INFO, "DL_CONFIG.req Received\n");
++  // Record receive time immediately when packet arrives
++  uint32_t recv_time_hr = pnf_get_current_time_hr();
+   uint16_t frame, slot;
+   if (peek_nr_nfapi_p7_sfn_slot(pRecvMsg, recvMsgLen, &frame, &slot)) {
++		nfapi_nr_p7_message_header_t header;
++    if (!nfapi_nr_p7_message_header_unpack(pRecvMsg, recvMsgLen, &header, sizeof(header), &pnf_p7->_public.codec_config)) {
++        NFAPI_TRACE(NFAPI_TRACE_ERROR, "Failed to unpack header in %s\n", __FUNCTION__);
++        return;
++    }
+     if (pthread_mutex_lock(&(pnf_p7->mutex)) != 0) {
+       NFAPI_TRACE(NFAPI_TRACE_INFO, "failed to lock mutex\n");
+       return;
+     }
+-    if (check_nr_nfapi_p7_slot_type(frame, slot, "DL_TTI.request", NR_DOWNLINK_SLOT)
+-        && is_nr_p7_request_in_window(frame, slot, "dl_tti_request", pnf_p7)) {
++    // Update RFC 3550 jitter calculation for DL_TTI
++    pnf_update_jitter(pnf_p7, NFAPI_JITTER_DL_TTI, header.transmit_timestamp, recv_time_hr);
++    // Combined check: slot type, buffer size, and timing (not late)
++    // If any check fails, packet is dropped (not processed)
++    // Run checks independently to prevent short-circuiting
++    // We MUST run check_nr_p7_timing to update delay/early stats and trigger aperiodic info
++    bool type_ok = check_nr_nfapi_p7_slot_type(frame, slot, "DL_TTI.request", NR_DOWNLINK_SLOT);
++    bool buffer_ok = is_nr_p7_request_in_buffer_size(frame, slot, "dl_tti_request", pnf_p7);
++    bool timing_ok = check_nr_p7_timing(pnf_p7, frame, slot, "dl_tti_request",
++                                        recv_time_hr, pnf_p7->dl_tti_timing_offset,
++                                        &pnf_p7->dl_tti_latest_delay,
++                                        &pnf_p7->dl_tti_earliest_arrival);
++
++    if (type_ok && buffer_ok && timing_ok) {
++      // Packet arrived on time - store in buffer
+       uint32_t sfn_slot_dec = NFAPI_SFNSLOT2DEC(pnf_p7->mu, frame, slot);
+       uint8_t buffer_index = sfn_slot_dec % NFAPI_SLOTNUM(pnf_p7->mu);
+       pnf_p7->slot_buffer[buffer_index].sfn = frame;
+       pnf_p7->slot_buffer[buffer_index].slot = slot;
++      pnf_p7->slot_buffer[buffer_index].dl_tti_recv_time_hr = recv_time_hr;
+       nfapi_nr_dl_tti_request_t *req = &pnf_p7->slot_buffer[buffer_index].dl_tti_req;
+       pnf_p7->nr_stats.dl_tti.ontime++;
+ 
+@@ -1200,10 +1509,6 @@ void pnf_handle_dl_tti_request(void* pRecvMsg, int recvMsgLen, pnf_p7_t* pnf_p7)
+       const bool result = pnf_p7->_public.unpack_func(pRecvMsg, recvMsgLen, req, sizeof(*req), &(pnf_p7->_public.codec_config));
+       if (!result)
+         NFAPI_TRACE(NFAPI_TRACE_INFO, "failed to unpack request\n");
+-    } else {
+-      if (pnf_p7->_public.timing_info_mode_aperiodic)
+-        pnf_p7->timing_info_aperiodic_send = 1;
+-
+       pnf_p7->nr_stats.dl_tti.late++;
+     }
+     if (pthread_mutex_unlock(&(pnf_p7->mutex)) != 0) {
+@@ -1307,19 +1612,34 @@ void pnf_handle_dl_config_request(void* pRecvMsg, int recvMsgLen, pnf_p7_t* pnf_
+ 
+ void pnf_handle_ul_tti_request(void* pRecvMsg, int recvMsgLen, pnf_p7_t* pnf_p7)
+ {
++  uint32_t recv_time_hr = pnf_get_current_time_hr();
+   uint16_t frame, slot;
+   if (peek_nr_nfapi_p7_sfn_slot(pRecvMsg, recvMsgLen, &frame, &slot)) {
++	nfapi_nr_p7_message_header_t header;
++    if (!nfapi_nr_p7_message_header_unpack(pRecvMsg, recvMsgLen, &header, sizeof(header), &pnf_p7->_public.codec_config)) {
++        NFAPI_TRACE(NFAPI_TRACE_ERROR, "Failed to unpack header in %s\n", __FUNCTION__);
++        return;
++    }
+     if (pthread_mutex_lock(&(pnf_p7->mutex)) != 0) {
+       NFAPI_TRACE(NFAPI_TRACE_INFO, "failed to lock mutex\n");
+       return;
+     }
++    pnf_update_jitter(pnf_p7, NFAPI_JITTER_UL_TTI, header.transmit_timestamp, recv_time_hr);
++
++    // Run checks independently to prevent short-circuiting
++    bool type_ok = check_nr_nfapi_p7_slot_type(frame, slot, "UL_TTI.request", NR_UPLINK_SLOT);
++    bool buffer_ok = is_nr_p7_request_in_buffer_size(frame, slot, "ul_tti_request", pnf_p7);
++    bool timing_ok = check_nr_p7_timing(pnf_p7, frame, slot, "ul_tti_request",
++                                        recv_time_hr, pnf_p7->ul_tti_timing_offset,
++                                        &pnf_p7->ul_tti_latest_delay,
++                                        &pnf_p7->ul_tti_earliest_arrival);
+ 
+-    if (check_nr_nfapi_p7_slot_type(frame, slot, "UL_TTI.request", NR_UPLINK_SLOT)
+-        && is_nr_p7_request_in_window(frame, slot, "ul_tti_request", pnf_p7)) {
++    if (type_ok && buffer_ok && timing_ok) {
+       uint32_t sfn_slot_dec = NFAPI_SFNSLOT2DEC(pnf_p7->mu, frame, slot);
+       uint8_t buffer_index = sfn_slot_dec % NFAPI_SLOTNUM(pnf_p7->mu);
+       pnf_p7->slot_buffer[buffer_index].sfn = frame;
+       pnf_p7->slot_buffer[buffer_index].slot = slot;
++      pnf_p7->slot_buffer[buffer_index].ul_tti_recv_time_hr = recv_time_hr;
+       nfapi_nr_ul_tti_request_t* req = &pnf_p7->slot_buffer[buffer_index].ul_tti_req;
+       pnf_p7->nr_stats.ul_tti.ontime++;
+ 
+@@ -1333,14 +1653,6 @@ void pnf_handle_ul_tti_request(void* pRecvMsg, int recvMsgLen, pnf_p7_t* pnf_p7)
+       const bool result = pnf_p7->_public.unpack_func(pRecvMsg, recvMsgLen, req, sizeof(*req), &(pnf_p7->_public.codec_config));
+       if (!result)
+         NFAPI_TRACE(NFAPI_TRACE_ERROR, "failed to unpack UL_TTI.request\n");
+-    } else {
+-      NFAPI_TRACE(NFAPI_TRACE_NOTE,
+-                  "[%d.%d] NOT storing ul_tti_req OUTSIDE OF TRANSMIT BUFFER WINDOW SFN/SLOT %d.%d\n",
+-                  pnf_p7->sfn, pnf_p7->slot,
+-                  frame, slot);
+-      if (pnf_p7->_public.timing_info_mode_aperiodic)
+-        pnf_p7->timing_info_aperiodic_send = 1;
+-
+       pnf_p7->nr_stats.ul_tti.late++;
+     }
+ 
+@@ -1427,18 +1739,33 @@ void pnf_handle_ul_config_request(void* pRecvMsg, int recvMsgLen, pnf_p7_t* pnf_
+ 
+ void pnf_handle_ul_dci_request(void* pRecvMsg, int recvMsgLen, pnf_p7_t* pnf_p7)
+ {
++  uint32_t recv_time_hr = pnf_get_current_time_hr();
+   uint16_t frame, slot;
+   if (peek_nr_nfapi_p7_sfn_slot(pRecvMsg, recvMsgLen, &frame, &slot)) {
++	nfapi_nr_p7_message_header_t header;
++    if (!nfapi_nr_p7_message_header_unpack(pRecvMsg, recvMsgLen, &header, sizeof(header), &pnf_p7->_public.codec_config)) {
++        NFAPI_TRACE(NFAPI_TRACE_ERROR, "Failed to unpack header in %s\n", __FUNCTION__);
++        return;
++    }
+     if (pthread_mutex_lock(&(pnf_p7->mutex)) != 0) {
+       NFAPI_TRACE(NFAPI_TRACE_INFO, "failed to lock mutex\n");
+       return;
+     }
+-    if (check_nr_nfapi_p7_slot_type(frame, slot, "UL_DCI.request", NR_DOWNLINK_SLOT)
+-        && is_nr_p7_request_in_window(frame, slot, "ul_dci_request", pnf_p7)) {
++    pnf_update_jitter(pnf_p7, NFAPI_JITTER_UL_DCI, header.transmit_timestamp, recv_time_hr);
++    // Run checks independently to prevent short-circuiting
++    bool type_ok = check_nr_nfapi_p7_slot_type(frame, slot, "UL_DCI.request", NR_DOWNLINK_SLOT);
++    bool buffer_ok = is_nr_p7_request_in_buffer_size(frame, slot, "ul_dci_request", pnf_p7);
++    bool timing_ok = check_nr_p7_timing(pnf_p7, frame, slot, "ul_dci_request",
++                                        recv_time_hr, pnf_p7->ul_dci_timing_offset,
++                                        &pnf_p7->ul_dci_latest_delay,
++                                        &pnf_p7->ul_dci_earliest_arrival);
++
++    if (type_ok && buffer_ok && timing_ok) {
+       uint32_t sfn_slot_dec = NFAPI_SFNSLOT2DEC(pnf_p7->mu, frame, slot);
+       uint8_t buffer_index = sfn_slot_dec % NFAPI_SLOTNUM(pnf_p7->mu);
+       pnf_p7->slot_buffer[buffer_index].sfn = frame;
+       pnf_p7->slot_buffer[buffer_index].slot = slot;
++      pnf_p7->slot_buffer[buffer_index].ul_dci_recv_time_hr = recv_time_hr;
+       nfapi_nr_ul_dci_request_t *req = &pnf_p7->slot_buffer[buffer_index].ul_dci_req;
+       pnf_p7->nr_stats.ul_dci.ontime++;
+ 
+@@ -1452,11 +1779,6 @@ void pnf_handle_ul_dci_request(void* pRecvMsg, int recvMsgLen, pnf_p7_t* pnf_p7)
+       const bool result = pnf_p7->_public.unpack_func(pRecvMsg, recvMsgLen, req, sizeof(*req), &(pnf_p7->_public.codec_config));
+       if (!result)
+         NFAPI_TRACE(NFAPI_TRACE_INFO, "failed to unpack request\n");
+-    } else {
+-      if (pnf_p7->_public.timing_info_mode_aperiodic) {
+-        pnf_p7->timing_info_aperiodic_send = 1;
+-      }
+-
+       pnf_p7->nr_stats.ul_dci.late++;
+     }
+ 
+@@ -1465,7 +1787,7 @@ void pnf_handle_ul_dci_request(void* pRecvMsg, int recvMsgLen, pnf_p7_t* pnf_p7)
+       return;
+     }
+   } else {
+-    NFAPI_TRACE(NFAPI_TRACE_ERROR, "Failed to unpack UL DCI req\n");
++    NFAPI_TRACE(NFAPI_TRACE_ERROR, "Failed to unpack ul_dci_req\n");
+   }
+ }
+ 
+@@ -1537,21 +1859,42 @@ void pnf_handle_hi_dci0_request(void* pRecvMsg, int recvMsgLen, pnf_p7_t* pnf_p7
+ 		deallocate_nfapi_hi_dci0_request(req, pnf_p7);
+ 	}
+ }
++struct timespec time_now(void)
++{
++  struct timespec t;
++  clock_gettime(CLOCK_MONOTONIC, &t);
++  return t;
++}
+ 
+ void pnf_handle_tx_data_request(void* pRecvMsg, int recvMsgLen, pnf_p7_t* pnf_p7)
+ {
++  uint32_t recv_time_hr = pnf_get_current_time_hr();
+   uint16_t frame, slot;
+   if (peek_nr_nfapi_p7_sfn_slot(pRecvMsg, recvMsgLen, &frame, &slot)) {
++	nfapi_nr_p7_message_header_t header;
++    if (!nfapi_nr_p7_message_header_unpack(pRecvMsg, recvMsgLen, &header, sizeof(header), &pnf_p7->_public.codec_config)) {
++        NFAPI_TRACE(NFAPI_TRACE_ERROR, "Failed to unpack header in %s\n", __FUNCTION__);
++        return;
++    }
+     if (pthread_mutex_lock(&(pnf_p7->mutex)) != 0) {
+       NFAPI_TRACE(NFAPI_TRACE_INFO, "failed to lock mutex\n");
+       return;
+     }
+-    if (check_nr_nfapi_p7_slot_type(frame, slot, "TX_DATA.REQUEST", NR_DOWNLINK_SLOT)
+-        && is_nr_p7_request_in_window(frame, slot, "tx_request", pnf_p7)) {
++    pnf_update_jitter(pnf_p7, NFAPI_JITTER_TX_DATA, header.transmit_timestamp, recv_time_hr);
++    // Run checks independently to prevent short-circuiting
++    bool type_ok = check_nr_nfapi_p7_slot_type(frame, slot, "TX_DATA.REQUEST", NR_DOWNLINK_SLOT);
++    bool buffer_ok = is_nr_p7_request_in_buffer_size(frame, slot, "tx_data_request", pnf_p7);
++    bool timing_ok = check_nr_p7_timing(pnf_p7, frame, slot, "tx_data_request",
++                                        recv_time_hr, pnf_p7->tx_data_timing_offset,
++                                        &pnf_p7->tx_data_latest_delay,
++                                        &pnf_p7->tx_data_earliest_arrival);
++
++    if (type_ok && buffer_ok && timing_ok) {
+       uint32_t sfn_slot_dec = NFAPI_SFNSLOT2DEC(pnf_p7->mu, frame, slot);
+-      uint8_t buffer_index = sfn_slot_dec % NFAPI_SLOTNUM(pnf_p7->mu); // TODO where is buffer length?
++      uint8_t buffer_index = sfn_slot_dec % NFAPI_SLOTNUM(pnf_p7->mu);
+       pnf_p7->slot_buffer[buffer_index].sfn = frame;
+       pnf_p7->slot_buffer[buffer_index].slot = slot;
++      pnf_p7->slot_buffer[buffer_index].tx_data_recv_time_hr = recv_time_hr;
+       nfapi_nr_tx_data_request_t *req = &pnf_p7->slot_buffer[buffer_index].tx_data_req;
+       pnf_p7->nr_stats.tx_data.ontime++;
+ 
+@@ -1569,16 +1912,6 @@ void pnf_handle_tx_data_request(void* pRecvMsg, int recvMsgLen, pnf_p7_t* pnf_p7
+       } else {
+         NFAPI_TRACE(NFAPI_TRACE_ERROR, "failed to unpack TX_data.request\n");
+       }
+-    } else {
+-      NFAPI_TRACE(NFAPI_TRACE_INFO,
+-                  "TX_DATA_REQUEST Request is outside of window REQ:SFN_SLOT:%d.%d CURR:SFN_SLOT:%d.%d\n",
+-                  frame, slot,
+-                  pnf_p7->sfn, pnf_p7->slot);
+-
+-      if (pnf_p7->_public.timing_info_mode_aperiodic) {
+-        pnf_p7->timing_info_aperiodic_send = 1;
+-      }
+-
+       pnf_p7->nr_stats.tx_data.late++;
+     }
+ 
+diff --git a/nfapi/open-nFAPI/pnf/src/pnf_p7_interface.c b/nfapi/open-nFAPI/pnf/src/pnf_p7_interface.c
+index 106ce1276ad8dbfced7231225db2a34290597b7a..0c8f99e67518754e5af78995a2db37143a89ecff 100644
+--- a/nfapi/open-nFAPI/pnf/src/pnf_p7_interface.c
++++ b/nfapi/open-nFAPI/pnf/src/pnf_p7_interface.c
+@@ -17,6 +17,7 @@ nfapi_pnf_p7_config_t* nfapi_pnf_p7_config_create()
+   if (_this == NULL || rc != 0)
+     return 0;
+ 
++  memset(_this, 0, sizeof(pnf_p7_t));
+ 
+ 	// set the default parameters
+ 	_this->_public.segment_size = 65000; // UDP max packet size is 65535
+@@ -27,6 +28,10 @@ nfapi_pnf_p7_config_t* nfapi_pnf_p7_config_create()
+ 	_this->_public.timing_info_period = 32;
+ 	_this->_public.timing_info_mode_aperiodic = 1;
+ 	
++	// By default enable aperiodic timing info send flag (for VNF tick sync)
++	_this->timing_info_aperiodic_send = 1;
++	// Initialize last send time for accurate elapsed time calculation
++	_this->timing_info_last_send_time_hr = pnf_get_current_time_hr();
+ 	_this->_public.checksum_enabled = 1;
+ 	
+ 	_this->_public.malloc = &malloc;
+diff --git a/nfapi/open-nFAPI/vnf/inc/vnf_p7.h b/nfapi/open-nFAPI/vnf/inc/vnf_p7.h
+index 188147bde3de72a29a46318b840af2b133cd9583..f912d5203fbbf69ff7fd218354b9d57a7cf75f89 100644
+--- a/nfapi/open-nFAPI/vnf/inc/vnf_p7.h
++++ b/nfapi/open-nFAPI/vnf/inc/vnf_p7.h
+@@ -9,10 +9,16 @@
+ #define _VNF_P7_H_
+ 
+ #include "nfapi_vnf_interface.h"
++#include <stdatomic.h>
+ #define TIMEHR_SEC(_time_hr) ((uint32_t)(_time_hr) >> 20)
+ #define TIMEHR_USEC(_time_hr) ((uint32_t)(_time_hr) & 0xFFFFF)
+ #define TIME2TIMEHR(_time) (((uint32_t)(_time.tv_sec) & 0xFFF) << 20 | ((uint32_t)(_time.tv_usec) & 0xFFFFF))
+-
++/* ============================================================================
++ * DYNAMIC SLOT SLEEP TIMING CONTROL CONSTANTS
++ * ============================================================================ */
++/* Dynamic Target Margin (adaptive to avoid late packets) */
++#define MARGIN_TOLERANCE_US         20    // Initial deadband zone used for first synchronization
++#define SLOT_ARRAY_SIZE             20    // TDD cycle slot count (Reduced to 20 for faster convergence)
+ 
+ typedef struct {
+ 	uint8_t* buffer;
+@@ -70,19 +76,35 @@ typedef struct nfapi_vnf_p7_connection_info {
+ 	int32_t slot_offset_filtered;
+ 	uint16_t zero_count;
+ 	int32_t adjustment;
++	int32_t slot_adjustment;
++	int32_t us_adjustment;
+ 	int32_t insync_minor_adjustment;
+ 	int32_t insync_minor_adjustment_duration;
++	uint8_t sync_locked;  // Flag: once offset converges within ±10, permanently stop adjusting
++	/* Periodic sync control */
++	uint32_t sync_slot_counter;                // Counter for periodic sync
++	uint32_t sync_period_slots;                // Period between syncs (configurable)
++	int32_t total_advanced_us; // Absolute cumulative phase shift relative to initial sync
+ 
+ 	uint32_t previous_t1;
+ 	uint32_t previous_t2;
+ 	int32_t previous_sf_offset_filtered;
+ 	int32_t previous_slot_offset_filtered;
++	uint8_t initial_timinginfo_received;
+ 	int sfn_sf;
+ 	int sfn;
+ 	int slot;
+   int mu; // some 5G slot calculations need the numerology to know the number
+           // of slots
+-
++	int slot_ahead;
++	uint16_t timing_window;
++	uint8_t timing_info_period;
++	struct timespec next_slot_time;
++	uint32_t slot_duration_us;
++	uint8_t running;
++	pthread_t thread;
++	pthread_mutex_t mutex;
++	pthread_cond_t  initial_timinginfo_cond;
+ 	int socket;
+ 	struct sockaddr_in local_addr;
+ 	struct sockaddr_in remote_addr;
+@@ -95,6 +117,24 @@ typedef struct nfapi_vnf_p7_connection_info {
+ 
+ 	struct nfapi_vnf_p7_connection_info* next;
+ 
++	int32_t pending_us;             // Accumulated borrowed time (us) to be repaid incrementally
++	int32_t estimated_mean_late;      // estimated mean delay
++	int32_t estimated_jitter_var;     // estimated jitter variance
++	int32_t late_jitter;            // Separate EWMA for late jitter
++	int32_t early_jitter;           // Separate EWMA for early jitter
++	int32_t last_adjustment_steps;  // How many slots we increased in last adjustment
++	int32_t last_adjustment_sfn;    // SFN when we made the last upward adjustment
++	int32_t last_adjustment_slot;   // Slot when we made the last upward adjustment
++	int32_t DM_EWMA_safe_period_count;
++	int32_t DM_EWMA_late_period_count;
++	int32_t DM_EWMA_risk_period_count;
++	int32_t DM_EWMA_last_target_s_ahead;
++	int32_t DM_EWMA_failure_debt_us;
++	int32_t DM_EWMA_risk_debt_us;
++	int32_t DM_EWMA_safe_margin_ewma_us;
++	int32_t DM_EWMA_jitter_pressure_ahead_us;
++	int32_t DM_EWMA_jitter_pressure_hold_ahead_us;
++	int32_t DM_EWMA_jitter_pressure_hold_slots;
+ } nfapi_vnf_p7_connection_info_t;
+ 
+ typedef struct vnf_p7_s {
+@@ -137,5 +177,18 @@ int vnf_p7_pack_and_send_p7_msg(vnf_p7_t* vnf_p7, nfapi_p7_message_header_t* hea
+ void vnf_p7_release_msg(vnf_p7_t* vnf_p7, nfapi_p7_message_header_t* header);
+ void vnf_p7_release_pdu(vnf_p7_t* vnf_p7, void* pdu);
+ 
++typedef struct {
++  int32_t worst_late;
++  int32_t worst_early;
++  uint32_t packet_slot;   // Computed packet slot index in SLOT_ARRAY_SIZE
++  uint32_t pnf_reported_jitter; // Maximum jitter reported by PNF across message types
++} vnf_timing_stats_t;
++
++/* Function Declaration */
++// Extract timing info points from a timing_info message
++// Returns the number of valid stats extracted (0-8)
++int vnf_nr_extract_timing_info(const nfapi_nr_timing_info_t *ind,
++                               nfapi_vnf_p7_connection_info_t *p7_info,
++                               vnf_timing_stats_t *out_stats);
+ 
+ #endif // _VNF_P7_H_
+diff --git a/nfapi/open-nFAPI/vnf/public_inc/nfapi_vnf_interface.h b/nfapi/open-nFAPI/vnf/public_inc/nfapi_vnf_interface.h
+index 2d51ada4ddff5dc2d32ed7fffbda12e739eb1ca2..9232ee4e32488eb09ca9c2702bfbd30724ee99c8 100644
+--- a/nfapi/open-nFAPI/vnf/public_inc/nfapi_vnf_interface.h
++++ b/nfapi/open-nFAPI/vnf/public_inc/nfapi_vnf_interface.h
+@@ -33,7 +33,7 @@ typedef struct nfapi_vnf_phy_info
+ 	int phy_id; //phy_id
+ 
+ 	/*! Timing window */
+-	uint8_t timing_window;
++	uint16_t timing_window;
+ 	/*! Timing info mode */
+ 	uint8_t timing_info_mode;
+ 	/*! Timing info period */
+@@ -96,6 +96,13 @@ typedef struct nfapi_vnf_config
+ 	/*! List of configured phys */
+ 	nfapi_vnf_phy_info_t* phy_list;
+ 
++	/*! Timing window */
++	uint16_t timing_window;
++	/*! Timing info mode */
++	uint8_t timing_info_mode;
++	/*! Timing info period */
++	uint8_t timing_info_period;
++
+ 	/*! Configuration options for the p4 p5 pack unpack functions */
+ 	nfapi_p4_p5_codec_config_t codec_config;
+ 	
+diff --git a/nfapi/open-nFAPI/vnf/src/vnf_interface.c b/nfapi/open-nFAPI/vnf/src/vnf_interface.c
+index 194c0080fe7a95366602c2e27bbb7101cd254414..7f4e808a2c7ad262a83ee695bfce0b2504e1ed4a 100644
+--- a/nfapi/open-nFAPI/vnf/src/vnf_interface.c
++++ b/nfapi/open-nFAPI/vnf/src/vnf_interface.c
+@@ -46,7 +46,7 @@ nfapi_vnf_config_t* nfapi_vnf_config_create()
+ 	_this->_public.codec_config.allocate = &malloc;
+ 	_this->_public.codec_config.deallocate = &free;
+ 	
+-
++	
+ 	return (nfapi_vnf_config_t* )_this;
+ }
+ 
+@@ -748,9 +748,9 @@ int nfapi_vnf_allocate_phy(nfapi_vnf_config_t* config, int p5_idx, uint16_t* phy
+ 	info->p5_idx = p5_idx;
+ 	info->phy_id = vnf->next_phy_id++;
+ 
+-	info->timing_window = 30;       // This seems to override what gets set by the user - why??? //TODO: Change in NR in terms of microsecends,what should be the value?
+-	info->timing_info_mode = 0x03;
+-	info->timing_info_period = 10;
++	info->timing_window = config->timing_window;
++	info->timing_info_mode = config->timing_info_mode;
++	info->timing_info_period = config->timing_info_period;
+ 
+ 	nfapi_vnf_phy_info_list_add(config, info);
+ 
+diff --git a/nfapi/open-nFAPI/vnf/src/vnf_p7.c b/nfapi/open-nFAPI/vnf/src/vnf_p7.c
+index faaf3e398fc10bf462c48217131516939c6c4cef..2f096c62305d2524e525c68d17c0ea38ea3e0048 100644
+--- a/nfapi/open-nFAPI/vnf/src/vnf_p7.c
++++ b/nfapi/open-nFAPI/vnf/src/vnf_p7.c
+@@ -13,7 +13,9 @@
+ #include <string.h>
+ #include <unistd.h>
+ #include <errno.h>
++#include <stdbool.h>
+ #include <stdio.h>
++#include <limits.h>
+ #include <assert.h>
+ #ifdef ENABLE_AERIAL
+ #include "nfapi/oai_integration/aerial/fapi_nvIPC.h"
+@@ -30,6 +32,1086 @@
+ 
+ #define SYNC_CYCLE_COUNT 2
+ 
++/* ============================================================================
++ * DYNAMIC SLOT SLEEP TIMING CONTROL
++ * ============================================================================ */
++
++int vnf_nr_extract_timing_info(const nfapi_nr_timing_info_t *ind,
++							   nfapi_vnf_p7_connection_info_t *p7_info,
++							   vnf_timing_stats_t *out_stats)
++{
++	if (ind == NULL || p7_info == NULL || out_stats == NULL) {
++			return 0;
++	}
++	if (p7_info->mu < 0) {
++			return 0;
++	}
++	int32_t slot_duration_us = 1000 >> p7_info->mu;
++	if (slot_duration_us <= 0) {
++			return 0;
++	}
++	int32_t slots_per_frame = 10 << p7_info->mu;
++	int64_t frame_duration_us =
++					(int64_t)slots_per_frame * (int64_t)slot_duration_us;
++	int64_t timing_window_us = (int64_t)p7_info->timing_window;
++	if (timing_window_us < 0) {
++			timing_window_us = 0;
++	}
++	int64_t valid_span_us = timing_window_us + frame_duration_us;
++	if (valid_span_us <= 0) {
++			valid_span_us = frame_duration_us;
++	}
++	/*
++		* Latest delay values:
++		* These are the most important values for no-drop policy.
++		* A positive latest_delay means the message was late.
++		* A negative latest_delay means the message arrived before deadline.
++		*/
++	int32_t latest_delay_values[4] = {
++			ind->dl_tti_latest_delay,
++			ind->tx_data_latest_delay,
++			ind->ul_tti_latest_delay,
++			ind->ul_dci_latest_delay
++	};
++	/*
++		* Earliest arrival values:
++		* These are useful to know how early messages are arriving.
++		* They should not override a positive latest_delay.
++		*/
++	int32_t earliest_arrival_values[4] = {
++			ind->dl_tti_earliest_arrival,
++			ind->tx_data_earliest_arrival,
++			ind->ul_tti_earliest_arrival,
++			ind->ul_dci_earliest_arrival
++	};
++	int32_t worst_late = INT32_MIN;
++	int32_t worst_early = INT32_MAX;
++	bool have_latest_delay = false;
++	bool have_any_sample = false;
++	/*
++		* First pass:
++		*   use latest_delay fields as primary control input.
++		* This avoids an early-arrival value masking a real late sample.
++	*/
++	for (int i = 0; i < 4; ++i) {
++			int32_t value = latest_delay_values[i];
++			/*
++				* In current nFAPI timing_info usage, zero is treated as
++				* "not reported".  If the PNF implementation later defines
++				* zero as an explicit exact-deadline sample, this condition
++				* should be revisited.
++				*/
++			if (value == 0) {
++					continue;
++			}
++			if ((int64_t)value > valid_span_us ||
++					(int64_t)value < -valid_span_us) {
++					continue;
++			}
++			have_latest_delay = true;
++			have_any_sample = true;
++			if (value > worst_late) {
++					worst_late = value;
++			}
++			if (value < worst_early) {
++					worst_early = value;
++			}
++	}
++	/*
++		* Second pass:
++		*   collect earliest_arrival for diagnostics / fallback.
++		*
++		* If there were no latest_delay samples at all, the closest
++		* earliest_arrival becomes worst_late.  This keeps the controller
++		* informed that packets are early, without inventing late pressure.
++		*/
++	int32_t closest_early_to_deadline = INT32_MIN;
++	for (int i = 0; i < 4; ++i) {
++			int32_t value = earliest_arrival_values[i];
++			if (value == 0) {
++					continue;
++			}
++			if ((int64_t)value > valid_span_us ||
++					(int64_t)value < -valid_span_us) {
++					continue;
++			}
++			have_any_sample = true;
++			if (value < worst_early) {
++					worst_early = value;
++			}
++			/*
++				* For early samples, the largest value is closest to deadline.
++				* Example:
++				*   -100us is closer / riskier than -900us.
++				*/
++			if (value > closest_early_to_deadline) {
++					closest_early_to_deadline = value;
++			}
++	}
++	if (!have_any_sample) {
++			return 0;
++	}
++	if (!have_latest_delay) {
++			if (closest_early_to_deadline == INT32_MIN) {
++					return 0;
++			}
++			worst_late = closest_early_to_deadline;
++	}
++	if (worst_late == INT32_MIN) {
++			return 0;
++	}
++	if (worst_early == INT32_MAX) {
++			worst_early = worst_late;
++	}
++	uint32_t max_jitter = 0;
++	if (ind->dl_tti_jitter > max_jitter) {
++			max_jitter = ind->dl_tti_jitter;
++	}
++	if (ind->tx_data_jitter > max_jitter) {
++			max_jitter = ind->tx_data_jitter;
++	}
++	if (ind->ul_tti_jitter > max_jitter) {
++			max_jitter = ind->ul_tti_jitter;
++	}
++	if (ind->ul_dci_jitter > max_jitter) {
++			max_jitter = ind->ul_dci_jitter;
++	}
++	/*
++		* Output final merged stats directly.
++		* packet_slot is intentionally set to current slot modulo local
++		* history size only for compatibility/logging.  The controller
++		* should not use packet_slot for decision making.
++		*/
++	out_stats->packet_slot =
++					NFAPI_SFNSLOT2DEC(p7_info->mu,
++														p7_info->sfn,
++														p7_info->slot) %
++					SLOT_ARRAY_SIZE;
++	out_stats->worst_late = worst_late;
++	out_stats->worst_early = worst_early;
++	out_stats->pnf_reported_jitter = max_jitter;
++	return 1;
++}
++
++static int32_t global_ewma_alpha_denom = 8;    // 1/8 default
++static int32_t global_ewma_beta_denom = 4;     // 1/4 default
++
++/*
++ * Calculate the number of slots between two (SFN, slot) pairs.
++ * Accounts for SFN wrap-around (SFN 0-1023).
++ * Result: positive if (current_sfn, current_slot) > (prev_sfn, prev_slot)
++ */
++static inline int32_t calculate_slot_distance(int32_t current_sfn, int32_t current_slot,
++                                               int32_t prev_sfn, int32_t prev_slot,
++                                               int32_t slots_per_frame)
++{
++	// Convert to absolute slot numbers within a frame boundary
++	int32_t current_absolute = current_sfn * slots_per_frame + current_slot;
++	int32_t prev_absolute = prev_sfn * slots_per_frame + prev_slot;
++
++	// Handle wrap-around: if current < prev, add one full hyperframe cycle
++	if (current_absolute < prev_absolute) {
++		current_absolute += 1024 * slots_per_frame;  // 1024 SFNs per hyperframe
++	}
++
++	return current_absolute - prev_absolute;
++}
++
++static int32_t ceil_div_pos_i32(int32_t num, int32_t den)
++{
++    if (den <= 0)
++        return 0;
++
++    if (num <= 0)
++        return 0;
++
++    return (num + den - 1) / den;
++}
++
++static int32_t abs_i32(int32_t v)
++{
++    return v < 0 ? -v : v;
++}
++static inline int32_t p7_max_i32(int32_t a, int32_t b)
++{
++    return a > b ? a : b;
++}
++
++/*
++ * Integer EWMA helper.
++ *
++ * Avoids integer EWMA dead-zone:
++ *
++ *   cur += (target - cur) / denom
++ *
++ * would otherwise stop changing when abs(target - cur) < denom.
++ *
++ * This is not a policy hyperparameter.
++ */
++static inline int32_t p7_ewma_step_i32(
++    int32_t cur,
++    int32_t target,
++    int32_t denom)
++{
++    int32_t diff;
++    int32_t step;
++
++    if (denom <= 1)
++        return target;
++
++    diff = target - cur;
++
++    if (diff == 0)
++        return cur;
++
++    step = diff / denom;
++
++    if (step == 0)
++        step = diff > 0 ? 1 : -1;
++
++    return cur + step;
++}
++
++/*
++ * EWMA integer zero-resolution.
++ *
++ * Not a tunable threshold.
++ * It is derived from integer EWMA alpha denominator.
++ */
++static inline int p7_ewma_effectively_zero_i32(
++    int32_t value,
++    int32_t denom)
++{
++    if (value <= 0)
++        return 1;
++
++    if (denom <= 1)
++        return value == 0;
++
++    return value <= denom;
++}
++
++static void vnf_nr_delay_management(
++    nfapi_vnf_p7_connection_info_t *p7_info,
++    const vnf_timing_stats_t *stats)
++{
++	if (p7_info == NULL || stats == NULL)
++			return;
++
++	if (p7_info->mu < 0 || p7_info->slot_duration_us <= 0)
++		return;
++
++	int slot_duration_us = p7_info->slot_duration_us;
++	int64_t max_s_ahead = (p7_info->timing_window / slot_duration_us)-1;
++
++	/*
++		* ============================================================
++		* Control pacing state
++		* ============================================================
++		*/
++	int32_t elapsed_slots = calculate_slot_distance(
++					p7_info->sfn,
++					p7_info->slot,
++					p7_info->last_adjustment_sfn,
++					p7_info->last_adjustment_slot,
++					10 << p7_info->mu);
++
++	int32_t required_wait_slots =
++					p7_info->last_adjustment_steps +
++				(int32_t)p7_info->timing_info_period;
++
++	if (required_wait_slots < 1)
++			required_wait_slots = 1;
++
++	bool pacing_gate_open =
++					elapsed_slots >= required_wait_slots;
++
++	/*
++		* ============================================================
++		* Single-input EWMA estimator
++		* ============================================================
++		*
++		* Do not return before EWMA update.
++		*/
++	if (p7_info->estimated_mean_late == 0) {
++			p7_info->estimated_mean_late = stats->worst_late;
++			p7_info->estimated_jitter_var = abs_i32(stats->worst_late) / 2;
++
++			p7_info->last_adjustment_sfn = p7_info->sfn;
++			p7_info->last_adjustment_slot = p7_info->slot;
++	}
++
++	int32_t old_mean = p7_info->estimated_mean_late;
++	int32_t diff = stats->worst_late - old_mean;
++	int32_t abs_diff = abs_i32(diff);
++
++	p7_info->estimated_mean_late =
++					p7_ewma_step_i32(
++									p7_info->estimated_mean_late,
++									stats->worst_late,
++									global_ewma_alpha_denom);
++
++	if (diff > 0) {
++			p7_info->late_jitter =
++							p7_ewma_step_i32(
++											p7_info->late_jitter,
++											diff,
++											global_ewma_beta_denom);
++	} else {
++			p7_info->early_jitter =
++							p7_ewma_step_i32(
++											p7_info->early_jitter,
++											-diff,
++											global_ewma_beta_denom);
++	}
++
++	p7_info->estimated_jitter_var =
++					p7_ewma_step_i32(
++									p7_info->estimated_jitter_var,
++									abs_diff,
++									global_ewma_beta_denom);
++
++	if (p7_info->estimated_jitter_var < 0)
++			p7_info->estimated_jitter_var = 0;
++
++	if (p7_info->late_jitter < 0)
++			p7_info->late_jitter = 0;
++
++	if (p7_info->early_jitter < 0)
++			p7_info->early_jitter = 0;
++
++	int32_t closest_to_deadline_us =
++					stats->worst_late > p7_info->estimated_mean_late ?
++					stats->worst_late :
++					p7_info->estimated_mean_late;
++
++	int32_t late_side_uncertainty_us =
++					p7_info->late_jitter +
++					p7_info->estimated_jitter_var;
++
++	int32_t early_side_uncertainty_us =
++					p7_info->early_jitter +
++					p7_info->estimated_jitter_var;
++
++	if (late_side_uncertainty_us < 0)
++			late_side_uncertainty_us = 0;
++
++	if (early_side_uncertainty_us < 0)
++			early_side_uncertainty_us = 0;
++
++	int32_t timing_uncertainty_us =
++					late_side_uncertainty_us;
++
++	int64_t adaptive_jitter_guard_64 =
++					(int64_t)late_side_uncertainty_us +
++					(int64_t)early_side_uncertainty_us;
++
++	if (adaptive_jitter_guard_64 > INT32_MAX)
++			adaptive_jitter_guard_64 = INT32_MAX;
++
++	if (adaptive_jitter_guard_64 < 0)
++			adaptive_jitter_guard_64 = 0;
++
++	int32_t adaptive_jitter_guard_us =
++					(int32_t)adaptive_jitter_guard_64;
++
++	/*
++		* ============================================================
++		* Risk / debt / safe-margin model
++		* ============================================================
++		*/
++	int32_t predicted_risk_us =
++					closest_to_deadline_us +
++					timing_uncertainty_us;
++
++	if (predicted_risk_us < 0)
++			predicted_risk_us = 0;
++
++	bool hard_late =
++					stats->worst_late > 0 ||
++					closest_to_deadline_us > 0;
++
++	int32_t failure_sample_us = 0;
++
++	if (stats->worst_late > 0)
++			failure_sample_us = stats->worst_late;
++	else if (closest_to_deadline_us > 0)
++			failure_sample_us = closest_to_deadline_us;
++	else
++			failure_sample_us = 0;
++
++	if (failure_sample_us < 0)
++			failure_sample_us = 0;
++
++	int32_t safe_margin_sample_us =
++					-(closest_to_deadline_us + timing_uncertainty_us);
++
++	if (safe_margin_sample_us < 0)
++			safe_margin_sample_us = 0;
++
++	p7_info->DM_EWMA_failure_debt_us =
++					p7_ewma_step_i32(
++									p7_info->DM_EWMA_failure_debt_us,
++									failure_sample_us,
++									global_ewma_alpha_denom);
++
++	p7_info->DM_EWMA_risk_debt_us =
++					p7_ewma_step_i32(
++									p7_info->DM_EWMA_risk_debt_us,
++									predicted_risk_us,
++									global_ewma_alpha_denom);
++
++	p7_info->DM_EWMA_safe_margin_ewma_us =
++					p7_ewma_step_i32(
++									p7_info->DM_EWMA_safe_margin_ewma_us,
++									safe_margin_sample_us,
++									global_ewma_alpha_denom);
++
++	if (p7_info->DM_EWMA_failure_debt_us < 0)
++			p7_info->DM_EWMA_failure_debt_us = 0;
++
++	if (p7_info->DM_EWMA_risk_debt_us < 0)
++			p7_info->DM_EWMA_risk_debt_us = 0;
++
++	if (p7_info->DM_EWMA_safe_margin_ewma_us < 0)
++			p7_info->DM_EWMA_safe_margin_ewma_us = 0;
++
++	bool failure_debt_free =
++					p7_ewma_effectively_zero_i32(
++									p7_info->DM_EWMA_failure_debt_us,
++									global_ewma_alpha_denom);
++
++	bool risk_debt_free =
++					p7_ewma_effectively_zero_i32(
++									p7_info->DM_EWMA_risk_debt_us,
++									global_ewma_alpha_denom);
++
++	bool soft_risk =
++					!hard_late &&
++					predicted_risk_us > 0;
++
++	bool safe_sample =
++					!hard_late &&
++					predicted_risk_us == 0 &&
++					safe_margin_sample_us > 0;
++
++	bool debt_free =
++					failure_sample_us == 0 &&
++					predicted_risk_us == 0 &&
++					failure_debt_free &&
++					risk_debt_free;
++
++	/*
++		* ============================================================
++		* Critical-point jitter-to-deadline-distance mapping
++		* ============================================================
++		*/
++	int32_t jitter_gain_denom =
++					global_ewma_alpha_denom;
++
++	if (jitter_gain_denom < 1)
++			jitter_gain_denom = 1;
++
++	int32_t jitter_beta_denom =
++					global_ewma_beta_denom;
++
++	if (jitter_beta_denom < 1)
++			jitter_beta_denom = 1;
++
++	int32_t jitter_free_allowance_us =
++					slot_duration_us / jitter_beta_denom;
++
++	if (jitter_free_allowance_us < 0)
++			jitter_free_allowance_us = 0;
++
++	int32_t effective_jitter_guard_us =
++					adaptive_jitter_guard_us -
++					jitter_free_allowance_us;
++
++	if (effective_jitter_guard_us < 0)
++			effective_jitter_guard_us = 0;
++
++	int32_t persistent_failure_tail_us =
++					p7_max_i32(failure_sample_us,
++											p7_info->DM_EWMA_failure_debt_us);
++
++	int32_t persistent_risk_tail_us =
++					p7_max_i32(predicted_risk_us,
++											p7_info->DM_EWMA_risk_debt_us);
++
++	int64_t deadline_tail_risk_64 =
++					(int64_t)persistent_failure_tail_us +
++					(int64_t)persistent_risk_tail_us;
++
++	if (deadline_tail_risk_64 > INT32_MAX)
++			deadline_tail_risk_64 = INT32_MAX;
++
++	if (deadline_tail_risk_64 < 0)
++			deadline_tail_risk_64 = 0;
++
++	int32_t deadline_tail_risk_us =
++					(int32_t)deadline_tail_risk_64;
++
++	int64_t jitter_pressure_64 =
++					(int64_t)effective_jitter_guard_us +
++					(int64_t)deadline_tail_risk_us;
++
++	if (jitter_pressure_64 > INT32_MAX)
++			jitter_pressure_64 = INT32_MAX;
++
++	if (jitter_pressure_64 < 0)
++			jitter_pressure_64 = 0;
++
++	int32_t jitter_pressure_us =
++					(int32_t)jitter_pressure_64;
++
++	/*
++		* Low-jitter base region.
++		*/
++	int32_t jitter_base_slots =
++					1 + (effective_jitter_guard_us / slot_duration_us);
++
++	if (jitter_base_slots < 1)
++			jitter_base_slots = 1;
++
++	int32_t jitter_low_region_cap_slots =
++					jitter_beta_denom - 1;
++
++	if (jitter_low_region_cap_slots < 1)
++			jitter_low_region_cap_slots = 1;
++
++	if (jitter_low_region_cap_slots > max_s_ahead)
++			jitter_low_region_cap_slots = max_s_ahead;
++
++	if (jitter_base_slots > jitter_low_region_cap_slots)
++			jitter_base_slots = jitter_low_region_cap_slots;
++
++	/*
++		* Critical cliff region.
++		*/
++	int64_t jitter_critical_pressure_64 =
++					((int64_t)jitter_low_region_cap_slots *
++						(int64_t)slot_duration_us) +
++					((int64_t)slot_duration_us / 2);
++
++	if (jitter_critical_pressure_64 > INT32_MAX)
++			jitter_critical_pressure_64 = INT32_MAX;
++
++	int32_t jitter_critical_pressure_us =
++					(int32_t)jitter_critical_pressure_64;
++
++	int32_t jitter_cliff_excess_us =
++					jitter_pressure_us - jitter_critical_pressure_us;
++
++	if (jitter_cliff_excess_us < 0)
++			jitter_cliff_excess_us = 0;
++
++	int32_t jitter_cliff_tau_us =
++					slot_duration_us / jitter_gain_denom;
++
++	if (jitter_cliff_tau_us < 1)
++			jitter_cliff_tau_us = 1;
++
++	int32_t jitter_cliff_extra_max_slots =
++					jitter_beta_denom + 1;
++
++	if (jitter_cliff_extra_max_slots < 1)
++			jitter_cliff_extra_max_slots = 1;
++
++	if (jitter_cliff_extra_max_slots > max_s_ahead)
++			jitter_cliff_extra_max_slots = max_s_ahead;
++
++	int32_t jitter_cliff_extra_slots = 0;
++
++	if (jitter_cliff_excess_us > 0) {
++			int64_t cliff_num_64 =
++							(int64_t)jitter_cliff_extra_max_slots *
++							(int64_t)jitter_cliff_excess_us;
++
++			int64_t cliff_den_64 =
++							(int64_t)jitter_cliff_excess_us +
++							(int64_t)jitter_cliff_tau_us;
++
++			if (cliff_den_64 < 1)
++					cliff_den_64 = 1;
++
++			int64_t cliff_extra_64 =
++							(cliff_num_64 + cliff_den_64 - 1) /
++							cliff_den_64;
++
++			if (cliff_extra_64 > INT32_MAX)
++					cliff_extra_64 = INT32_MAX;
++
++			if (cliff_extra_64 < 0)
++					cliff_extra_64 = 0;
++
++			jitter_cliff_extra_slots =
++							(int32_t)cliff_extra_64;
++	}
++
++	int32_t jitter_instant_required_s_ahead =
++					jitter_base_slots +
++					jitter_cliff_extra_slots;
++
++	if (jitter_instant_required_s_ahead < 1)
++			jitter_instant_required_s_ahead = 1;
++
++	if (jitter_instant_required_s_ahead > max_s_ahead)
++			jitter_instant_required_s_ahead = max_s_ahead;
++
++	int64_t jitter_instant_required_ahead_64 =
++					(int64_t)jitter_instant_required_s_ahead *
++					(int64_t)slot_duration_us;
++
++	if (jitter_instant_required_ahead_64 > INT32_MAX)
++			jitter_instant_required_ahead_64 = INT32_MAX;
++
++	int32_t jitter_instant_required_ahead_us =
++					(int32_t)jitter_instant_required_ahead_64;
++
++	/*
++		* ============================================================
++		* Cliff hold floor
++		* ============================================================
++		*/
++	int32_t jitter_pressure_hold_duration_slots =
++					10000000 / slot_duration_us;
++
++	if (jitter_pressure_hold_duration_slots < 1)
++			jitter_pressure_hold_duration_slots = 1;
++
++	if (p7_info->DM_EWMA_jitter_pressure_hold_slots > 0) {
++			int32_t hold_decay_slots =
++				(int32_t)p7_info->timing_info_period*10;
++
++			if (hold_decay_slots < 1)
++					hold_decay_slots = 1;
++
++			if (hold_decay_slots >=
++					p7_info->DM_EWMA_jitter_pressure_hold_slots) {
++					p7_info->DM_EWMA_jitter_pressure_hold_slots = 0;
++			} else {
++					p7_info->DM_EWMA_jitter_pressure_hold_slots -=
++									hold_decay_slots;
++			}
++	}
++
++	/*
++		* Arm / refresh hold only when the nonlinear cliff really crossed.
++		*/
++	if (jitter_cliff_excess_us > 0 ||
++			jitter_cliff_extra_slots > 0) {
++			if (p7_info->DM_EWMA_jitter_pressure_hold_slots <
++					jitter_pressure_hold_duration_slots) {
++					p7_info->DM_EWMA_jitter_pressure_hold_slots =
++									jitter_pressure_hold_duration_slots;
++			}
++
++			if (p7_info->DM_EWMA_jitter_pressure_hold_ahead_us <
++					jitter_instant_required_ahead_us) {
++					p7_info->DM_EWMA_jitter_pressure_hold_ahead_us =
++									jitter_instant_required_ahead_us;
++			}
++	}
++
++	bool jitter_pressure_hold_active =
++					p7_info->DM_EWMA_jitter_pressure_hold_slots > 0 &&
++					p7_info->DM_EWMA_jitter_pressure_hold_ahead_us >
++					slot_duration_us;
++
++	/*
++		* ============================================================
++		* Fast-attack / slow-release pressure memory
++		* ============================================================
++		*
++		* Key fix:
++		*   Hold active => EWMA pressure memory is not allowed to release.
++		*/
++	if (p7_info->DM_EWMA_jitter_pressure_ahead_us <= 0) {
++			p7_info->DM_EWMA_jitter_pressure_ahead_us =
++							jitter_instant_required_ahead_us;
++	} else if (jitter_instant_required_ahead_us >
++							p7_info->DM_EWMA_jitter_pressure_ahead_us) {
++			p7_info->DM_EWMA_jitter_pressure_ahead_us =
++							jitter_instant_required_ahead_us;
++	} else {
++			bool jitter_pressure_release_allowed =
++							safe_sample &&
++							debt_free &&
++							jitter_cliff_excess_us == 0 &&
++							!jitter_pressure_hold_active;
++
++			if (jitter_pressure_release_allowed) {
++					int64_t jitter_pressure_release_denom_64 =
++									(int64_t)global_ewma_alpha_denom *
++									(int64_t)p7_max_i32(p7_info->slot_ahead, 1);
++
++					if (jitter_pressure_release_denom_64 > INT32_MAX)
++							jitter_pressure_release_denom_64 = INT32_MAX;
++
++					if (jitter_pressure_release_denom_64 < 1)
++							jitter_pressure_release_denom_64 = 1;
++
++					p7_info->DM_EWMA_jitter_pressure_ahead_us =
++									p7_ewma_step_i32(
++													p7_info->DM_EWMA_jitter_pressure_ahead_us,
++													jitter_instant_required_ahead_us,
++													(int32_t)jitter_pressure_release_denom_64);
++			}
++	}
++
++	if (p7_info->DM_EWMA_jitter_pressure_ahead_us < slot_duration_us)
++			p7_info->DM_EWMA_jitter_pressure_ahead_us = slot_duration_us;
++
++	/*
++		* Release hold floor slowly after hold budget expires.
++		*/
++	if (!jitter_pressure_hold_active &&
++			p7_info->DM_EWMA_jitter_pressure_hold_ahead_us >
++			slot_duration_us) {
++			int64_t hold_release_denom_64 =
++							(int64_t)global_ewma_alpha_denom *
++							(int64_t)p7_max_i32(p7_info->slot_ahead, 1);
++
++			if (hold_release_denom_64 > INT32_MAX)
++					hold_release_denom_64 = INT32_MAX;
++
++			if (hold_release_denom_64 < 1)
++					hold_release_denom_64 = 1;
++
++			p7_info->DM_EWMA_jitter_pressure_hold_ahead_us =
++							p7_ewma_step_i32(
++											p7_info->DM_EWMA_jitter_pressure_hold_ahead_us,
++											slot_duration_us,
++											(int32_t)hold_release_denom_64);
++	}
++
++	if (p7_info->DM_EWMA_jitter_pressure_hold_ahead_us <
++			slot_duration_us) {
++			p7_info->DM_EWMA_jitter_pressure_hold_ahead_us =
++							slot_duration_us;
++	}
++
++	/*
++		* ============================================================
++		* Unified pressure floor
++		* ============================================================
++		*
++		* This value is shared by:
++		*
++		*   1. jitter_required_s_ahead
++		*   2. required_safe_margin_for_down
++		*   3. post_down_guarded_risk
++		*   4. down floor / down target clamp
++		*/
++	int32_t jitter_unified_pressure_ahead_us =
++					p7_max_i32(
++									p7_info->DM_EWMA_jitter_pressure_ahead_us,
++									p7_info->DM_EWMA_jitter_pressure_hold_ahead_us);
++
++	if (jitter_unified_pressure_ahead_us < slot_duration_us)
++			jitter_unified_pressure_ahead_us = slot_duration_us;
++
++	int32_t jitter_required_s_ahead =
++					ceil_div_pos_i32(
++									jitter_unified_pressure_ahead_us,
++									slot_duration_us);
++
++	if (jitter_required_s_ahead < 1)
++			jitter_required_s_ahead = 1;
++
++	if (jitter_required_s_ahead > max_s_ahead)
++			jitter_required_s_ahead = max_s_ahead;
++
++	int32_t jitter_unified_required_s_ahead =
++					jitter_required_s_ahead;
++
++	/*
++		* Compatibility name.
++		*
++		* Now this is the unified memory-backed deadline distance.
++		*/
++
++	bool jitter_up_required =
++					!hard_late &&
++					jitter_required_s_ahead > p7_info->slot_ahead;
++
++	/*
++		* ============================================================
++		* Fresh evidence counters
++		* ============================================================
++		*/
++	if (hard_late) {
++			p7_info->DM_EWMA_late_period_count++;
++			p7_info->DM_EWMA_safe_period_count = 0;
++			p7_info->DM_EWMA_risk_period_count = 0;
++	} else if (soft_risk || jitter_up_required) {
++			p7_info->DM_EWMA_risk_period_count++;
++			p7_info->DM_EWMA_safe_period_count = 0;
++			p7_info->DM_EWMA_late_period_count = 0;
++	} else if (safe_sample) {
++			p7_info->DM_EWMA_safe_period_count++;
++			p7_info->DM_EWMA_late_period_count = 0;
++			p7_info->DM_EWMA_risk_period_count = 0;
++	} else {
++			p7_info->DM_EWMA_safe_period_count = 0;
++			p7_info->DM_EWMA_late_period_count = 0;
++			p7_info->DM_EWMA_risk_period_count = 0;
++	}
++
++	int32_t required_safe_cnt_for_down =
++					global_ewma_alpha_denom;
++
++	if (p7_info->slot_ahead > 1) {
++			int64_t required_safe_cnt_64 =
++							(int64_t)p7_info->slot_ahead *
++							(int64_t)p7_info->slot_ahead *
++							(int64_t)global_ewma_alpha_denom;
++
++			if (required_safe_cnt_64 > INT32_MAX)
++					required_safe_cnt_64 = INT32_MAX;
++
++			if (required_safe_cnt_64 < global_ewma_alpha_denom)
++					required_safe_cnt_64 = global_ewma_alpha_denom;
++
++			required_safe_cnt_for_down =
++							(int32_t)required_safe_cnt_64;
++	}
++
++	bool enough_fresh_safe_evidence_for_down =
++					p7_info->DM_EWMA_safe_period_count >=
++					required_safe_cnt_for_down;
++
++	bool enough_fresh_risk_evidence_for_soft_up =
++					p7_info->DM_EWMA_risk_period_count >=
++					global_ewma_beta_denom;
++
++	/*
++		* ============================================================
++		* Decision model
++		* ============================================================
++		*/
++	bool hard_up_required =
++					hard_late;
++
++	bool soft_up_required =
++					!hard_late &&
++					predicted_risk_us > 0 &&
++					!risk_debt_free &&
++					enough_fresh_risk_evidence_for_soft_up;
++
++	bool jitter_soft_up_required =
++					!hard_late &&
++					jitter_required_s_ahead > p7_info->slot_ahead &&
++					enough_fresh_risk_evidence_for_soft_up;
++
++	bool up_required =
++					hard_up_required ||
++					soft_up_required ||
++					jitter_soft_up_required;
++
++	int32_t post_down_predicted_risk_us =
++					closest_to_deadline_us +
++					slot_duration_us +
++					timing_uncertainty_us;
++
++	bool down_safe_after_one_slot =
++					post_down_predicted_risk_us <= 0;
++
++	/*
++		* Down margin uses unified pressure.
++		*/
++	int64_t required_safe_margin_64 =
++					(int64_t)jitter_unified_pressure_ahead_us;
++
++	if (required_safe_margin_64 > INT32_MAX)
++			required_safe_margin_64 = INT32_MAX;
++
++	if (required_safe_margin_64 < 0)
++			required_safe_margin_64 = INT32_MAX;
++
++	int32_t required_safe_margin_for_down =
++					(int32_t)required_safe_margin_64;
++
++	bool enough_ewma_safe_margin_for_down =
++					p7_info->DM_EWMA_safe_margin_ewma_us >=
++					required_safe_margin_for_down;
++
++	/*
++		* Post-down guard also uses unified pressure.
++		*/
++	int64_t post_down_guarded_risk_64 =
++					(int64_t)post_down_predicted_risk_us +
++					(int64_t)jitter_unified_pressure_ahead_us;
++
++	if (post_down_guarded_risk_64 > INT32_MAX)
++			post_down_guarded_risk_64 = INT32_MAX;
++
++	if (post_down_guarded_risk_64 < INT32_MIN)
++			post_down_guarded_risk_64 = INT32_MIN;
++
++	int32_t post_down_guarded_risk_us =
++					(int32_t)post_down_guarded_risk_64;
++
++	bool post_down_guarded_safe =
++					post_down_guarded_risk_us <= 0;
++
++	bool above_jitter_floor =
++					p7_info->slot_ahead > jitter_unified_required_s_ahead;
++
++	bool jitter_pressure_allows_down =
++					p7_info->slot_ahead > jitter_unified_required_s_ahead;
++
++	/*
++		* If hold floor is active:
++		*
++		*   hold floor = 8
++		*   9 -> 8 allowed
++		*   8 -> 7 blocked
++		*/
++	bool jitter_hold_allows_down =
++					!jitter_pressure_hold_active ||
++					p7_info->slot_ahead > jitter_unified_required_s_ahead;
++
++	bool down_allowed =
++					!up_required &&
++					debt_free &&
++					enough_fresh_safe_evidence_for_down &&
++					enough_ewma_safe_margin_for_down &&
++					down_safe_after_one_slot &&
++					post_down_guarded_safe &&
++					above_jitter_floor &&
++					jitter_pressure_allows_down &&
++					jitter_hold_allows_down &&
++					p7_info->slot_ahead > 1;
++
++	/*
++		* ============================================================
++		* Safe-start model
++		* ============================================================
++		*/
++	int32_t startup_s_ahead =
++					global_ewma_beta_denom;
++
++	if (startup_s_ahead < 1)
++			startup_s_ahead = 1;
++
++	if (startup_s_ahead > max_s_ahead)
++			startup_s_ahead = max_s_ahead;
++
++	bool cold_start =
++					p7_info->DM_EWMA_last_target_s_ahead <= 0;
++
++	bool safe_start_required =
++					cold_start &&
++					p7_info->slot_ahead < startup_s_ahead;
++
++	int32_t target_s_ahead = p7_info->slot_ahead;
++
++	if (pacing_gate_open) {
++			if (safe_start_required) {
++					target_s_ahead = startup_s_ahead;
++			} else if (hard_up_required) {
++					target_s_ahead = jitter_required_s_ahead;
++
++					if (target_s_ahead <= p7_info->slot_ahead)
++							target_s_ahead = p7_info->slot_ahead + 1;
++			} else if (jitter_soft_up_required) {
++					target_s_ahead = jitter_required_s_ahead;
++			} else if (soft_up_required) {
++					target_s_ahead = p7_info->slot_ahead + 1;
++
++					if (target_s_ahead < jitter_required_s_ahead)
++							target_s_ahead = jitter_required_s_ahead;
++			} else if (down_allowed) {
++					target_s_ahead = p7_info->slot_ahead - 1;
++
++					/*
++						* Down target must not go below unified floor.
++						*/
++					if (target_s_ahead < jitter_unified_required_s_ahead)
++							target_s_ahead = jitter_unified_required_s_ahead;
++			}
++	}
++
++	if (target_s_ahead > max_s_ahead)
++			target_s_ahead = max_s_ahead;
++
++	if (target_s_ahead < 1)
++			target_s_ahead = 1;
++
++	/*
++		* ============================================================
++		* No movement path
++		* ============================================================
++		*/
++	if (target_s_ahead == p7_info->slot_ahead) {
++			return;
++	}
++
++	/*
++		* ============================================================
++		* Apply actuation
++		* ============================================================
++		*/
++	int32_t old_s_ahead = p7_info->slot_ahead;
++
++	int32_t delta_s_ahead =
++					target_s_ahead - old_s_ahead;
++
++	int64_t mean_shift_64 =
++					(int64_t)delta_s_ahead *
++					(int64_t)slot_duration_us;
++
++	int64_t compensated_mean_64 =
++					(int64_t)p7_info->estimated_mean_late -
++					mean_shift_64;
++
++	if (compensated_mean_64 > INT32_MAX)
++			compensated_mean_64 = INT32_MAX;
++
++	if (compensated_mean_64 < INT32_MIN)
++			compensated_mean_64 = INT32_MIN;
++
++	p7_info->estimated_mean_late =
++					(int32_t)compensated_mean_64;
++
++	/*
++		* Do not aggressively reset jitter estimators after actuation.
++		*/
++	int32_t lookahead_depth_slots =
++					p7_max_i32(old_s_ahead, target_s_ahead);
++
++	int64_t settle_steps_64 =
++					((int64_t)abs_i32(delta_s_ahead) +
++						(int64_t)lookahead_depth_slots) *
++					(int64_t)global_ewma_alpha_denom;
++
++	if (settle_steps_64 > INT32_MAX)
++			settle_steps_64 = INT32_MAX;
++
++	p7_info->last_adjustment_steps =
++					(int32_t)settle_steps_64;
++
++	if (p7_info->last_adjustment_steps < 1)
++			p7_info->last_adjustment_steps = 1;
++
++	p7_info->last_adjustment_sfn = p7_info->sfn;
++	p7_info->last_adjustment_slot = p7_info->slot;
++
++	p7_info->DM_EWMA_last_target_s_ahead =
++					target_s_ahead;
++
++	p7_info->DM_EWMA_safe_period_count = 0;
++	p7_info->DM_EWMA_late_period_count = 0;
++	p7_info->DM_EWMA_risk_period_count = 0;
++
++	p7_info->slot_ahead = target_s_ahead;
++
++	return;
++}
++
++
+ void* vnf_p7_malloc(vnf_p7_t* vnf_p7, size_t size)
+ {
+ 	if(vnf_p7->_public.malloc)
+@@ -38,7 +1120,7 @@ void* vnf_p7_malloc(vnf_p7_t* vnf_p7, size_t size)
+ 	}
+ 	else
+ 	{
+-		return calloc(1, size); 
++		return calloc(1, size);
+ 	}
+ }
+ void vnf_p7_free(vnf_p7_t* vnf_p7, void* ptr)
+@@ -52,7 +1134,7 @@ void vnf_p7_free(vnf_p7_t* vnf_p7, void* ptr)
+ 	}
+ 	else
+ 	{
+-		free(ptr); 
++		free(ptr);
+ 	}
+ }
+ 
+@@ -67,7 +1149,7 @@ void vnf_p7_codec_free(vnf_p7_t* vnf_p7, void* ptr)
+ 	}
+ 	else
+ 	{
+-		free(ptr); 
++		free(ptr);
+ 	}
+ }
+ 
+@@ -75,7 +1157,7 @@ void vnf_p7_connection_info_list_add(vnf_p7_t* vnf_p7, nfapi_vnf_p7_connection_i
+ {
+ 	NFAPI_TRACE(NFAPI_TRACE_INFO, "%s()\n", __FUNCTION__);
+ 	// todo : add mutex
+-	node->next = vnf_p7->p7_connections; 
++	node->next = vnf_p7->p7_connections;
+ 	vnf_p7->p7_connections = node;
+ }
+ 
+@@ -137,11 +1219,11 @@ vnf_p7_rx_message_t* vnf_p7_rx_reassembly_queue_add_segment(vnf_p7_t* vnf_p7, vn
+ 
+ 		iterator = iterator->next;
+ 	}
+-	
++
+ 	// if found then copy data to message
+ 	if(msg != 0)
+ 	{
+-	
++
+ 		msg->segments[segment_number].buffer = (uint8_t*)vnf_p7_malloc(vnf_p7, data_len);
+ 		memcpy(msg->segments[segment_number].buffer, data, data_len);
+ 		msg->segments[segment_number].length = data_len;
+@@ -233,7 +1315,7 @@ void vnf_p7_rx_reassembly_queue_remove_old_msgs(vnf_p7_t* vnf_p7, vnf_p7_rx_reas
+ 			{
+ 				previous->next = iterator->next;
+ 			}
+-			
++
+ 			NFAPI_TRACE(NFAPI_TRACE_WARN, "Deleting stale reassembly message (packet rx_hr_time %u current rx_hr_time %u delta %d us)\n", iterator->rx_hr_time, rx_hr_time, delta);
+ 
+ 			vnf_p7_rx_message_t* to_delete = iterator;
+@@ -287,12 +1369,12 @@ uint16_t increment_sfn_sf(uint16_t sfn_sf)
+ struct timespec timespec_delta(struct timespec start, struct timespec end)
+ {
+ 	struct timespec temp;
+-	if ((end.tv_nsec-start.tv_nsec)<0) 
++	if ((end.tv_nsec-start.tv_nsec)<0)
+ 	{
+ 		temp.tv_sec = end.tv_sec-start.tv_sec-1;
+ 		temp.tv_nsec = 1000000000+end.tv_nsec-start.tv_nsec;
+-	} 
+-	else 
++	}
++	else
+ 	{
+ 		temp.tv_sec = end.tv_sec-start.tv_sec;
+ 		temp.tv_nsec = end.tv_nsec-start.tv_nsec;
+@@ -300,6 +1382,27 @@ struct timespec timespec_delta(struct timespec start, struct timespec end)
+ 	return temp;
+ }
+ 
++/*! Compute signed difference between two TIMEHR timestamps in microseconds.
++ *  Handles 12-bit second wrap-around (every 4096 seconds) correctly
++ *  for differences up to ~2048 seconds.
++ */
++static inline int64_t timehr_diff_us(uint32_t time_hr_a, uint32_t time_hr_b)
++{
++    // Extract seconds and microseconds
++    int32_t sec_a = TIMEHR_SEC(time_hr_a);
++    int32_t sec_b = TIMEHR_SEC(time_hr_b);
++    int32_t usec_a = TIMEHR_USEC(time_hr_a);
++    int32_t usec_b = TIMEHR_USEC(time_hr_b);
++
++    // Handle 12-bit second wrap-around
++    // sec_a - sec_b should be in range [-2048, 2047] for valid comparisons
++    int32_t sec_diff = sec_a - sec_b;
++    if (sec_diff > 2048) sec_diff -= 4096;   // sec_a wrapped, sec_b didn't
++    if (sec_diff < -2048) sec_diff += 4096;  // sec_b wrapped, sec_a didn't
++
++    return (int64_t)sec_diff * 1000000 + (usec_a - usec_b);
++}
++
+ static uint32_t get_sf_time(uint32_t now_hr, uint32_t sf_start_hr)
+ {
+ 	if(now_hr < sf_start_hr)
+@@ -324,24 +1427,13 @@ static uint32_t get_sf_time(uint32_t now_hr, uint32_t sf_start_hr)
+ 
+ static uint32_t get_slot_time(uint32_t now_hr, uint32_t slot_start_hr)
+ {
+-	if(now_hr < slot_start_hr)
+-	{
++	// Use proper signed difference to handle wrap-around
++	int64_t diff_us = timehr_diff_us(now_hr, slot_start_hr);
++	if (diff_us < 0) {
+ 		NFAPI_TRACE(NFAPI_TRACE_INFO, "now is earlier than start of slot\n");
+ 		return 0;
+ 	}
+-	else
+-	{
+-		uint32_t now_us = TIMEHR_USEC(now_hr);
+-		uint32_t slot_start_us = TIMEHR_USEC(slot_start_hr);
+-
+-		// if the us have wrapped adjust for it
+-		if(now_hr < slot_start_us)
+-		{
+-			now_us += 1000000;
+-		}
+-
+-		return now_us - slot_start_us;
+-	}
++	return (uint32_t)diff_us;
+ }
+ 
+ uint32_t calculate_t1(uint16_t sfn_sf, uint32_t sf_start_time_hr)
+@@ -362,7 +1454,7 @@ uint32_t calculate_nr_t1(int mu, uint16_t sfn, uint16_t slot, uint32_t slot_star
+ 	uint32_t slot_time_us = get_slot_time(now_time_hr, slot_start_time_hr);
+ 
+ 	uint32_t t1 = NFAPI_SFNSLOT2DEC(mu, sfn,slot) * NFAPI_SLOTLEN(mu) + slot_time_us;
+-	
++
+ 	return t1;
+ }
+ 
+@@ -382,7 +1474,7 @@ uint32_t calculate_nr_t4(uint32_t now_time_hr, int mu, uint16_t sfn, uint16_t sl
+ 	uint32_t slot_time_us = get_slot_time(now_time_hr, slot_start_time_hr);
+ 
+ 	uint32_t t4 = NFAPI_SFNSLOT2DEC(mu, sfn,slot) * NFAPI_SLOTLEN(mu) + slot_time_us;
+-	
++
+ 	return t4;
+ 
+ }
+@@ -395,7 +1487,7 @@ uint32_t calculate_transmit_timestamp(int mu, uint16_t sfn, uint16_t slot, uint3
+ 	uint32_t slot_time_us = get_slot_time(now_time_hr, slot_start_time_hr);
+ 
+ 	uint32_t tt = NFAPI_SFNSLOT2DEC(mu, sfn, slot) * NFAPI_SLOTLEN(mu) + slot_time_us;
+-	
++
+ 	return tt;
+ }
+ 
+@@ -456,7 +1548,7 @@ int send_mac_subframe_indications(vnf_p7_t* vnf_p7)
+ 
+ int vnf_send_p7_msg(vnf_p7_t* vnf_p7, nfapi_vnf_p7_connection_info_t* p7_info, uint8_t* msg, const uint32_t len)
+ {
+-	int sendto_result = sendto(vnf_p7->socket, msg, len, 0, (struct sockaddr*)&(p7_info->remote_addr), sizeof(p7_info->remote_addr)); 
++	int sendto_result = sendto(vnf_p7->socket, msg, len, 0, (struct sockaddr*)&(p7_info->remote_addr), sizeof(p7_info->remote_addr));
+ 	//printf("P7 msg sent \n");
+ 	if(sendto_result != len)
+ 	{
+@@ -476,12 +1568,12 @@ int vnf_p7_pack_and_send_p7_msg(vnf_p7_t* vnf_p7, nfapi_p7_message_header_t* hea
+ 		uint8_t  buffer[1024 * 32];
+ 
+ 		header->m_segment_sequence = NFAPI_P7_SET_MSS(0, 0, p7_connection->sequence_number);
+-		
++
+ 		int len = nfapi_p7_message_pack(header, buffer, sizeof(buffer), &vnf_p7->_public.codec_config);
+-		
++
+                 //NFAPI_TRACE(NFAPI_TRACE_INFO, "%s() phy_id:%d nfapi_p7_message_pack()=len=%d vnf_p7->_public.segment_size:%u\n", __FUNCTION__, header->phy_id, len, vnf_p7->_public.segment_size);
+ 
+-		if(len < 0) 
++		if(len < 0)
+ 		{
+ 			NFAPI_TRACE(NFAPI_TRACE_INFO, "%s() failed to pack p7 message phy_id:%d\n", __FUNCTION__, header->phy_id);
+ 			return -1;
+@@ -491,12 +1583,12 @@ int vnf_p7_pack_and_send_p7_msg(vnf_p7_t* vnf_p7, nfapi_p7_message_header_t* hea
+ 		{
+ 			// todo : consider replacing with the sendmmsg call
+ 			// todo : worry about blocking writes?
+-		
++
+ 			// segmenting the transmit
+-			int msg_body_len = len - NFAPI_P7_HEADER_LENGTH ; 
+-			int seg_body_len = vnf_p7->_public.segment_size - NFAPI_P7_HEADER_LENGTH ; 
+-			int segment_count = (msg_body_len / (seg_body_len)) + ((msg_body_len % seg_body_len) ? 1 : 0); 
+-				
++			int msg_body_len = len - NFAPI_P7_HEADER_LENGTH ;
++			int seg_body_len = vnf_p7->_public.segment_size - NFAPI_P7_HEADER_LENGTH ;
++			int segment_count = (msg_body_len / (seg_body_len)) + ((msg_body_len % seg_body_len) ? 1 : 0);
++
+ 			int segment = 0;
+ 			int offset = NFAPI_P7_HEADER_LENGTH;
+ 			uint8_t tx_buffer[vnf_p7->_public.segment_size];
+@@ -513,7 +1605,7 @@ int vnf_p7_pack_and_send_p7_msg(vnf_p7_t* vnf_p7, nfapi_p7_message_header_t* hea
+ 
+ 				uint16_t segment_size = size + NFAPI_P7_HEADER_LENGTH;
+ 
+-				// Update the header with the m and segement 
++				// Update the header with the m and segement
+ 				memcpy(&tx_buffer[0], buffer, NFAPI_P7_HEADER_LENGTH);
+ 
+ 				// set the segment length
+@@ -530,8 +1622,8 @@ int vnf_p7_pack_and_send_p7_msg(vnf_p7_t* vnf_p7, nfapi_p7_message_header_t* hea
+ 				{
+ 					nfapi_p7_update_checksum(tx_buffer, segment_size);
+ 				}
+-			
+-				nfapi_p7_update_transmit_timestamp(buffer, calculate_transmit_timestamp(p7_connection->mu, p7_connection->sfn, p7_connection->slot, vnf_p7->slot_start_time_hr));	
++
++				nfapi_p7_update_transmit_timestamp(buffer, calculate_transmit_timestamp(p7_connection->mu, p7_connection->sfn, p7_connection->slot, vnf_p7->slot_start_time_hr));
+ 
+ 				send_result = vnf_send_p7_msg(vnf_p7, p7_connection,  &tx_buffer[0], segment_size);
+ 			}
+@@ -543,7 +1635,7 @@ int vnf_p7_pack_and_send_p7_msg(vnf_p7_t* vnf_p7, nfapi_p7_message_header_t* hea
+ 				nfapi_p7_update_checksum(buffer, len);
+ 			}
+ 
+-			nfapi_p7_update_transmit_timestamp(buffer, calculate_transmit_timestamp(p7_connection->mu, p7_connection->sfn, p7_connection->slot, vnf_p7->slot_start_time_hr));	
++			nfapi_p7_update_transmit_timestamp(buffer, calculate_transmit_timestamp(p7_connection->mu, p7_connection->sfn, p7_connection->slot, vnf_p7->slot_start_time_hr));
+ 
+ 			// simple case that the message fits in a single segement
+ 			send_result = vnf_send_p7_msg(vnf_p7, p7_connection, &buffer[0], len);
+@@ -569,7 +1661,7 @@ int vnf_build_send_dl_node_sync(vnf_p7_t* vnf_p7, nfapi_vnf_p7_connection_info_t
+ 	dl_node_sync.t1 = calculate_t1(p7_info->sfn_sf, vnf_p7->sf_start_time_hr);
+ 	dl_node_sync.delta_sfn_sf = 0;
+ 
+-	return vnf_p7_pack_and_send_p7_msg(vnf_p7, &dl_node_sync.header);	
++	return vnf_p7_pack_and_send_p7_msg(vnf_p7, &dl_node_sync.header);
+ }
+ 
+ int vnf_nr_build_send_dl_node_sync(vnf_p7_t* vnf_p7, nfapi_vnf_p7_connection_info_t* p7_info)
+@@ -606,7 +1698,7 @@ int vnf_nr_sync(vnf_p7_t* vnf_p7, nfapi_vnf_p7_connection_info_t* p7_info)
+ 		//uint16_t sfn_sf_dec = NFAPI_SFNSF2DEC(p7_info->sfn_sf);
+ 		uint16_t sfn_slot_dec = NFAPI_SFNSLOT2DEC(p7_info->mu, p7_info->sfn, p7_info->slot);
+ 
+-		if ((((sfn_slot_dec + p7_info->dl_out_sync_offset) % NFAPI_MAX_SFNSLOTDEC(p7_info->mu)) & dl_sync_period_mask) == 0) 
++		if ((((sfn_slot_dec + p7_info->dl_out_sync_offset) % NFAPI_MAX_SFNSLOTDEC(p7_info->mu)) & dl_sync_period_mask) == 0)
+ 		{
+ 			vnf_nr_build_send_dl_node_sync(vnf_p7, p7_info);
+ 		}
+@@ -652,7 +1744,7 @@ void vnf_handle_harq_indication(void *pRecvMsg, int recvMsgLen, vnf_p7_t* vnf_p7
+ 	else
+ 	{
+ 		nfapi_harq_indication_t ind;
+-	
++
+ 		if(nfapi_p7_message_unpack(pRecvMsg, recvMsgLen, &ind, sizeof(ind), &vnf_p7->_public.codec_config) < 0)
+ 		{
+ 			NFAPI_TRACE(NFAPI_TRACE_ERROR, "%s: Failed to unpack message\n", __FUNCTION__);
+@@ -664,7 +1756,7 @@ void vnf_handle_harq_indication(void *pRecvMsg, int recvMsgLen, vnf_p7_t* vnf_p7
+ 				(vnf_p7->_public.harq_indication)(&(vnf_p7->_public), &ind);
+ 			}
+ 		}
+-	
++
+ 		vnf_p7_codec_free(vnf_p7, ind.harq_indication_body.harq_pdu_list);
+ 		vnf_p7_codec_free(vnf_p7, ind.vendor_extension);
+ 	}
+@@ -680,7 +1772,7 @@ void vnf_handle_crc_indication(void *pRecvMsg, int recvMsgLen, vnf_p7_t* vnf_p7)
+ 	else
+ 	{
+ 		nfapi_crc_indication_t ind;
+-	
++
+ 		if(nfapi_p7_message_unpack(pRecvMsg, recvMsgLen, &ind, sizeof(ind), &vnf_p7->_public.codec_config) < 0)
+ 		{
+ 			NFAPI_TRACE(NFAPI_TRACE_ERROR, "%s: Failed to message\n", __FUNCTION__);
+@@ -692,7 +1784,7 @@ void vnf_handle_crc_indication(void *pRecvMsg, int recvMsgLen, vnf_p7_t* vnf_p7)
+ 				(vnf_p7->_public.crc_indication)(&(vnf_p7->_public), &ind);
+ 			}
+ 		}
+-	
++
+ 		vnf_p7_codec_free(vnf_p7, ind.crc_indication_body.crc_pdu_list);
+ 		vnf_p7_codec_free(vnf_p7, ind.vendor_extension);
+ 	}
+@@ -708,7 +1800,7 @@ void vnf_handle_rx_ulsch_indication(void *pRecvMsg, int recvMsgLen, vnf_p7_t* vn
+ 	else
+ 	{
+ 		nfapi_rx_indication_t ind;
+-	
++
+ 		if(nfapi_p7_message_unpack(pRecvMsg, recvMsgLen, &ind, sizeof(ind), &vnf_p7->_public.codec_config) < 0)
+ 		{
+ 			NFAPI_TRACE(NFAPI_TRACE_ERROR, "%s: Failed to unpack message\n", __FUNCTION__);
+@@ -737,7 +1829,7 @@ void vnf_handle_rach_indication(void *pRecvMsg, int recvMsgLen, vnf_p7_t* vnf_p7
+ 	else
+ 	{
+ 		nfapi_rach_indication_t ind;
+-	
++
+ 		if(nfapi_p7_message_unpack(pRecvMsg, recvMsgLen, &ind, sizeof(ind), &vnf_p7->_public.codec_config) < 0)
+ 		{
+ 			NFAPI_TRACE(NFAPI_TRACE_ERROR, "%s: Failed to message\n", __FUNCTION__);
+@@ -749,7 +1841,7 @@ void vnf_handle_rach_indication(void *pRecvMsg, int recvMsgLen, vnf_p7_t* vnf_p7
+ 				(vnf_p7->_public.rach_indication)(&vnf_p7->_public, &ind);
+ 			}
+ 		}
+-	
++
+ 		vnf_p7_codec_free(vnf_p7, ind.rach_indication_body.preamble_list);
+ 		vnf_p7_codec_free(vnf_p7, ind.vendor_extension);
+ 
+@@ -778,9 +1870,9 @@ void vnf_handle_srs_indication(void *pRecvMsg, int recvMsgLen, vnf_p7_t* vnf_p7)
+ 				(vnf_p7->_public.srs_indication)(&(vnf_p7->_public), &ind);
+ 			}
+ 		}
+-	
++
+ 		vnf_p7_codec_free(vnf_p7, ind.srs_indication_body.srs_pdu_list);
+-		vnf_p7_codec_free(vnf_p7, ind.vendor_extension);	
++		vnf_p7_codec_free(vnf_p7, ind.vendor_extension);
+ 	}
+ }
+ 
+@@ -794,7 +1886,7 @@ void vnf_handle_rx_sr_indication(void *pRecvMsg, int recvMsgLen, vnf_p7_t* vnf_p
+ 	else
+ 	{
+ 		nfapi_sr_indication_t ind;
+-	
++
+ 		if(nfapi_p7_message_unpack(pRecvMsg, recvMsgLen, &ind, sizeof(ind), &vnf_p7->_public.codec_config) < 0)
+ 		{
+ 			NFAPI_TRACE(NFAPI_TRACE_ERROR, "%s: Failed to unpack message\n", __FUNCTION__);
+@@ -806,9 +1898,9 @@ void vnf_handle_rx_sr_indication(void *pRecvMsg, int recvMsgLen, vnf_p7_t* vnf_p
+ 				(vnf_p7->_public.sr_indication)(&(vnf_p7->_public), &ind);
+ 			}
+ 		}
+-	
++
+ 		vnf_p7_codec_free(vnf_p7, ind.sr_indication_body.sr_pdu_list);
+-		vnf_p7_codec_free(vnf_p7, ind.vendor_extension);	
++		vnf_p7_codec_free(vnf_p7, ind.vendor_extension);
+ 	}
+ }
+ void vnf_handle_rx_cqi_indication(void *pRecvMsg, int recvMsgLen, vnf_p7_t* vnf_p7)
+@@ -821,7 +1913,7 @@ void vnf_handle_rx_cqi_indication(void *pRecvMsg, int recvMsgLen, vnf_p7_t* vnf_
+ 	else
+ 	{
+ 		nfapi_cqi_indication_t ind;
+-	
++
+ 		if(nfapi_p7_message_unpack(pRecvMsg, recvMsgLen, &ind, sizeof(ind), &vnf_p7->_public.codec_config) < 0)
+ 		{
+ 			NFAPI_TRACE(NFAPI_TRACE_ERROR, "%s: Failed to unpack message\n", __FUNCTION__);
+@@ -833,11 +1925,11 @@ void vnf_handle_rx_cqi_indication(void *pRecvMsg, int recvMsgLen, vnf_p7_t* vnf_
+ 				(vnf_p7->_public.cqi_indication)(&(vnf_p7->_public), &ind);
+ 			}
+ 		}
+-	
++
+ 		vnf_p7_codec_free(vnf_p7, ind.cqi_indication_body.cqi_pdu_list);
+ 		vnf_p7_codec_free(vnf_p7, ind.cqi_indication_body.cqi_raw_pdu_list);
+-		vnf_p7_codec_free(vnf_p7, ind.vendor_extension);	
+-		
++		vnf_p7_codec_free(vnf_p7, ind.vendor_extension);
++
+ 	}
+ 
+ }
+@@ -864,7 +1956,7 @@ void vnf_handle_lbt_dl_indication(void *pRecvMsg, int recvMsgLen, vnf_p7_t* vnf_
+ 				(vnf_p7->_public.lbt_dl_indication)(&(vnf_p7->_public), &ind);
+ 			}
+ 		}
+-	
++
+ 		vnf_p7_codec_free(vnf_p7, ind.lbt_dl_indication_body.lbt_indication_pdu_list);
+ 		vnf_p7_codec_free(vnf_p7, ind.vendor_extension);
+ 	}
+@@ -880,7 +1972,7 @@ void vnf_handle_nb_harq_indication(void *pRecvMsg, int recvMsgLen, vnf_p7_t* vnf
+ 	else
+ 	{
+ 		nfapi_nb_harq_indication_t ind;
+-	
++
+ 		if(nfapi_p7_message_unpack(pRecvMsg, recvMsgLen, &ind, sizeof(ind), &vnf_p7->_public.codec_config) < 0)
+ 		{
+ 			NFAPI_TRACE(NFAPI_TRACE_ERROR, "%s: Failed to unpack message\n", __FUNCTION__);
+@@ -892,7 +1984,7 @@ void vnf_handle_nb_harq_indication(void *pRecvMsg, int recvMsgLen, vnf_p7_t* vnf
+ 				(vnf_p7->_public.nb_harq_indication)(&(vnf_p7->_public), &ind);
+ 			}
+ 		}
+-	
++
+ 		vnf_p7_codec_free(vnf_p7, ind.nb_harq_indication_body.nb_harq_pdu_list);
+ 		vnf_p7_codec_free(vnf_p7, ind.vendor_extension);
+ 	}
+@@ -908,7 +2000,7 @@ void vnf_handle_nrach_indication(void *pRecvMsg, int recvMsgLen, vnf_p7_t* vnf_p
+ 	else
+ 	{
+ 		nfapi_nrach_indication_t ind;
+-	
++
+ 		if(nfapi_p7_message_unpack(pRecvMsg, recvMsgLen, &ind, sizeof(ind), &vnf_p7->_public.codec_config) < 0)
+ 		{
+ 			NFAPI_TRACE(NFAPI_TRACE_ERROR, "%s: Failed to unpack message\n", __FUNCTION__);
+@@ -920,7 +2012,7 @@ void vnf_handle_nrach_indication(void *pRecvMsg, int recvMsgLen, vnf_p7_t* vnf_p
+ 				(vnf_p7->_public.nrach_indication)(&(vnf_p7->_public), &ind);
+ 			}
+ 		}
+-	
++
+ 		vnf_p7_codec_free(vnf_p7, ind.nrach_indication_body.nrach_pdu_list);
+ 		vnf_p7_codec_free(vnf_p7, ind.vendor_extension);
+ 	}
+@@ -972,10 +2064,10 @@ void vnf_handle_p7_vendor_extension(void *pRecvMsg, int recvMsgLen, vnf_p7_t* vn
+ 			if(vnf_p7->_public.vendor_ext)
+ 				vnf_p7->_public.vendor_ext(&(vnf_p7->_public), msg);
+ 		}
+-		
++
+ 		if(vnf_p7->_public.deallocate_p7_vendor_ext)
+ 			vnf_p7->_public.deallocate_p7_vendor_ext(msg);
+-		
++
+ 	}
+ }
+ 
+@@ -1042,7 +2134,7 @@ void vnf_handle_ul_node_sync(void *pRecvMsg, int recvMsgLen, vnf_p7_t* vnf_p7)
+ 		phy->latency[phy->min_sync_cycle_count] = latency;
+ 
+ 		NFAPI_TRACE(NFAPI_TRACE_NOTE, "(%4d/%d) PNF to VNF !sync phy_id:%d (t1/2/3/4:%8u, %8u, %8u, %8u) txrx:%4u procT:%3u latency(us):%4d\n",
+-				NFAPI_SFNSF2SFN(phy->sfn_sf), NFAPI_SFNSF2SF(phy->sfn_sf), ind.header.phy_id, ind.t1, ind.t2, ind.t3, t4, 
++				NFAPI_SFNSF2SFN(phy->sfn_sf), NFAPI_SFNSF2SF(phy->sfn_sf), ind.header.phy_id, ind.t1, ind.t2, ind.t3, t4,
+ 				tx_2_rx, pnf_proc_time, latency);
+ 	}
+ 	else
+@@ -1088,7 +2180,7 @@ void vnf_handle_ul_node_sync(void *pRecvMsg, int recvMsgLen, vnf_p7_t* vnf_p7)
+ 
+ 			NFAPI_TRACE(NFAPI_TRACE_INFO, "(%4d/%1d) %ld.%ld PNF to VNF phy_id:%2d (t1/2/3/4:%8u, %8u, %8u, %8u) txrx:%4u procT:%3u latency(us):%4d(avg:%4d) offset(us):%8d filtered(us):%8d wrap[t1:%u t2:%u]\n",
+ 					NFAPI_SFNSF2SFN(phy->sfn_sf), NFAPI_SFNSF2SF(phy->sfn_sf), ts.tv_sec, ts.tv_nsec, ind.header.phy_id,
+-					ind.t1, ind.t2, ind.t3, t4, 
++					ind.t1, ind.t2, ind.t3, t4,
+ 					tx_2_rx, pnf_proc_time, latency, phy->average_latency, phy->sf_offset, phy->sf_offset_filtered,
+ 					(ind.t1<phy->previous_t1), (ind.t2<phy->previous_t2));
+ 		}
+@@ -1179,7 +2271,7 @@ void vnf_handle_ul_node_sync(void *pRecvMsg, int recvMsgLen, vnf_p7_t* vnf_p7)
+ 				}
+ 			}
+ 
+-			
++
+ 			int insync_minor_adjustment_1 = phy->sf_offset_trend / 6;
+ 			int insync_minor_adjustment_2 = phy->sf_offset_trend / 2;
+ 
+@@ -1218,7 +2310,7 @@ void vnf_handle_ul_node_sync(void *pRecvMsg, int recvMsgLen, vnf_p7_t* vnf_p7)
+ 					{
+ 						if(phy->in_sync == 0)
+ 						{
+-							//NFAPI_TRACE(NFAPI_TRACE_NOTE, "VNF P7 In Sync with phy (phy_id:%d)\n", phy->phy_id); 
++							//NFAPI_TRACE(NFAPI_TRACE_NOTE, "VNF P7 In Sync with phy (phy_id:%d)\n", phy->phy_id);
+ 
+ 							if(vnf_p7->_public.sync_indication)
+ 								(vnf_p7->_public.sync_indication)(&(vnf_p7->_public), phy->in_sync);
+@@ -1253,14 +2345,14 @@ void vnf_handle_ul_node_sync(void *pRecvMsg, int recvMsgLen, vnf_p7_t* vnf_p7)
+ 
+ 						if(phy->insync_minor_adjustment != 0)
+ 						{
+-							NFAPI_TRACE(NFAPI_TRACE_NOTE, "(%4d/%d) VNF phy_id:%d Apply minor insync adjustment %dus for %d subframes (sf_offset_filtered:%d) %d %d %d NEW:%d CURR:%d adjustment:%d\n", 
++							NFAPI_TRACE(NFAPI_TRACE_NOTE, "(%4d/%d) VNF phy_id:%d Apply minor insync adjustment %dus for %d subframes (sf_offset_filtered:%d) %d %d %d NEW:%d CURR:%d adjustment:%d\n",
+ 										NFAPI_SFNSF2SFN(phy->sfn_sf), NFAPI_SFNSF2SF(phy->sfn_sf), ind.header.phy_id,
+-										phy->insync_minor_adjustment, phy->insync_minor_adjustment_duration, 
+-                                                                                phy->sf_offset_filtered, 
++										phy->insync_minor_adjustment, phy->insync_minor_adjustment_duration,
++                                                                                phy->sf_offset_filtered,
+                                                                                 insync_minor_adjustment_1, insync_minor_adjustment_2, phy->sf_offset_trend,
+                                                                                 NFAPI_SFNSF2DEC(new_sfn_sf),
+                                                                                 NFAPI_SFNSF2DEC(curr_sfn_sf),
+-                                                                                phy->adjustment); 
++                                                                                phy->adjustment);
+ 						}
+ 					}
+ 				}
+@@ -1289,21 +2381,21 @@ void vnf_handle_ul_node_sync(void *pRecvMsg, int recvMsgLen, vnf_p7_t* vnf_p7)
+ 									phy->insync_minor_adjustment = -(insync_minor_adjustment_2);
+ 									phy->insync_minor_adjustment_duration = 2 * ((phy->sf_offset_filtered + 250) / -(insync_minor_adjustment_2));
+ 								}
+-							
++
+ 							}
+ 							//else
+ 							{
+ 								// out of sync?
+ 							}
+-							
+-							NFAPI_TRACE(NFAPI_TRACE_NOTE, "(%4d/%d) VNF phy_id:%d Apply minor insync adjustment %dus for %d subframes (adjustment:%d sf_offset_filtered:%d) %d %d %d NEW:%d CURR:%d adj:%d\n", 
++
++							NFAPI_TRACE(NFAPI_TRACE_NOTE, "(%4d/%d) VNF phy_id:%d Apply minor insync adjustment %dus for %d subframes (adjustment:%d sf_offset_filtered:%d) %d %d %d NEW:%d CURR:%d adj:%d\n",
+ 										NFAPI_SFNSF2SFN(phy->sfn_sf), NFAPI_SFNSF2SF(phy->sfn_sf), ind.header.phy_id,
+ 										phy->insync_minor_adjustment, phy->insync_minor_adjustment_duration, phy->adjustment, phy->sf_offset_filtered,
+ 										insync_minor_adjustment_1, insync_minor_adjustment_2, phy->sf_offset_trend,
+                                                                                 NFAPI_SFNSF2DEC(new_sfn_sf),
+                                                                                 NFAPI_SFNSF2DEC(curr_sfn_sf),
+-                                                                                phy->adjustment); 
+-							
++                                                                                phy->adjustment);
++
+ 						}
+ 						else if(phy->adjustment < 0)
+ 						{
+@@ -1329,10 +2421,10 @@ void vnf_handle_ul_node_sync(void *pRecvMsg, int recvMsgLen, vnf_p7_t* vnf_p7)
+ 								// out of sync?
+ 							}
+ 
+-							NFAPI_TRACE(NFAPI_TRACE_NOTE, "(%d/%d) VNF phy_id:%d Apply minor insync adjustment %dus for %d subframes (adjustment:%d sf_offset_filtered:%d) %d %d %d\n", 
++							NFAPI_TRACE(NFAPI_TRACE_NOTE, "(%d/%d) VNF phy_id:%d Apply minor insync adjustment %dus for %d subframes (adjustment:%d sf_offset_filtered:%d) %d %d %d\n",
+ 										NFAPI_SFNSF2SFN(phy->sfn_sf), NFAPI_SFNSF2SF(phy->sfn_sf), ind.header.phy_id,
+ 										phy->insync_minor_adjustment, phy->insync_minor_adjustment_duration, phy->adjustment, phy->sf_offset_filtered,
+-										insync_minor_adjustment_1, insync_minor_adjustment_2, phy->sf_offset_trend); 
++										insync_minor_adjustment_1, insync_minor_adjustment_2, phy->sf_offset_trend);
+ 						}
+ 
+ 						/*
+@@ -1360,7 +2452,7 @@ void vnf_handle_ul_node_sync(void *pRecvMsg, int recvMsgLen, vnf_p7_t* vnf_p7)
+ 			{
+ 				/*NFAPI_TRACE(NFAPI_TRACE_NOTE, "***** Adjusting VNF phy_id:%d SFN/SF (%s) from %d to %d (%d) mode:%s zeroCount:%u sync:%s\n",
+ 					ind.header.phy_id, (phy->in_sync ? "via sfn" : "now"),
+-					NFAPI_SFNSF2DEC(curr_sfn_sf), NFAPI_SFNSF2DEC(new_sfn_sf), phy->adjustment, 
++					NFAPI_SFNSF2DEC(curr_sfn_sf), NFAPI_SFNSF2DEC(new_sfn_sf), phy->adjustment,
+ 					phy->filtered_adjust ? "FILTERED" : "ABSOLUTE",
+ 					phy->zero_count,
+ 					phy->in_sync ? "IN_SYNC" : "OUT_OF_SYNC");*/
+@@ -1545,11 +2637,8 @@ void vnf_handle_nr_rach_indication(void *pRecvMsg, int recvMsgLen, vnf_p7_t* vnf
+ }
+ 
+ void vnf_nr_handle_ul_node_sync(void *pRecvMsg, int recvMsgLen, vnf_p7_t* vnf_p7)
+-{	
+-	//printf("received UL Node sync");
+-
++{
+ 	uint32_t now_time_hr = vnf_get_current_time_hr();
+-
+ 	if (pRecvMsg == NULL || vnf_p7  == NULL)
+ 	{
+ 		NFAPI_TRACE(NFAPI_TRACE_ERROR, "vnf_handle_ul_node_sync: NULL parameters\n");
+@@ -1557,470 +2646,123 @@ void vnf_nr_handle_ul_node_sync(void *pRecvMsg, int recvMsgLen, vnf_p7_t* vnf_p7
+ 	}
+ 
+ 	nfapi_nr_ul_node_sync_t ind;
+-  const bool result = vnf_p7->_public.unpack_func(pRecvMsg, recvMsgLen, &ind, sizeof(nfapi_nr_ul_node_sync_t), &vnf_p7->_public.codec_config);
+-	if(!result)
+-	{
++	if (!vnf_p7->_public.unpack_func(pRecvMsg, recvMsgLen, &ind, sizeof(ind), &vnf_p7->_public.codec_config)) {
+ 		NFAPI_TRACE(NFAPI_TRACE_ERROR, "Failed to unpack ul_node_sync\n");
+ 		return;
+ 	}
+ 
+-	//NFAPI_TRACE(NFAPI_TRACE_INFO, "Received UL_NODE_SYNC phy_id:%d t1:%d t2:%d t3:%d\n", ind.header.phy_id, ind.t1, ind.t2, ind.t3);
++	nfapi_vnf_p7_connection_info_t* p7_info = vnf_p7_connection_info_list_find(vnf_p7, ind.header.phy_id);
++	if (!p7_info) {
++		NFAPI_TRACE(NFAPI_TRACE_ERROR, "PHY instance not found for phy_id:%d\n", ind.header.phy_id);
++		return;
++	}
++	uint32_t t4 = calculate_nr_t4(now_time_hr, p7_info->mu, p7_info->sfn, p7_info->slot, vnf_p7->slot_start_time_hr);
++	/*
++	* T1 = VNF Transmit Time (t1)    |   T2 = PNF Receive Time (t2)
++	* T3 = PNF Transmit Time (t3)    |   T4 = VNF Receive Time (t4)
++	*
++	* Assuming symmetric network delay:
++	* T2 - T1 = Delay + Offset
++	* T4 - T3 = Delay - Offset
++	* Offset = ((T2 - T1) - (T4 - T3)) / 2
++	*/
++	int64_t diff1 = (int64_t)ind.t2 - (int64_t)ind.t1;
++	int64_t diff2 = (int64_t)t4 - (int64_t)ind.t3;
++	int64_t wrap_us = 10240000LL;
++	int64_t half_wrap = 5120000LL;
++	// 10.24s Wrap-around protection (nFAPI timestamps are constrained by 1024 SFN loop)
++	while (diff1 > half_wrap) diff1 -= wrap_us;
++	while (diff1 < -half_wrap) diff1 += wrap_us;
++	while (diff2 > half_wrap) diff2 -= wrap_us;
++	while (diff2 < -half_wrap) diff2 += wrap_us;
++	int32_t offset = (int32_t)((diff1 - diff2) / 2);
++
++	// Positive offset implies VNF is BEHIND PNF (VNF Master time = PNF Slave time - Offset)
++	// VNF MUST INCREASE speed (reduce sleep time) to catch up -> requires pending_us to be NEGATIVE
++	// Negative offset implies VNF is AHEAD of PNF
++	// VNF MUST DECREASE speed (increase sleep time) to fall back -> requires pending_us to be POSITIVE
++
++	int32_t total_correction = offset;
++	pthread_mutex_lock(&p7_info->mutex);
++	if (!p7_info->sync_locked) {
++		if (total_correction >= -MARGIN_TOLERANCE_US && total_correction <= MARGIN_TOLERANCE_US) {
++			p7_info->sync_locked = 1;
++			p7_info->total_advanced_us = p7_info->slot_ahead * p7_info->slot_duration_us; // Account for initial phase offset!
++		} else {
++			int32_t s_adj = total_correction / (int32_t)p7_info->slot_duration_us;
++			int32_t p_adj = total_correction % (int32_t)p7_info->slot_duration_us;
++			p7_info->slot_adjustment += s_adj;
++			p7_info->pending_us -= p_adj;
++		}
++	}
++	pthread_mutex_unlock(&p7_info->mutex);
++}
+ 
+-	nfapi_vnf_p7_connection_info_t* phy = vnf_p7_connection_info_list_find(vnf_p7, ind.header.phy_id);
+-	uint32_t t4 = calculate_nr_t4(now_time_hr, phy->mu, phy->sfn, phy->slot, vnf_p7->slot_start_time_hr);
++void vnf_handle_timing_info(void *pRecvMsg, int recvMsgLen, vnf_p7_t* vnf_p7)
++{
++	if (pRecvMsg == NULL || vnf_p7 == NULL)
++	{
++		NFAPI_TRACE(NFAPI_TRACE_ERROR, "vnf_handle_timing_info: NULL parameters\n");
++		return;
++	}
+ 
+-	uint32_t tx_2_rx = t4>ind.t1 ? t4 - ind.t1 : t4 + NFAPI_MAX_SFNSLOTDEC(phy->mu) - ind.t1 ; //time taken to receive ul node sync - time taken to send dl node sync
+-	uint32_t pnf_proc_time = ind.t3 - ind.t2;
++	nfapi_timing_info_t ind;
++	if(nfapi_p7_message_unpack(pRecvMsg, recvMsgLen, &ind, sizeof(nfapi_timing_info_t), &vnf_p7->_public.codec_config) < 0)
++	{
++		NFAPI_TRACE(NFAPI_TRACE_ERROR, "Failed to unpack timing_info\n");
++		return;
++	}
+ 
+-	// divide by 2 using shift operator
+-	uint32_t latency =  (tx_2_rx - pnf_proc_time) >> 1;
++	if (vnf_p7 && vnf_p7->p7_connections)
++	{
++		int16_t vnf_pnf_sfnsf_delta = NFAPI_SFNSF2DEC(vnf_p7->p7_connections[0].sfn_sf) - NFAPI_SFNSF2DEC(ind.last_sfn_sf);
+ 
+-	//phy->in_sync = 1;
++		//NFAPI_TRACE(NFAPI_TRACE_INFO, "%s() PNF:SFN/SF:%d VNF:SFN/SF:%d deltaSFNSF:%d\n", __FUNCTION__, NFAPI_SFNSF2DEC(ind.last_sfn_sf), NFAPI_SFNSF2DEC(vnf_p7->p7_connections[0].sfn_sf), vnf_pnf_sfnsf_delta);
+ 
+-	if(!(phy->filtered_adjust))
+-	{
+-		phy->latency[phy->min_sync_cycle_count] = latency;
++		// Panos: Careful here!!! Modification of the original nfapi-code
++		//if (vnf_pnf_sfnsf_delta>1 || vnf_pnf_sfnsf_delta < -1)
++		if (vnf_pnf_sfnsf_delta>0 || vnf_pnf_sfnsf_delta < 0)
++		{
++			NFAPI_TRACE(NFAPI_TRACE_INFO, "%s() LARGE SFN/SF DELTA between PNF and VNF delta:%d VNF:%d PNF:%d\n\n\n\n\n\n\n\n\n", __FUNCTION__, vnf_pnf_sfnsf_delta, NFAPI_SFNSF2DEC(vnf_p7->p7_connections[0].sfn_sf), NFAPI_SFNSF2DEC(ind.last_sfn_sf));
++			// Panos: Careful here!!! Modification of the original nfapi-code
++			vnf_p7->p7_connections[0].sfn_sf = ind.last_sfn_sf;
++		}
++	}
++}
+ 
+-		//NFAPI_TRACE(NFAPI_TRACE_NOTE, "(%4d/%d) PNF to VNF !sync phy_id:%d (t1/2/3/4:%8u, %8u, %8u, %8u) txrx:%4u procT:%3u latency(us):%4d\n",
+-		//		phy->sfn, phy->slot, ind.header.phy_id, ind.t1, ind.t2, ind.t3, t4, 
+-		//		tx_2_rx, pnf_proc_time, latency);
++void vnf_nr_handle_timing_info(void *pRecvMsg, int recvMsgLen, vnf_p7_t* vnf_p7)
++{
++	if (pRecvMsg == NULL || vnf_p7 == NULL)
++	{
++		NFAPI_TRACE(NFAPI_TRACE_ERROR, "vnf_handle_timing_info: NULL parameters\n");
++		return;
+ 	}
+-	else
++
++	nfapi_nr_timing_info_t ind;
++	const bool result = vnf_p7->_public.unpack_func(pRecvMsg, recvMsgLen, &ind, sizeof(ind), &vnf_p7->_public.codec_config);
++	if(!result)
+ 	{
+-		phy->latency[phy->min_sync_cycle_count] = latency;
++		NFAPI_TRACE(NFAPI_TRACE_ERROR, "Failed to unpack timing_info\n");
++		return;
++	}
++	nfapi_vnf_p7_connection_info_t *p7_con = &vnf_p7->p7_connections[0];
+ 
+-		//if(phy->min_sync_cycle_count != SYNC_CYCLE_COUNT)
+-		{
+-			if (ind.t2 < phy->previous_t2 && ind.t1 > phy->previous_t1)
+-			{
+-				// Only t2 wrap has occurred!!!
+-				phy->slot_offset = (NFAPI_MAX_SFNSLOTDEC(phy->mu) + ind.t2) - ind.t1 - latency;
+-			}
+-			else if (ind.t2 > phy->previous_t2 && ind.t1 < phy->previous_t1)
+-			{
+-				// Only t1 wrap has occurred
+-				phy->slot_offset = ind.t2 - ( ind.t1 + NFAPI_MAX_SFNSLOTDEC(phy->mu)) - latency;
+-			}
+-			else
+-			{
+-				// Either no wrap or both have wrapped
+-				phy->slot_offset = ind.t2 - ind.t1 - latency;
+-			}
+-
+-			if (phy->slot_offset_filtered == 0)
+-			{
+-				phy->slot_offset_filtered = phy->slot_offset;
+-			}
+-			else
+-			{
+-				int32_t oldFilteredValueShifted = phy->slot_offset_filtered << 5;
+-				int32_t newOffsetShifted = phy->slot_offset << 5;
+-
+-				// 1/8 of new and 7/8 of old
+-				phy->slot_offset_filtered = ((newOffsetShifted >> 3) + ((oldFilteredValueShifted * 7) >> 3)) >> 5;
+-			}
+-		}
+-
+-		if(1)
+-		{
+-                  struct timespec ts;
+-                  clock_gettime(CLOCK_MONOTONIC, &ts);
+-
+-			// NFAPI_TRACE(NFAPI_TRACE_NOTE, "(%4d/%1d) %d.%d PNF to VNF phy_id:%2d (t1/2/3/4:%8u, %8u, %8u, %8u) txrx:%4u procT:%3u latency(us):%4d(avg:%4d) offset(us):%8d filtered(us):%8d wrap[t1:%u t2:%u]\n", 
+-			// 		phy->sfn, phy->slot, ts.tv_sec, ts.tv_nsec, ind.header.phy_id,
+-			// 		ind.t1, ind.t2, ind.t3, t4, 
+-			// 		tx_2_rx, pnf_proc_time, latency, phy->average_latency, phy->slot_offset, phy->slot_offset_filtered,
+-			// 		(ind.t1<phy->previous_t1), (ind.t2<phy->previous_t2));
+-		}
+-
+-	}
+-
+-        if (phy->filtered_adjust && (phy->slot_offset_filtered > 1e6 || phy->slot_offset_filtered < -1e6))
+-        {
+-          phy->filtered_adjust = 0;
+-          phy->zero_count=0;
+-          phy->min_sync_cycle_count = 2;
+-          phy->in_sync = 0;
+-          NFAPI_TRACE(NFAPI_TRACE_ERROR, "%s - ADJUST TOO BAD - go out of filtered phy->slot_offset_filtered:%d\n", __FUNCTION__, phy->slot_offset_filtered);
+-        }
+-
+-	if(phy->min_sync_cycle_count)
+-		phy->min_sync_cycle_count--;
+-
+-	if(phy->min_sync_cycle_count == 0)
+-	{
+-		uint32_t curr_sfn = phy->sfn;
+-		uint32_t curr_slot = phy->slot;
+-		int32_t sfn_slot_dec = NFAPI_SFNSLOT2DEC(phy->mu, phy->sfn,phy->slot);
+-
+-		if(!phy->filtered_adjust)
+-		{
+-			int i = 0;
+-			//phy->average_latency = 0;
+-			for(i = 0; i < SYNC_CYCLE_COUNT; ++i)
+-			{
+-				phy->average_latency += phy->latency[i];
+-
+-			}
+-			phy->average_latency /= SYNC_CYCLE_COUNT;
+-
+-			phy->slot_offset = ind.t2 - (ind.t1 - phy->average_latency);
+-
+-			sfn_slot_dec += (phy->slot_offset / 500);
+-			
+-			NFAPI_TRACE(NFAPI_TRACE_NOTE, "PNF to VNF slot offset:%d sfn :%d slot:%d \n",phy->slot_offset,NFAPI_SFNSLOTDEC2SFN(phy->mu, sfn_slot_dec),NFAPI_SFNSLOTDEC2SLOT(phy->mu, sfn_slot_dec) );
+-
+-
+-		}
+-		else
+-		{
+-			sfn_slot_dec += ((phy->slot_offset_filtered + 250) / 500);	//Round up to go from microsecond to slot
+-			
+-		}
+-
+-		if(sfn_slot_dec < 0)
+-		{
+-			sfn_slot_dec += NFAPI_MAX_SFNSLOTDEC(phy->mu);
+-		}
+-		else if( sfn_slot_dec >= NFAPI_MAX_SFNSLOTDEC(phy->mu))
+-		{
+-			sfn_slot_dec -= NFAPI_MAX_SFNSLOTDEC(phy->mu);
+-		}
+-
+-		
+-		uint16_t new_sfn = NFAPI_SFNSLOTDEC2SFN(phy->mu, sfn_slot_dec);
+-		uint16_t new_slot = NFAPI_SFNSLOTDEC2SLOT(phy->mu, sfn_slot_dec);
+-	
+-		{
+-			phy->adjustment = NFAPI_SFNSLOT2DEC(phy->mu, new_sfn, new_slot) - NFAPI_SFNSLOT2DEC(phy->mu, curr_sfn, curr_slot);
+-
+-			//NFAPI_TRACE(NFAPI_TRACE_NOTE, "PNF to VNF phy_id:%d adjustment%d phy->previous_slot_offset_filtered:%d phy->previous_slot_offset_filtered:%d phy->slot_offset_trend:%d\n", ind.header.phy_id, phy->adjustment, phy->previous_slot_offset_filtered, phy->previous_slot_offset_filtered, phy->slot_offset_trend);
+-
+-			phy->previous_t1 = 0;
+-			phy->previous_t2 = 0;
+-
+-			if(phy->previous_slot_offset_filtered > 0)
+-			{
+-				if( phy->slot_offset_filtered > phy->previous_slot_offset_filtered)
+-				{
+-					// pnf is getting futher ahead of vnf
+-					//phy->sf_offset_trend = phy->sf_offset_filtered - phy->previous_sf_offset_filtered;
+-					phy->slot_offset_trend = (phy->slot_offset_filtered + phy->previous_slot_offset_filtered)/2;
+-				}
+-				else
+-				{
+-					// pnf is getting back in sync
+-				}
+-			}
+-			else if(phy->previous_slot_offset_filtered < 0)
+-			{
+-				if(phy->slot_offset_filtered < phy->previous_slot_offset_filtered)
+-				{
+-					// vnf is getting future ahead of pnf
+-					//phy->sf_offset_trend = -(phy->sf_offset_filtered - phy->previous_sf_offset_filtered);
+-					phy->slot_offset_trend = (-(phy->slot_offset_filtered + phy->previous_slot_offset_filtered)) /2;
+-				}
+-				else
+-				{
+-					//  vnf is getting back in sync
+-				}
+-			}
+-
+-			
+-			int insync_minor_adjustment_1 = phy->slot_offset_trend / 6;
+-			int insync_minor_adjustment_2 = phy->slot_offset_trend / 2;
+-
+-
+-			if(insync_minor_adjustment_1 == 0)
+-				insync_minor_adjustment_1 = 2;
+-
+-			if(insync_minor_adjustment_2 == 0)
+-				insync_minor_adjustment_2 = 10;
+-
+-			if(!phy->filtered_adjust)
+-			{
+-				if(phy->adjustment < 10)
+-				{
+-					phy->zero_count++;
+-
+-					if(phy->zero_count >= 10)
+-					{
+-						phy->filtered_adjust = 1;
+-						phy->zero_count = 0;
+-
+-						NFAPI_TRACE(NFAPI_TRACE_NOTE, "***** Adjusting VNF SFN/SF switching to filtered mode\n");
+-					}
+-				}
+-				else
+-				{
+-					phy->zero_count = 0;
+-				}
+-			}
+-			else
+-			{
+-				// Fine level of adjustment
+-				if (phy->adjustment == 0)
+-				{
+-					if (phy->zero_count >= 10)
+-					{
+-						if(phy->in_sync == 0)
+-						{
+-							NFAPI_TRACE(NFAPI_TRACE_NOTE, "VNF P7 In Sync with phy (phy_id:%d)\n", phy->phy_id); 
+-
+-							if(vnf_p7->_public.sync_indication)
+-								(vnf_p7->_public.sync_indication)(&(vnf_p7->_public), phy->in_sync);
+-						}
+-
+-						phy->in_sync = 1;
+-					}
+-					else
+-					{
+-						phy->zero_count++;
+-					}
+-
+-					if(phy->in_sync)
+-					{
+-						// in sync
+-						if(phy->slot_offset_filtered > 250)
+-						{
+-							// VNF is slow
+-							phy->insync_minor_adjustment = insync_minor_adjustment_1; //25;
+-							phy->insync_minor_adjustment_duration = ((phy->slot_offset_filtered) / insync_minor_adjustment_1);
+-						}
+-						else if(phy->slot_offset_filtered < -250)
+-						{
+-							// VNF is fast
+-							phy->insync_minor_adjustment = -(insync_minor_adjustment_1); //25;
+-							phy->insync_minor_adjustment_duration = (((phy->slot_offset_filtered) / -(insync_minor_adjustment_1)));
+-						}
+-						else
+-						{
+-							phy->insync_minor_adjustment = 0;
+-						}
+-
+-						if(phy->insync_minor_adjustment != 0)
+-						{
+-              NFAPI_TRACE(NFAPI_TRACE_DEBUG,
+-                          "(%4d/%d) VNF phy_id:%d Apply minor insync adjustment %dus for %d slots (slot_offset_filtered:%d) %d %d "
+-                          "%d NEW:%d.%d CURR:%d.%d adjustment:%d\n",
+-                          phy->sfn,
+-                          phy->slot,
+-                          ind.header.phy_id,
+-                          phy->insync_minor_adjustment,
+-                          phy->insync_minor_adjustment_duration,
+-                          phy->slot_offset_filtered,
+-                          insync_minor_adjustment_1,
+-                          insync_minor_adjustment_2,
+-                          phy->slot_offset_trend,
+-                          new_sfn,
+-                          new_slot,
+-                          curr_sfn,
+-                          curr_slot,
+-                          phy->adjustment);
+-            }
+-					}
+-				}
+-				else
+-				{
+-					if (phy->in_sync)
+-					{
+-						if(phy->adjustment == 0)
+-						{
+-						}
+-						else if(phy->adjustment > 0)
+-						{
+-							// VNF is slow
+-							//if(phy->adjustment == 1)
+-							{
+-								//
+-								if(phy->slot_offset_filtered > 250)
+-								{
+-									// VNF is slow
+-									phy->insync_minor_adjustment = insync_minor_adjustment_2;
+-									phy->insync_minor_adjustment_duration = 2 * ((phy->slot_offset_filtered - 250) / insync_minor_adjustment_2);
+-								}
+-								else if(phy->slot_offset_filtered < -250)
+-								{
+-									// VNF is fast
+-									phy->insync_minor_adjustment = -(insync_minor_adjustment_2);
+-									phy->insync_minor_adjustment_duration = 2 * ((phy->slot_offset_filtered + 250) / -(insync_minor_adjustment_2));
+-								}
+-							
+-							}
+-							//else
+-							{
+-								// out of sync?
+-							}
+-
+-              NFAPI_TRACE(NFAPI_TRACE_DEBUG,
+-                          "(%4d/%d) VNF phy_id:%d Apply minor insync adjustment %dus for %d slots (adjustment:%d "
+-                          "slot_offset_filtered:%d) %d %d %d NEW:%d.%d CURR:%d.%d adj:%d\n",
+-                          phy->sfn,
+-                          phy->slot,
+-                          ind.header.phy_id,
+-                          phy->insync_minor_adjustment,
+-                          phy->insync_minor_adjustment_duration,
+-                          phy->adjustment,
+-                          phy->slot_offset_filtered,
+-                          insync_minor_adjustment_1,
+-                          insync_minor_adjustment_2,
+-                          phy->slot_offset_trend,
+-                          new_sfn,
+-                          new_slot,
+-                          curr_sfn,
+-                          curr_slot,
+-                          phy->adjustment);
+-
+-            }
+-						else if(phy->adjustment < 0)
+-						{
+-							// VNF is fast
+-							//if(phy->adjustment == -1)
+-							{
+-								//
+-								if(phy->slot_offset_filtered > 250)
+-								{
+-									// VNF is slow
+-									phy->insync_minor_adjustment = insync_minor_adjustment_2;
+-									phy->insync_minor_adjustment_duration = 2 * ((phy->slot_offset_filtered - 250) / insync_minor_adjustment_2);
+-								}
+-								else if(phy->slot_offset_filtered < -250)
+-								{
+-									// VNF is fast
+-									phy->insync_minor_adjustment = -(insync_minor_adjustment_2);
+-									phy->insync_minor_adjustment_duration = 2 * ((phy->slot_offset_filtered + 250) / -(insync_minor_adjustment_2));
+-								}
+-							}
+-							//else
+-							{
+-								// out of sync?
+-							}
+-
+-							// NFAPI_TRACE(NFAPI_TRACE_NOTE, "(%d/%d) VNF phy_id:%d Apply minor insync adjustment %dus for %d slots (adjustment:%d slot_offset_filtered:%d) %d %d %d\n", 
+-							// 			phy->sfn, phy->slot, ind.header.phy_id,
+-							// 			phy->insync_minor_adjustment, phy->insync_minor_adjustment_duration, phy->adjustment, phy->slot_offset_filtered,
+-							// 			insync_minor_adjustment_1, insync_minor_adjustment_2, phy->slot_offset_trend); 
+-						}
+-
+-						/*
+-						if (phy->adjustment > 10 || phy->adjustment < -10)
+-						{
+-							phy->zero_count++;		// Add one to the getting out of sync counter
+-						}
+-						else
+-						{
+-							phy->zero_count = 0;		// Small error - zero the out of sync counter
+-						}
+-
+-						if (phy->zero_count >= 10)	// If we have had 10 consecutive large errors - drop out of sync
+-						{
+-							NFAPI_TRACE(NFAPI_TRACE_NOTE, "we have fallen out of sync...\n");
+-							//pP7SockInfo->syncAchieved = 0;
+-						}
+-						*/
+-					}
+-				}
+-			}
+-
+-
+-			if(phy->in_sync == 0)
+-			{
+-				/*NFAPI_TRACE(NFAPI_TRACE_NOTE, "***** Adjusting VNF phy_id:%d SFN/SF (%s) from %d to %d (%d) mode:%s zeroCount:%u sync:%s\n",
+-					ind.header.phy_id, (phy->in_sync ? "via sfn" : "now"),
+-					NFAPI_SFNSF2DEC(curr_sfn_sf), NFAPI_SFNSF2DEC(new_sfn_sf), phy->adjustment, 
+-					phy->filtered_adjust ? "FILTERED" : "ABSOLUTE",
+-					phy->zero_count,
+-					phy->in_sync ? "IN_SYNC" : "OUT_OF_SYNC");*/
+-
+-				phy->sfn = new_sfn;
+-				phy->slot = new_slot;
+-			}
+-		}
+-
+-		// reset for next cycle
+-		phy->previous_slot_offset_filtered = phy->slot_offset_filtered;
+-		phy->min_sync_cycle_count = 2;
+-		phy->slot_offset_filtered = 0;
+-		phy->slot_offset = 0;
+-	}
+-	else
+-	{
+-		phy->previous_t1 = ind.t1;
+-		phy->previous_t2 = ind.t2;
+-	}
+-}
+-
+-void vnf_handle_timing_info(void *pRecvMsg, int recvMsgLen, vnf_p7_t* vnf_p7)
+-{
+-	if (pRecvMsg == NULL || vnf_p7 == NULL)
+-	{
+-		NFAPI_TRACE(NFAPI_TRACE_ERROR, "vnf_handle_timing_info: NULL parameters\n");
+-		return;
+-	}
+-
+-	nfapi_timing_info_t ind;
+-	if(nfapi_p7_message_unpack(pRecvMsg, recvMsgLen, &ind, sizeof(nfapi_timing_info_t), &vnf_p7->_public.codec_config) < 0)
+-	{
+-		NFAPI_TRACE(NFAPI_TRACE_ERROR, "Failed to unpack timing_info\n");
+-		return;
++	pthread_mutex_lock(&p7_con->mutex);
++	if (!p7_con->initial_timinginfo_received) {
++		p7_con->sfn = ind.last_sfn;
++		p7_con->slot = ind.last_slot;
++		p7_con->initial_timinginfo_received = 1;
+ 	}
++	pthread_cond_signal(&p7_con->initial_timinginfo_cond);
++	pthread_mutex_unlock(&p7_con->mutex);
+ 
+-        if (vnf_p7 && vnf_p7->p7_connections)
+-        {
+-          int16_t vnf_pnf_sfnsf_delta = NFAPI_SFNSF2DEC(vnf_p7->p7_connections[0].sfn_sf) - NFAPI_SFNSF2DEC(ind.last_sfn_sf);
+-
+-          //NFAPI_TRACE(NFAPI_TRACE_INFO, "%s() PNF:SFN/SF:%d VNF:SFN/SF:%d deltaSFNSF:%d\n", __FUNCTION__, NFAPI_SFNSF2DEC(ind.last_sfn_sf), NFAPI_SFNSF2DEC(vnf_p7->p7_connections[0].sfn_sf), vnf_pnf_sfnsf_delta);
+-
+-          // Panos: Careful here!!! Modification of the original nfapi-code
+-          //if (vnf_pnf_sfnsf_delta>1 || vnf_pnf_sfnsf_delta < -1)
+-          if (vnf_pnf_sfnsf_delta>0 || vnf_pnf_sfnsf_delta < 0)
+-          {
+-            NFAPI_TRACE(NFAPI_TRACE_INFO, "%s() LARGE SFN/SF DELTA between PNF and VNF delta:%d VNF:%d PNF:%d\n\n\n\n\n\n\n\n\n", __FUNCTION__, vnf_pnf_sfnsf_delta, NFAPI_SFNSF2DEC(vnf_p7->p7_connections[0].sfn_sf), NFAPI_SFNSF2DEC(ind.last_sfn_sf));
+-            // Panos: Careful here!!! Modification of the original nfapi-code
+-            vnf_p7->p7_connections[0].sfn_sf = ind.last_sfn_sf;
+-          }
+-        }
+-}
+-
+-static int16_t vnf_pnf_sfnslot_delta;
+-
+-void vnf_nr_handle_timing_info(void *pRecvMsg, int recvMsgLen, vnf_p7_t* vnf_p7)
+-{
+-	if (pRecvMsg == NULL || vnf_p7 == NULL)
+-	{
+-		NFAPI_TRACE(NFAPI_TRACE_ERROR, "vnf_handle_timing_info: NULL parameters\n");
++	vnf_timing_stats_t out_stats;
++	int count = vnf_nr_extract_timing_info(&ind, p7_con, &out_stats);
++	if (count <= 0) {
+ 		return;
+ 	}
+-
+-	nfapi_nr_timing_info_t ind;
+-  const bool result = vnf_p7->_public.unpack_func(pRecvMsg, recvMsgLen, &ind, sizeof(nfapi_timing_info_t), &vnf_p7->_public.codec_config);
+-	if(!result)
+-	{
+-		NFAPI_TRACE(NFAPI_TRACE_ERROR, "Failed to unpack timing_info\n");
+-		return;
+-	}
+-
+-        if (vnf_p7 && vnf_p7->p7_connections)
+-        {
+-          //int16_t vnf_pnf_sfnsf_delta = NFAPI_SFNSF2DEC(vnf_p7->p7_connections[0].sfn_sf) - NFAPI_SFNSF2DEC(ind.last_sfn_sf);
+-          nfapi_vnf_p7_connection_info_t *p7_con = &vnf_p7->p7_connections[0];
+-            vnf_pnf_sfnslot_delta = NFAPI_SFNSLOT2DEC(p7_con->mu, p7_con->sfn,p7_con->slot) - NFAPI_SFNSLOT2DEC(p7_con->mu, ind.last_sfn,ind.last_slot);
+-          //NFAPI_TRACE(NFAPI_TRACE_INFO, "%s() PNF:SFN/SF:%d VNF:SFN/SF:%d deltaSFNSF:%d\n", __FUNCTION__, NFAPI_SFNSF2DEC(ind.last_sfn_sf), NFAPI_SFNSF2DEC(vnf_p7->p7_connections[0].sfn_sf), vnf_pnf_sfnsf_delta);
+-
+-          // Panos: Careful here!!! Modification of the original nfapi-code
+-          //if (vnf_pnf_sfnsf_delta>1 || vnf_pnf_sfnsf_delta < -1)
+-		  //printf("VNF-PNF delta - %d", vnf_pnf_sfnslot_delta);
+-          if (vnf_pnf_sfnslot_delta > 1) // we need to have a small delta, otherwise it would mean we don't advance
+-          {
+-            NFAPI_TRACE(NFAPI_TRACE_WARN, "%s() LARGE SFN/SLOT DELTA between PNF and VNF. Delta %d slots. PNF:%d.%d VNF:%d.%d\n",
+-                        __FUNCTION__, vnf_pnf_sfnslot_delta,
+-                        ind.last_sfn, ind.last_slot,
+-                        vnf_p7->p7_connections[0].sfn, vnf_p7->p7_connections[0].slot);
+-            // Panos: Careful here!!! Modification of the original nfapi-code
+-            vnf_p7->p7_connections[0].sfn = ind.last_sfn;
+-            vnf_p7->p7_connections[0].slot = ind.last_slot;
+-          }
+-        }
++	vnf_nr_delay_management(p7_con, &out_stats);
++	return;
+ }
+ 
+ void vnf_dispatch_p7_message(void *pRecvMsg, int recvMsgLen, vnf_p7_t* vnf_p7)
+@@ -2057,23 +2799,23 @@ void vnf_dispatch_p7_message(void *pRecvMsg, int recvMsgLen, vnf_p7_t* vnf_p7)
+ 		case NFAPI_TIMING_INFO:
+ 			vnf_handle_timing_info(pRecvMsg, recvMsgLen, vnf_p7);
+ 			break;
+-			
++
+ 		case NFAPI_HARQ_INDICATION:
+ 			vnf_handle_harq_indication(pRecvMsg, recvMsgLen, vnf_p7);
+ 			break;
+-	
++
+ 		case NFAPI_CRC_INDICATION:
+ 			vnf_handle_crc_indication(pRecvMsg, recvMsgLen, vnf_p7);
+ 			break;
+-	
++
+ 		case NFAPI_RX_ULSCH_INDICATION:
+ 			vnf_handle_rx_ulsch_indication(pRecvMsg, recvMsgLen, vnf_p7);
+ 			break;
+-	
++
+ 		case NFAPI_RACH_INDICATION:
+ 			vnf_handle_rach_indication(pRecvMsg, recvMsgLen, vnf_p7);
+ 			break;
+-	
++
+ 		case NFAPI_SRS_INDICATION:
+ 			vnf_handle_srs_indication(pRecvMsg, recvMsgLen, vnf_p7);
+ 			break;
+@@ -2085,18 +2827,18 @@ void vnf_dispatch_p7_message(void *pRecvMsg, int recvMsgLen, vnf_p7_t* vnf_p7)
+ 		case NFAPI_RX_CQI_INDICATION:
+ 			vnf_handle_rx_cqi_indication(pRecvMsg, recvMsgLen, vnf_p7);
+ 			break;
+-			
++
+ 		case NFAPI_LBT_DL_INDICATION:
+ 			vnf_handle_lbt_dl_indication(pRecvMsg, recvMsgLen, vnf_p7);
+ 			break;
+-			
++
+ 		case NFAPI_NB_HARQ_INDICATION:
+ 			vnf_handle_nb_harq_indication(pRecvMsg, recvMsgLen, vnf_p7);
+ 			break;
+-			
++
+ 		case NFAPI_NRACH_INDICATION:
+ 			vnf_handle_nrach_indication(pRecvMsg, recvMsgLen, vnf_p7);
+-			break;			
++			break;
+ 
+ 		case NFAPI_UE_RELEASE_RESPONSE:
+ 			vnf_handle_ue_release_resp(pRecvMsg, recvMsgLen, vnf_p7);
+@@ -2157,27 +2899,27 @@ void vnf_nr_handle_p7_message(void *pRecvMsg, int recvMsgLen, vnf_p7_t* vnf_p7)
+ 		case NFAPI_TIMING_INFO:
+ 			vnf_nr_handle_timing_info(pRecvMsg, recvMsgLen, vnf_p7);
+ 			break;
+-		
++
+ 		case NFAPI_NR_PHY_MSG_TYPE_SLOT_INDICATION:
+ 			vnf_handle_nr_slot_indication(pRecvMsg, recvMsgLen, vnf_p7);
+ 			break;
+-		
++
+ 		case NFAPI_NR_PHY_MSG_TYPE_RX_DATA_INDICATION:
+ 			vnf_handle_nr_rx_data_indication(pRecvMsg, recvMsgLen, vnf_p7);
+ 			break;
+-	
++
+ 		case NFAPI_NR_PHY_MSG_TYPE_CRC_INDICATION:
+ 			vnf_handle_nr_crc_indication(pRecvMsg, recvMsgLen, vnf_p7);
+ 			break;
+-	
++
+ 		case NFAPI_NR_PHY_MSG_TYPE_UCI_INDICATION:
+ 			vnf_handle_nr_uci_indication(pRecvMsg, recvMsgLen, vnf_p7);
+ 			break;
+-	
++
+ 		case NFAPI_NR_PHY_MSG_TYPE_SRS_INDICATION:
+ 			vnf_handle_nr_srs_indication(pRecvMsg, recvMsgLen, vnf_p7);
+ 			break;
+-	
++
+ 		case NFAPI_NR_PHY_MSG_TYPE_RACH_INDICATION:
+ 			vnf_handle_nr_rach_indication(pRecvMsg, recvMsgLen, vnf_p7);
+ 			break;
+@@ -2202,7 +2944,7 @@ void vnf_nr_handle_p7_message(void *pRecvMsg, int recvMsgLen, vnf_p7_t* vnf_p7)
+ 	}
+ }
+ 
+-void vnf_handle_p7_message(void *pRecvMsg, int recvMsgLen, vnf_p7_t* vnf_p7) 
++void vnf_handle_p7_message(void *pRecvMsg, int recvMsgLen, vnf_p7_t* vnf_p7)
+ {
+ 	nfapi_p7_message_header_t messageHeader;
+ 
+@@ -2442,9 +3184,9 @@ void vnf_p7_release_msg(vnf_p7_t* vnf_p7, nfapi_p7_message_header_t* header)
+ 			}
+ 			break;
+ 	}
+-				
++
+ 	vnf_p7_free(vnf_p7, header);
+-	
++
+ }
+ 
+ void vnf_p7_release_pdu(vnf_p7_t* vnf_p7, void* pdu)
+diff --git a/nfapi/open-nFAPI/vnf/src/vnf_p7_interface.c b/nfapi/open-nFAPI/vnf/src/vnf_p7_interface.c
+index bd79bd0388c1e1f2ae6178933430437a92d534b9..d6758107c0d78268f8ec01ac6c050ec7f40afc76 100644
+--- a/nfapi/open-nFAPI/vnf/src/vnf_p7_interface.c
++++ b/nfapi/open-nFAPI/vnf/src/vnf_p7_interface.c
+@@ -437,9 +437,13 @@ int nfapi_vnf_p7_add_pnf(nfapi_vnf_p7_config_t* config, const char* pnf_p7_addr,
+ 	node->dl_in_sync_period = 512;
+ 	//node->sfn_sf = 0;
+ 	node->sfn = 0;
+-    node->slot = 0;
++  node->slot = 0;
+ 	node->min_sync_cycle_count = 8;
+   node->mu = mu;
++  node->timing_window = 4500;
++  node->timing_info_period = 1;
++  pthread_mutex_init(&node->mutex, NULL);
++  pthread_cond_init(&node->initial_timinginfo_cond, NULL);
+ #ifndef ENABLE_AERIAL
+ 	// save the remote endpoint information
+ 	node->remote_addr.sin_family = AF_INET;
