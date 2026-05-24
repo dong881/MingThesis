@@ -60,11 +60,11 @@ This chapter details the proposed dynamic timing adjustment algorithm. To addres
 \begin{equation}
 \mathit{offset} = \frac{d_1 - d_2}{2}
 \end{equation}
-\textcolor{blue}{To prevent timing adjustments from causing control loop oscillations, the synchronization control loop implements a state-based dual-threshold hysteresis mechanism. The system has two synchronization states: locked ($\mathit{sync\_locked} = 1$) and unlocked ($\mathit{sync\_locked} = 0$). In the locked state, the VNF monitors the drift of the local clock. If the absolute offset exceeds the wide tolerance limit $\delta_{\mathrm{unlock}}$ designed to ignore transient jitter:}
+\textcolor{blue}{To prevent timing adjustments from causing control loop oscillations, the synchronization control loop implements a state-based dual-threshold hysteresis mechanism. The system has two synchronization states: locked ($\mathit{sync\_locked} = 1$) and unlocked ($\mathit{sync\_locked} = 0$). In the locked state, the VNF monitors the drift of the local clock. If the absolute offset exceeds the slot duration $T_{\mathrm{slot}}$:}
 \begin{equation}
-|\mathit{offset}| > \delta_{\mathrm{unlock}}
+|\mathit{offset}| > T_{\mathrm{slot}}
 \end{equation}
-\textcolor{blue}{the VNF unlocks the synchronization ($\mathit{sync\_locked} = 0$) to trigger re-synchronization. In the unlocked state, the VNF checks whether the offset has converged within the narrow tolerance limit $\delta_{\mathrm{lock}}$. If $|\mathit{offset}| \le \delta_{\mathrm{lock}}$, the system locks the synchronization state ($\mathit{sync\_locked} = 1$). Otherwise, the VNF decomposes the offset into a slot-level adjustment $S_{\mathrm{adj}}$ and a microsecond-level adjustment $\mu s_{\mathrm{adj}}$ based on the slot duration $T_{\mathrm{slot}}$:}
+\textcolor{blue}{the VNF unlocks the synchronization ($\mathit{sync\_locked} = 0$) to trigger re-synchronization. In the unlocked state, the VNF checks whether the offset has converged within the synchronization locking tolerance limit $\delta$. If $|\mathit{offset}| \le \delta$, the system locks the synchronization state ($\mathit{sync\_locked} = 1$). Otherwise, the VNF decomposes the offset into a slot-level adjustment $S_{\mathrm{adj}}$ and a microsecond-level adjustment $\mu s_{\mathrm{adj}}$ based on the slot duration $T_{\mathrm{slot}}$:}
 \begin{equation}
 S_{\mathrm{adj}} = \mathit{offset} / T_{\mathrm{slot}}
 \end{equation}
@@ -90,7 +90,7 @@ S_{\mathrm{adj}} = \mathit{offset} / T_{\mathrm{slot}}
 
 \Statex \textbf{Notation:} 
 \Statex $\mathit{offset}$ (Instantaneous timing offset), $\mathit{sync\_locked}$ (Synchronization lock state)
-\Statex $\delta_{\mathrm{lock}}$ (Narrow locking threshold), $\delta_{\mathrm{unlock}}$ (Wide unlocking threshold)
+\Statex $\delta$ (Synchronization locking tolerance)
 \Statex $T_{\mathrm{slot}}$ (Slot duration in \textmu s), $T_{\mathrm{wrap}}$ (Wrap-around period, $10240000$ \textmu s)
 \Statex $\text{WrapCorrection}(x, T)$ (Corrects $x$ within $[-T/2, T/2]$)
 
@@ -100,12 +100,12 @@ S_{\mathrm{adj}} = \mathit{offset} / T_{\mathrm{slot}}
 \State $\mathit{offset} \gets (d_1 - d_2) / 2$
 
 \Statex \textbf{Phase II: Hysteresis Lock and Clock Adjustment}
-\If{$\mathit{sync\_locked} = 1 \land |\mathit{offset}| > \delta_{\mathrm{unlock}}$}
+\If{$\mathit{sync\_locked} = 1 \land |\mathit{offset}| > T_{\mathrm{slot}}$}
     \State $\mathit{sync\_locked} \gets 0$ \Comment{Unlock due to excessive clock drift}
 \EndIf
 
 \If{$\mathit{sync\_locked} = 0$}
-    \If{$|\mathit{offset}| \le \delta_{\mathrm{lock}}$}
+    \If{$|\mathit{offset}| \le \delta$}
         \State $\mathit{sync\_locked} \gets 1$ \Comment{Lock synchronization}
     \Else
         \State $S_{\mathrm{adj}} \gets \mathit{offset} / T_{\mathrm{slot}}$ \Comment{Integer division}
