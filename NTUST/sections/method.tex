@@ -126,50 +126,44 @@ S_{\mathrm{adj}} = \mathit{offset} / T_{\mathrm{slot}}
 
 \textcolor{blue}{To counteract changing network latency and maintain scheduling stability, the outer loop implements a dynamic delay management strategy. This strategy operates as an Asymmetric Feedback Controller based on a Risk-Aware Predictive Model, incorporating standard telecommunication jitter measurements to calculate and manage risk debt.}
 
-\subsection{Standardized Interarrival Jitter Calculation}
-\label{subsubsec:rfc3550}
-\textcolor{blue}{Rather than using an ad-hoc smoothing model, the outer loop strictly implements the standardized interarrival jitter calculation specified in IETF RFC 3550 (RTP) Section 6.4.1. Let $R_i$ be the arrival timestamp of packet $i$ at the physical layer (PNF), and $S_i$ be the transmit timestamp extracted from the nFAPI P7 header of packet $i$. The packet transit time difference $D_i$ between consecutive packets is defined as:}
-
+\subsection{EWMA-Based Risk and Uncertainty Estimation}
+\label{subsubsec:ewma_estimation}
+\textcolor{blue}{To smooth high-frequency network noise while remaining sensitive to timing drift, the VNF Delay Manager maintains a running mean of the late offset ($\mu_{\mathrm{late}}$) and its directional jitter deviation ($J_{\mathrm{late}}$) along with the variance ($v_{\mathrm{jitter}}$). Let $e_{\mathrm{late}, i}$ be the observed worst-case late offset in scheduling window $i$. The EWMA updates are defined as:}
 \begin{equation}
-D_i = (R_i - R_{i-1}) - (S_i - S_{i-1})
+\mu_{\mathrm{late}, i} = \mu_{\mathrm{late}, i-1} + \alpha \cdot (e_{\mathrm{late}, i} - \mu_{\mathrm{late}, i-1})
 \end{equation}
-
-\textcolor{blue}{The smoothed interarrival jitter $J_i$ is updated recursively using the Exponentially Weighted Moving Average (EWMA) model:}
-
 \begin{equation}
-J_i = J_{i-1} + \frac{|D_i| - J_{i-1}}{16}
+v_{\mathrm{jitter}, i} = v_{\mathrm{jitter}, i-1} + \beta \cdot (|e_{\mathrm{late}, i} - \mu_{\mathrm{late}, i}| - v_{\mathrm{jitter}, i-1})
 \end{equation}
+\textcolor{blue}{where the smoothing factors are chosen as $\alpha = 1/8$ and $\beta = 1/4$. These parameters are specifically designed as negative powers of two ($\alpha = 2^{-3}$, $\beta = 2^{-2}$) to allow the controller to perform fast bitwise shift operations in real time while maintaining an optimal balance between estimation stability and tracking sensitivity.
+The timing uncertainty is then calculated as the sum of the directional jitter and the average variation:}
+\begin{equation}
+U_{\mathrm{timing}} = J_{\mathrm{late}} + v_{\mathrm{jitter}}
+\end{equation}
+\textcolor{blue}{where $J_{\mathrm{late}}$ is updated recursively using the factor $\beta$ on the positive (late) or negative (early) offset deviations. Using this uncertainty, the predicted risk ($Risk_{\mathrm{pred}}$) and the safety margin ($M_{\mathrm{sample}}$) are evaluated:}
+\begin{equation}
+Risk_{\mathrm{pred}} = \max(e_{\mathrm{late}}, \mu_{\mathrm{late}}) + U_{\mathrm{timing}}
+\end{equation}
+\begin{equation}
+M_{\mathrm{sample}} = \max(0, -Risk_{\mathrm{pred}})
+\end{equation}
+\textcolor{blue}{The long-term risk debt ($Debt_{\mathrm{risk}}$) and the average safety margin ($M_{\mathrm{safe\_ewma}}$) are updated recursively using the factor $\alpha$. The system is considered debt-free if $Debt_{\mathrm{risk}}$ decays to zero.}
 
-\textcolor{blue}{where the divisor $16$ serves as the smoothing factor, optimizing the trade-off between noise reduction and responsiveness under carrier-grade network conditions. This standardized jitter metric is periodically reported by the PNF within the nFAPI \texttt{Timing Info} message.}
-
-\label{subsubsec:rcgr_control}
 \subsection{Asymmetric Predictive Feedback Control}
-\textcolor{blue}{Upon receiving the worst-case late arrival offset ($\Delta t_{arrive}$) and the standardized jitter $J_i$ reported by the PNF, the VNF Delay Manager evaluates the predicted tail risk ($Risk_{pred}$) for the next scheduling cycle:}
-
-\begin{equation}
-Risk_{pred} = \max(\Delta t_{arrive}, \mu_{delay}) + J_i
-\end{equation}
-
-\textcolor{blue}{where $\mu_{delay}$ is the EWMA mean of the late arrival offset. To prevent rapid oscillations, we introduce a history-weighted risk debt ($Debt_{risk}$), which represents a decaying memory of past timing instability:}
-
-\begin{equation}
-Debt_{risk} \gets Debt_{risk} + \alpha \cdot (\max(0, Risk_{pred}) - Debt_{risk})
-\end{equation}
-
-\textcolor{blue}{The update of the slots ahead $S_{ahead}$ is then governed by the Rapid-Compensation / Gradual-Relaxation (RCGR) asymmetric control law. Under RCGR, the controller reacts instantly to positive risk to preserve connection reliability, while slowly relaxing the timing margin only when the system has remained stable for a sustained duration:}
-
+\label{subsubsec:rcgr_control}
+\textcolor{blue}{The update of the slots ahead trigger timing $S_{next}$ is governed by the Rapid-Compensation / Gradual-Relaxation (RCGR) asymmetric control law. Under RCGR, the scheduler reacts immediately to timing violations or positive risk, while slowly decreasing the lead time only when the system has remained stable for a sustained duration:}
 \begin{itemize}
-    \item \textcolor{blue}{\textbf{Rapid Compensation (Preserve Throughput):} If a timing violation is detected ($\Delta t_{arrive} > 0$) or the tail risk is positive ($Risk_{pred} > 0$), the controller immediately increments the slots ahead parameter to prevent scheduling timeouts:}
+    \item \textcolor{blue}{\textbf{Rapid Compensation (Preserve Throughput):} If a timing violation is detected ($e_{\mathrm{late}} > 0$) or the predicted risk is positive ($Risk_{\mathrm{pred}} > 0$), the controller immediately increments the slots ahead parameter to prevent scheduling timeouts:}
           \begin{equation}
           S_{next} = \min(S_{curr} + 1, S_{max})
           \end{equation}
           \textcolor{blue}{and resets the stable observation counter $count_{stable} = 0$.}
-    \item \textcolor{blue}{\textbf{Gradual Relaxation (Optimize Latency):} If the system is cleared of risk debt ($Debt_{risk} < \epsilon$, where $\epsilon$ is the debt clearance threshold) and has remained stable for a consecutive number of slots ($count_{stable} \ge N_{stable}$), the controller cautiously decrements the advance time to reduce scheduling latency:}
+    \item \textcolor{blue}{\textbf{Gradual Relaxation (Optimize Latency):} If the system is cleared of risk debt ($Debt_{\mathrm{risk}} = 0$), the current sample has no risk, and the safety margin is sufficient ($M_{\mathrm{safe\_ewma}} \ge U_{\mathrm{timing}}$), the controller decrements the slots ahead timing once the stable observation counter exceeds the required threshold ($count_{stable} \ge N_{stable}$):}
           \begin{equation}
           S_{next} = \max(S_{curr} - 1, 1)
           \end{equation}
-          \textcolor{blue}{and resets $count_{stable} = 0$.}
-    \item \textcolor{blue}{\textbf{Maintain Baseline:} Otherwise, the controller holds the current timing, $S_{next} = S_{curr}$, and increments $count_{stable}$ if $Risk_{pred} \le 0$.}
+          \textcolor{blue}{and resets $count_{stable} = 0$. The threshold $N_{stable}$ increases quadratically with $S_{curr}$ ($N_{stable} = S_{curr}^2 \cdot (1/\alpha)$) to ensure extremely cautious down-stepping as the scheduling distance grows.}
+    \item \textcolor{blue}{\textbf{Maintain Baseline:} Otherwise, the controller holds the current timing, $S_{next} = S_{curr}$. The stable counter $count_{stable}$ is incremented if the current sample is safe.}
 \end{itemize}
 
 The core adjustment strategy is condensed in Algorithm~\ref{alg:delay_management}.
@@ -179,36 +173,42 @@ The core adjustment strategy is condensed in Algorithm~\ref{alg:delay_management
 \label{alg:delay_management}
 \small
 \begin{algorithmic}[1]
-\Require $\Delta t_{arrive}$ (Observed timing offset), $S_{curr}$ (Current trigger timing)
+\Require $e_{\mathrm{late}}$ (Worst-case observed late offset), $S_{curr}$ (Current trigger timing)
 \Ensure $S_{next}$ (Trigger timing for the next MAC schedule)
 
 \Statex \textbf{Notation:} 
-\Statex $\mu_{delay}$ (EWMA mean delay), $J_i$ (RFC 3550 Interarrival Jitter)
-\Statex $Risk_{pred}$ (Predicted timing risk), $Debt_{risk}$ (History-weighted risk debt)
-\Statex $count_{stable}$ (Consecutive stable arrivals counter)
-\Statex $N_{stable}$ (Adaptive stability threshold), $S_{max}$ (Maximum advance-time limit)
-\Statex $\alpha$ (Smoothing factor, where $\alpha=1/8$)
-\Statex $\epsilon$ (Debt clearance threshold)
+\Statex $\mu_{\mathrm{late}}$ (EWMA mean late offset), $v_{\mathrm{jitter}}$ (EWMA jitter variance)
+\Statex $U_{\mathrm{timing}}$ (Timing uncertainty), $Risk_{\mathrm{pred}}$ (Predicted timing risk)
+\Statex $Debt_{\mathrm{risk}}$ (EWMA risk debt), $M_{\mathrm{safe\_ewma}}$ (EWMA safety margin)
+\Statex $count_{stable}$ (Stable observation counter), $N_{stable}$ (Down-stepping wait threshold)
+\Statex $\alpha, \beta$ (Smoothing factors, where $\alpha=1/8, \beta=1/4$)
 
-\Statex \textbf{Phase 1: Risk and Debt Estimation}
-\State $error \gets \Delta t_{arrive} - \mu_{delay}$
-\State $\mu_{delay} \gets \mu_{delay} + \alpha \cdot error$
-\State $Risk_{pred} \gets \max(\Delta t_{arrive}, \mu_{delay}) + J_i$
-\State $Debt_{risk} \gets Debt_{risk} + \alpha \cdot (\max(0, Risk_{pred}) - Debt_{risk})$
-\State $IsDebtFree \gets (Debt_{risk} < \epsilon)$
+\Statex \textbf{Phase I: EWMA Risk and Uncertainty Tracking}
+\State $error \gets e_{\mathrm{late}} - \mu_{\mathrm{late}}$
+\State $\mu_{\mathrm{late}} \gets \mu_{\mathrm{late}} + \alpha \cdot error$
+\State $v_{\mathrm{jitter}} \gets v_{\mathrm{jitter}} + \beta \cdot (|error| - v_{\mathrm{jitter}})$
+\State $U_{\mathrm{timing}} \gets \text{CalculateUncertainty}(v_{\mathrm{jitter}}, \beta)$
+\State $Risk_{\mathrm{pred}} \gets \max(e_{\mathrm{late}}, \mu_{\mathrm{late}}) + U_{\mathrm{timing}}$
+\State $Debt_{\mathrm{risk}} \gets Debt_{\mathrm{risk}} + \alpha \cdot (\max(0, Risk_{\mathrm{pred}}) - Debt_{\mathrm{risk}})$
+\State $M_{\mathrm{sample}} \gets \max(0, -Risk_{\mathrm{pred}})$
+\State $M_{\mathrm{safe\_ewma}} \gets M_{\mathrm{safe\_ewma}} + \alpha \cdot (M_{\mathrm{sample}} - M_{\mathrm{safe\_ewma}})$
 
-\Statex \textbf{Phase 2: Asymmetric Timing Adjustment (RCGR)}
-\If{$\Delta t_{arrive} > 0 \lor Risk_{pred} > 0$} 
+\Statex \textbf{Phase II: Asymmetric Timing Adjustment (RCGR)}
+\If{$e_{\mathrm{late}} > 0 \lor Risk_{\mathrm{pred}} > 0$}
     \State $S_{next} \gets \min(S_{curr} + 1, S_{max})$ \Comment{Rapid Compensation}
     \State $count_{stable} \gets 0$
-\ElsIf{$IsDebtFree \land (count_{stable} \ge N_{stable})$} 
-    \State $S_{next} \gets \max(S_{curr} - 1, 1)$ \Comment{Gradual Relaxation}
-    \State $count_{stable} \gets 0$
-\Else 
-    \State $S_{next} \gets S_{curr}$ \Comment{Maintain timing}
-    \If{$Risk_{pred} \le 0$}
+\ElsIf{$Debt_{\mathrm{risk}} \approx 0 \land e_{\mathrm{late}} \le 0 \land M_{\mathrm{safe\_ewma}} \ge U_{\mathrm{timing}}$}
+    \State $N_{stable} \gets S_{curr}^2 \cdot (1/\alpha)$
+    \If{$count_{stable} \ge N_{stable}$}
+        \State $S_{next} \gets \max(S_{curr} - 1, 1)$ \Comment{Gradual Relaxation}
+        \State $count_{stable} \gets 0$
+    \Else
+        \State $S_{next} \gets S_{curr}$
         \State $count_{stable} \gets count_{stable} + 1$
     \EndIf
+\Else
+    \State $S_{next} \gets S_{curr}$
+    \State $count_{stable} \gets 0$
 \EndIf
 \State \Return $S_{next}$
 \end{algorithmic}
