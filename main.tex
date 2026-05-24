@@ -156,15 +156,15 @@ Note that RTT denotes the Round-Trip Time. To validate the split-architecture st
 
 \subsection{Inner-Loop: Node Sync}
 \label{subsec:node_sync}
-\textcolor{blue}{To perform software-level clock synchronization, the system adopts a timestamp exchange mechanism similar to the Network Time Protocol (NTP). The VNF periodically transmits a downlink node synchronization message with a local timestamp $t_1$. Upon receiving the message, the PNF records the local arrival timestamp $t_2$ and transmits an uplink node synchronization message back to the VNF, including the transmit timestamp $t_3$ and the echoed $t_2$. When the VNF receives the message, it records its local arrival timestamp $t_4$. Because the nFAPI timestamps are constrained by a 1024 subframe number (SFN) loop, they wrap around every $10.24$~seconds ($10240000$~\textmu s). The algorithm first calculates the differences $d_1 = t_2 - t_1$ and $d_2 = t_4 - t_3$. If these differences exceed half of the wrap-around period ($5120000$~\textmu s), they are adjusted by adding or subtracting the full wrap-around period ($10240000$~\textmu s) to correct for the wrap-around boundary. The VNF then calculates the instantaneous clock offset:}
+\textcolor{blue}{To perform software-level clock synchronization, the system adopts a timestamp exchange mechanism similar to the Network Time Protocol (NTP). The VNF periodically transmits a downlink node synchronization message with a local timestamp $t_1$. Upon receiving the message, the PNF records the local arrival timestamp $t_2$ and transmits an uplink node synchronization message back to the VNF, including the transmit timestamp $t_3$ and the echoed $t_2$. When the VNF receives the message, it records its local arrival timestamp $t_4$. Because the nFAPI timestamps are constrained by a 1024 subframe number (SFN) loop, they wrap around every $10.24$~seconds ($10240000$~\textmu s). The algorithm calculates the differences $d_1 = t_2 - t_1$ and $d_2 = t_4 - t_3$, applying a wrap-around correction to align them within the interval $[-5120000, 5120000]$~\textmu s. The VNF then calculates the instantaneous clock offset:}
 \begin{equation}
 \mathit{offset} = \frac{d_1 - d_2}{2}
 \end{equation}
-\textcolor{blue}{To prevent timing adjustments from causing control loop oscillations, the synchronization control loop implements a state-based dual-threshold hysteresis mechanism. The system has two synchronization states: locked ($\mathit{sync\_locked} = 1$) and unlocked ($\mathit{sync\_locked} = 0$). In the locked state, the VNF monitors the drift of the local clock. If the absolute offset exceeds the wide tolerance limit $\delta_{\mathrm{locked}}$ ($800$~\textmu s):}
+\textcolor{blue}{To prevent timing adjustments from causing control loop oscillations, the synchronization control loop implements a state-based dual-threshold hysteresis mechanism. The system has two synchronization states: locked ($\mathit{sync\_locked} = 1$) and unlocked ($\mathit{sync\_locked} = 0$). In the locked state, the VNF monitors the drift of the local clock. If the absolute offset exceeds the wide tolerance limit $\delta_{\mathrm{unlock}}$ designed to ignore transient jitter:}
 \begin{equation}
-|\mathit{offset}| > \delta_{\mathrm{locked}}
+|\mathit{offset}| > \delta_{\mathrm{unlock}}
 \end{equation}
-\textcolor{blue}{the VNF unlocks the synchronization ($\mathit{sync\_locked} = 0$) to trigger re-synchronization. In the unlocked state, the VNF checks whether the offset has converged within the narrow tolerance limit $\delta_{\mathrm{sync}}$ ($20$~\textmu s). If $|\mathit{offset}| \le \delta_{\mathrm{sync}}$, the system locks the synchronization state ($\mathit{sync\_locked} = 1$). Otherwise, the VNF decomposes the offset into a slot-level adjustment $S_{\mathrm{adj}}$ and a microsecond-level adjustment $\mu s_{\mathrm{adj}}$ based on the slot duration $T_{\mathrm{slot}}$:}
+\textcolor{blue}{the VNF unlocks the synchronization ($\mathit{sync\_locked} = 0$) to trigger re-synchronization. In the unlocked state, the VNF checks whether the offset has converged within the narrow tolerance limit $\delta_{\mathrm{lock}}$. If $|\mathit{offset}| \le \delta_{\mathrm{lock}}$, the system locks the synchronization state ($\mathit{sync\_locked} = 1$). Otherwise, the VNF decomposes the offset into a slot-level adjustment $S_{\mathrm{adj}}$ and a microsecond-level adjustment $\mu s_{\mathrm{adj}}$ based on the slot duration $T_{\mathrm{slot}}$:}
 \begin{equation}
 S_{\mathrm{adj}} = \mathit{offset} / T_{\mathrm{slot}}
 \end{equation}
@@ -189,27 +189,22 @@ S_{\mathrm{adj}} = \mathit{offset} / T_{\mathrm{slot}}
 
 \Statex \textbf{Notation:} 
 \Statex $\mathit{offset}$ (Instantaneous timing offset), $\mathit{sync\_locked}$ (Synchronization lock state)
-\Statex $\delta_{\mathrm{sync}}$ (Narrow tolerance, $20$ \textmu s), $\delta_{\mathrm{locked}}$ (Wide tolerance, $800$ \textmu s)
+\Statex $\delta_{\mathrm{lock}}$ (Narrow locking threshold), $\delta_{\mathrm{unlock}}$ (Wide unlocking threshold)
 \Statex $T_{\mathrm{slot}}$ (Slot duration in \textmu s), $T_{\mathrm{wrap}}$ (Wrap-around period, $10240000$ \textmu s)
+\Statex $\text{WrapCorrection}(x, T)$ (Corrects $x$ within $[-T/2, T/2]$)
 
-\Statex \textbf{Phase I: Timing Offset Calculation with Wrap-Around Protection}
-\State $d_1 \gets t_2 - t_1$
-\State $d_2 \gets t_4 - t_3$
-\While{$d_1 > T_{\mathrm{wrap}} / 2$} $d_1 \gets d_1 - T_{\mathrm{wrap}}$ \EndWhile
-\While{$d_1 < -T_{\mathrm{wrap}} / 2$} $d_1 \gets d_1 + T_{\mathrm{wrap}}$ \EndWhile
-\While{$d_2 > T_{\mathrm{wrap}} / 2$} $d_2 \gets d_2 - T_{\mathrm{wrap}}$ \EndWhile
-\While{$d_2 < -T_{\mathrm{wrap}} / 2$} $d_2 \gets d_2 + T_{\mathrm{wrap}}$ \EndWhile
+\Statex \textbf{Phase I: Timing Offset Calculation}
+\State $d_1 \gets \text{WrapCorrection}(t_2 - t_1, T_{\mathrm{wrap}})$
+\State $d_2 \gets \text{WrapCorrection}(t_4 - t_3, T_{\mathrm{wrap}})$
 \State $\mathit{offset} \gets (d_1 - d_2) / 2$
 
 \Statex \textbf{Phase II: Hysteresis Lock and Clock Adjustment}
-\If{$\mathit{sync\_locked} = 1$}
-    \If{$\mathit{offset} < -\delta_{\mathrm{locked}} \lor \mathit{offset} > \delta_{\mathrm{locked}}$}
-        \State $\mathit{sync\_locked} \gets 0$ \Comment{Unlock due to excessive clock drift}
-    \EndIf
+\If{$\mathit{sync\_locked} = 1 \land |\mathit{offset}| > \delta_{\mathrm{unlock}}$}
+    \State $\mathit{sync\_locked} \gets 0$ \Comment{Unlock due to excessive clock drift}
 \EndIf
 
 \If{$\mathit{sync\_locked} = 0$}
-    \If{$\mathit{offset} \ge -\delta_{\mathrm{sync}} \land \mathit{offset} \le \delta_{\mathrm{sync}}$}
+    \If{$|\mathit{offset}| \le \delta_{\mathrm{lock}}$}
         \State $\mathit{sync\_locked} \gets 1$ \Comment{Lock synchronization}
     \Else
         \State $S_{\mathrm{adj}} \gets \mathit{offset} / T_{\mathrm{slot}}$ \Comment{Integer division}
@@ -221,6 +216,7 @@ S_{\mathrm{adj}} = \mathit{offset} / T_{\mathrm{slot}}
 \State \Return $\mathit{slot\_adjustment}, \mathit{us\_adjustment}$
 \end{algorithmic}
 \end{algorithm}
+
 
 
 \subsection{Outer-Loop: Delay Management}
