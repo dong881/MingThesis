@@ -91,8 +91,27 @@ S_{\mathrm{adj}} = \mathit{offset} / T_{\mathrm{slot}}
 
 \subsection{EWMA-Based Risk and Uncertainty Estimation}
 \label{subsubsec:ewma_estimation}
-\textcolor{blue}{where the smoothing factors are chosen as $\alpha = 1/8$ and $\beta = 1/4$. These parameters are specifically designed as negative powers of two ($\alpha = 2^{-3}$, $\beta = 2^{-2}$) to allow the controller to perform fast bitwise shift operations in real time.
-To smooth high-frequency network noise while remaining sensitive to timing drift, the VNF Delay Manager maintains a running mean of the late offset ($\mu_{\mathrm{late}}$) using a smoothing factor $\alpha$, and estimates the transport network jitter using a smoothing factor $\beta$. Specifically, $\alpha = 1/8$ is chosen to track the long-term latency trend, and $\beta = 1/4$ is chosen to capture fast jitter fluctuations. By combining the mean late offset and the estimated jitter, the controller evaluates the timing uncertainty and the predicted timing risk ($R_{\mathrm{pred}}$). Based on these estimations, the controller recursively tracks the risk debt ($D_{\mathrm{risk}}$) and the safety margin ($M_{\mathrm{safe}}$) to guide timing adjustments. The system is considered debt-free if $D_{\mathrm{risk}}$ decays to zero.}
+\textcolor{blue}{To smooth high-frequency network noise while remaining sensitive to timing drift, the VNF Delay Manager maintains a running mean of the late offset ($\mu_{\mathrm{late}}$) and the network jitter ($v_{\mathrm{jitter}}$). Let $e_{\mathrm{late}, i}$ be the observed worst-case late offset in scheduling slot $i$. The EWMA updates for mean latency and jitter are defined as:}
+\begin{equation}
+\mu_{\mathrm{late}, i} = \mu_{\mathrm{late}, i-1} + \alpha \cdot (e_{\mathrm{late}, i} - \mu_{\mathrm{late}, i-1})
+\end{equation}
+\begin{equation}
+v_{\mathrm{jitter}, i} = v_{\mathrm{jitter}, i-1} + \beta \cdot (|e_{\mathrm{late}, i} - \mu_{\mathrm{late}, i}| - v_{\mathrm{jitter}, i-1})
+\end{equation}
+\textcolor{blue}{where the smoothing factors are chosen as $\alpha = 1/8$ to track the long-term latency trend, and $\beta = 1/4$ to capture fast jitter fluctuations. These parameters are designed as negative powers of two ($\alpha = 2^{-3}$, $\beta = 2^{-2}$) to allow the controller to perform fast bitwise shift operations in real time.}
+
+\textcolor{blue}{To guide timing adjustments, the controller combines the mean late offset and the estimated jitter to predict the timing risk ($R_{\mathrm{pred}}$). The predicted timing risk for slot $i$ is calculated as the sum of the worst-case boundary of the late offset and the network jitter:}
+\begin{equation}
+R_{\mathrm{pred}, i} = \max(e_{\mathrm{late}, i}, \mu_{\mathrm{late}, i}) + v_{\mathrm{jitter}, i}
+\end{equation}
+\textcolor{blue}{Based on this risk estimation, the controller recursively tracks the risk debt ($D_{\mathrm{risk}}$) and the safety margin ($M_{\mathrm{safe}}$):}
+\begin{equation}
+D_{\mathrm{risk}, i} = D_{\mathrm{risk}, i-1} + \alpha \cdot (\max(0, R_{\mathrm{pred}, i}) - D_{\mathrm{risk}, i-1})
+\end{equation}
+\begin{equation}
+M_{\mathrm{safe}, i} = M_{\mathrm{safe}, i-1} + \alpha \cdot (\max(0, -R_{\mathrm{pred}, i}) - M_{\mathrm{safe}, i-1})
+\end{equation}
+\textcolor{blue}{The risk debt $D_{\mathrm{risk}}$ aggregates timing violations and predicted risks over time, and the safety margin $M_{\mathrm{safe}}$ tracks the average buffer capacity when the system operates without risk. The system is considered debt-free if $D_{\mathrm{risk}}$ decays to zero ($D_{\mathrm{risk}} \approx 0$).}
 
 \subsection{Asymmetric Predictive Feedback Control}
 \label{subsubsec:delay_control}
@@ -103,7 +122,7 @@ To smooth high-frequency network noise while remaining sensitive to timing drift
           S_{\mathrm{next}} = \min\left(S_{\mathrm{curr}} + 1, \left\lfloor \frac{T_{\mathrm{window}}}{T_{\mathrm{slot}}} \right\rfloor\right)
           \end{equation}
           \textcolor{blue}{and resets the stable observation counter $C_{\mathrm{stable}} = 0$.}
-    \item \textcolor{blue}{\textbf{Gradual Relaxation (Optimize Latency):} If the system is cleared of risk debt ($D_{\mathrm{risk}} = 0$), the current sample has no risk ($R_{\mathrm{pred}} \le 0$), and the safety margin is sufficient ($M_{\mathrm{safe}} \ge \text{Jitter}$), the controller decrements the slots ahead timing once the stability condition is satisfied:}
+    \item \textcolor{blue}{\textbf{Gradual Relaxation (Optimize Latency):} If the system is cleared of risk debt ($D_{\mathrm{risk}} = 0$), the current sample has no risk ($R_{\mathrm{pred}} \le 0$), and the safety margin is sufficient ($M_{\mathrm{safe}} \ge v_{\mathrm{jitter}}$), the controller decrements the slots ahead timing once the stability condition is satisfied:}
           \begin{equation}
           S_{\mathrm{next}} = \max(S_{\mathrm{curr}} - 1, 1)
           \end{equation}
@@ -125,23 +144,23 @@ The core adjustment strategy is condensed in Algorithm~\ref{alg:delay_management
 \Ensure $S_{\mathrm{next}}$ (Trigger timing for the next MAC schedule)
 \Statex 
 \Statex \textbf{Notation:} 
-\Statex $\mu_{\mathrm{late}}$ (EWMA mean late offset), $\text{Jitter}$ (Estimated network jitter)
+\Statex $\mu_{\mathrm{late}}$ (EWMA mean late offset), $v_{\mathrm{jitter}}$ (EWMA network jitter)
 \Statex $R_{\mathrm{pred}}$ (Predicted timing risk), $D_{\mathrm{risk}}$ (EWMA risk debt), $M_{\mathrm{safe}}$ (EWMA safety margin)
 \Statex $C_{\mathrm{stable}}$ (Stable observation counter)
 \Statex $\alpha, \beta$ (Smoothing factors for latency and jitter)
  
 \Statex \textbf{Phase I: EWMA Latency and Jitter Estimation}
-\State $\mu_{\mathrm{late}} \gets \mathrm{EWMA}_{\alpha}(\mu_{\mathrm{late}}, e_{\mathrm{late}})$ \Comment{Track mean late offset}
-\State $\text{Jitter} \gets \mathrm{EWMA}_{\beta}(\text{Jitter}, |e_{\mathrm{late}} - \mu_{\mathrm{late}}|)$ \Comment{Track network jitter}
-\State $R_{\mathrm{pred}} \gets \text{PredictTimingRisk}(\mu_{\mathrm{late}}, \text{Jitter})$
-\State $D_{\mathrm{risk}} \gets \text{UpdateRiskDebt}(R_{\mathrm{pred}})$
-\State $M_{\mathrm{safe}} \gets \text{UpdateSafetyMargin}(R_{\mathrm{pred}})$
+\State $\mu_{\mathrm{late}} \gets \mu_{\mathrm{late}} + \alpha \cdot (e_{\mathrm{late}} - \mu_{\mathrm{late}})$ \Comment{Update mean late offset}
+\State $v_{\mathrm{jitter}} \gets v_{\mathrm{jitter}} + \beta \cdot (|e_{\mathrm{late}} - \mu_{\mathrm{late}}| - v_{\mathrm{jitter}})$ \Comment{Update network jitter}
+\State $R_{\mathrm{pred}} \gets \max(e_{\mathrm{late}}, \mu_{\mathrm{late}}) + v_{\mathrm{jitter}}$ \Comment{Evaluate predicted risk}
+\State $D_{\mathrm{risk}} \gets D_{\mathrm{risk}} + \alpha \cdot (\max(0, R_{\mathrm{pred}}) - D_{\mathrm{risk}})$ \Comment{Update risk debt}
+\State $M_{\mathrm{safe}} \gets M_{\mathrm{safe}} + \alpha \cdot (\max(0, -R_{\mathrm{pred}}) - M_{\mathrm{safe}})$ \Comment{Update safety margin}
 
 \Statex \textbf{Phase II: Asymmetric Timing Adjustment}
 \If{$e_{\mathrm{late}} > 0 \lor R_{\mathrm{pred}} > 0$}
     \State $S_{\mathrm{next}} \gets \min(S_{\mathrm{curr}} + 1, \lfloor T_{\mathrm{window}} / T_{\mathrm{slot}} \rfloor)$ \Comment{Rapid Compensation}
     \State $C_{\mathrm{stable}} \gets 0$
-\ElsIf{$D_{\mathrm{risk}} \approx 0 \land R_{\mathrm{pred}} \le 0 \land M_{\mathrm{safe}} \ge U_{\mathrm{timing}}$}
+\ElsIf{$D_{\mathrm{risk}} \approx 0 \land R_{\mathrm{pred}} \le 0 \land M_{\mathrm{safe}} \ge v_{\mathrm{jitter}}$}
     \If{stability condition is satisfied}
         \State $S_{\mathrm{next}} \gets \max(S_{\mathrm{curr}} - 1, 1)$ \Comment{Gradual Relaxation}
         \State $C_{\mathrm{stable}} \gets 0$
