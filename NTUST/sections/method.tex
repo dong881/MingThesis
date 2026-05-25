@@ -6,15 +6,7 @@
 \chapter{Proposed Method}
 \label{sec:method}
 
-This chapter details the proposed dynamic timing adjustment algorithm. To address the unstable transmission latency during packet transmission between the PNF and VNF, we propose an Adaptive Slots Ahead mechanism.
-
-\iffalse
-\section{延遲管理架構}
-\fi
-\section{Dual-Loop Timing Architecture}
-\label{subsec:timing_control_architecture}
-
-\textcolor{blue}{The timing control of this system is organized as a closed-loop Dual-Loop Control System, ensuring that the VNF-side scheduling can dynamically track and compensate for both microsecond-level clock drift and slot-level transport latency variation. As shown in Figure~\ref{fig:block_diagram}, the system establishes a feedback loop consisting of two primary components:}
+This chapter details the proposed dynamic timing adjustment framework. To address the unstable transmission latency during packet transmission between the PNF and VNF, we propose two core timing control algorithms: Node Sync for software-level clock synchronization and Delay Management for slot-level adaptive delay management. The timing control of this system is organized as a closed-loop system, ensuring that the VNF-side scheduling can dynamically track and compensate for both microsecond-level clock drift and slot-level transport latency variation. As shown in Figure~\ref{fig:block_diagram}, the system establishes a feedback loop consisting of two primary components:
 
 \begin{figure}[!htbp]
 \centering
@@ -47,14 +39,14 @@ This chapter details the proposed dynamic timing adjustment algorithm. To addres
 \end{figure}
 
 \begin{enumerate}
-    \item \textcolor{blue}{\textbf{Inner-Loop (Node Sync):} Maintains phase and slot boundary alignment between the VNF and PNF. It periodically exchanges timestamps to calculate the absolute phase offset, correcting for hardware clock drift (Clock Drift).}
-    \item \textcolor{blue}{\textbf{Outer-Loop (Delay Management):} Operates on top of the stabilized phase reference provided by the inner loop. It tracks and estimates packet transport delays and jitter at the slot level, dynamically adjusting the slots ahead ($S_{ahead}$) to guarantee that control messages fall within the PNF's strict timing window.}
+    \item \textcolor{blue}{\textbf{Node Sync (Inner-Loop):} Maintains phase and slot boundary alignment between the VNF and PNF. It periodically exchanges timestamps to calculate the absolute phase offset, correcting for hardware clock drift (Clock Drift).}
+    \item \textcolor{blue}{\textbf{Delay Management (Outer-Loop):} Tracks and estimates packet transport delays and jitter at the slot level, dynamically adjusting the slots ahead ($S_{ahead}$) to guarantee that control messages fall within the PNF's strict timing window.}
 \end{enumerate}
 
 \iffalse
 \section{節點同步}
 \fi
-\section{Inner-Loop: Node Sync}
+\section{Node Sync}
 \label{subsec:node_sync}
 \textcolor{blue}{To perform software-level clock synchronization, the system adopts a timestamp exchange mechanism similar to the Network Time Protocol (NTP). The VNF periodically transmits a downlink node synchronization message with a local timestamp $t_1$. Upon receiving the message, the PNF records the local arrival timestamp $t_2$ and transmits an uplink node synchronization message back to the VNF, including the transmit timestamp $t_3$ and the echoed $t_2$. When the VNF receives the message, it records its local arrival timestamp $t_4$. Because the nFAPI timestamps are constrained by a 1024 subframe number (SFN) loop, they wrap around every $10.24$~seconds ($10240000$~\textmu s). The algorithm calculates the differences $d_1 = t_2 - t_1$ and $d_2 = t_4 - t_3$, applying a wrap-around correction to align them within the interval $[-5120000, 5120000]$~\textmu s. The VNF then calculates the instantaneous clock offset:}
 \begin{equation}
@@ -121,7 +113,7 @@ S_{\mathrm{adj}} = \mathit{offset} / T_{\mathrm{slot}}
 \iffalse
 \section{延遲管理}
 \fi
-\section{Outer-Loop: Delay Management}
+\section{Delay Management}
 \label{subsec:delay_management}
 
 \textcolor{blue}{To counteract changing network latency and maintain scheduling stability, the outer loop implements a dynamic delay management strategy. This strategy operates as an Asymmetric Feedback Controller based on a Risk-Aware Predictive Model, incorporating standard telecommunication jitter measurements to calculate and manage risk debt.}
