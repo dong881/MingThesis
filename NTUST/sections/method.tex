@@ -147,7 +147,7 @@ M_{\mathrm{sample}} = \max(0, -Risk_{\mathrm{pred}})
 \begin{itemize}
     \item \textcolor{blue}{\textbf{Rapid Compensation (Preserve Throughput):} If a timing violation is detected ($e_{\mathrm{late}} > 0$) or the predicted risk is positive ($Risk_{\mathrm{pred}} > 0$), the controller immediately increments the slots ahead parameter to prevent scheduling timeouts:}
           \begin{equation}
-          S_{next} = \min(S_{curr} + 1, S_{max})
+          S_{next} = \min\left(S_{curr} + 1, \left\lfloor \frac{T_{\mathrm{window}}}{T_{\mathrm{slot}}} \right\rfloor\right)
           \end{equation}
           \textcolor{blue}{and resets the stable observation counter $count_{stable} = 0$.}
     \item \textcolor{blue}{\textbf{Gradual Relaxation (Optimize Latency):} If the system is cleared of risk debt ($Debt_{\mathrm{risk}} = 0$), the current sample has no risk, and the safety margin is sufficient ($M_{\mathrm{safe\_ewma}} \ge U_{\mathrm{timing}}$), the controller decrements the slots ahead timing once the stability condition is satisfied:}
@@ -187,7 +187,7 @@ The core adjustment strategy is condensed in Algorithm~\ref{alg:delay_management
 
 \Statex \textbf{Phase II: Asymmetric Timing Adjustment}
 \If{$e_{\mathrm{late}} > 0 \lor Risk_{\mathrm{pred}} > 0$}
-    \State $S_{next} \gets \min(S_{curr} + 1, S_{max})$ \Comment{Rapid Compensation}
+    \State $S_{next} \gets \min(S_{curr} + 1, \lfloor T_{\mathrm{window}} / T_{\mathrm{slot}} \rfloor)$ \Comment{Rapid Compensation}
     \State $count_{stable} \gets 0$
 \ElsIf{$Debt_{\mathrm{risk}} \approx 0 \land e_{\mathrm{late}} \le 0 \land M_{\mathrm{safe\_ewma}} \ge U_{\mathrm{timing}}$}
     \If{stability condition is satisfied}
