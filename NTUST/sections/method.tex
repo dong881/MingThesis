@@ -97,9 +97,16 @@ S_{\mathrm{adj}} = \mathit{offset} / T_{\mathrm{slot}}
 v_{\mathrm{jitter}, i} = v_{\mathrm{jitter}, i-1} + \beta \cdot (|e_{\mathrm{late}, i} - \mu_{\mathrm{late}, i}| - v_{\mathrm{jitter}, i-1})
 \end{equation}
 \textcolor{blue}{where the smoothing factors are chosen as $\alpha = 1/8$ and $\beta = 1/4$. These parameters are specifically designed as negative powers of two ($\alpha = 2^{-3}$, $\beta = 2^{-2}$) to allow the controller to perform fast bitwise shift operations in real time.
-The timing uncertainty $U_{\mathrm{timing}}$ is then calculated directly from the jitter variance:}
+Let $d_i = e_{\mathrm{late}, i} - \mu_{\mathrm{late}, i}$ represent the current late offset deviation. The late-side directional jitter $J_{\mathrm{late}}$ is updated recursively as:}
 \begin{equation}
-U_{\mathrm{timing}} = 4 \cdot v_{\mathrm{jitter}}
+J_{\mathrm{late}, i} = \begin{cases}
+J_{\mathrm{late}, i-1} + \beta \cdot (d_i - J_{\mathrm{late}, i-1}) & \text{if } d_i > 0 \\
+J_{\mathrm{late}, i-1} & \text{otherwise}
+\end{cases}
+\end{equation}
+\textcolor{blue}{The timing uncertainty $U_{\mathrm{timing}}$ is then evaluated as the sum of the late-side jitter and the average absolute jitter:}
+\begin{equation}
+U_{\mathrm{timing}} = J_{\mathrm{late}} + v_{\mathrm{jitter}}
 \end{equation}
 \textcolor{blue}{Using this uncertainty, the predicted timing risk ($R_{\mathrm{pred}}$) and the current safety margin ($M_{\mathrm{curr}}$) are evaluated:}
 \begin{equation}
@@ -139,17 +146,20 @@ The core adjustment strategy is condensed in Algorithm~\ref{alg:delay_management
 \Ensure $S_{\mathrm{next}}$ (Trigger timing for the next MAC schedule)
 \Statex 
 \Statex \textbf{Notation:} 
-\Statex $\mu_{\mathrm{late}}$ (EWMA mean late offset), $v_{\mathrm{jitter}}$ (EWMA jitter variance)
+\Statex $\mu_{\mathrm{late}}$ (EWMA mean late offset), $v_{\mathrm{jitter}}$ (EWMA jitter variance), $J_{\mathrm{late}}$ (Late-side jitter)
 \Statex $U_{\mathrm{timing}}$ (Timing uncertainty), $R_{\mathrm{pred}}$ (Predicted timing risk)
 \Statex $D_{\mathrm{risk}}$ (EWMA risk debt), $M_{\mathrm{safe}}$ (EWMA safety margin),
 \Statex $M_{\mathrm{curr}}$ (Current safety margin), $C_{\mathrm{stable}}$ (Stable observation counter)
 \Statex $\alpha, \beta$ (Smoothing factors, where $\alpha=1/8, \beta=1/4$)
-
+ 
 \Statex \textbf{Phase I: EWMA Risk and Uncertainty Tracking}
 \State $error \gets e_{\mathrm{late}} - \mu_{\mathrm{late}}$
 \State $\mu_{\mathrm{late}} \gets \mu_{\mathrm{late}} + \alpha \cdot error$
+\If{$error > 0$}
+    \State $J_{\mathrm{late}} \gets \mathrm{EWMA}(J_{\mathrm{late}}, error)$
+\EndIf
 \State $v_{\mathrm{jitter}} \gets v_{\mathrm{jitter}} + \beta \cdot (|error| - v_{\mathrm{jitter}})$
-\State $U_{\mathrm{timing}} \gets 4 \cdot v_{\mathrm{jitter}}$
+\State $U_{\mathrm{timing}} \gets J_{\mathrm{late}} + v_{\mathrm{jitter}}$
 \State $R_{\mathrm{pred}} \gets \max(e_{\mathrm{late}}, \mu_{\mathrm{late}}) + U_{\mathrm{timing}}$
 \State $D_{\mathrm{risk}} \gets \mathrm{EWMA}(D_{\mathrm{risk}}, \max(0, R_{\mathrm{pred}}))$
 \State $M_{\mathrm{curr}} \gets \max(0, -R_{\mathrm{pred}})$
