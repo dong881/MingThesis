@@ -31,6 +31,7 @@ Whenever you encounter or consider using a word from the "Avoid" list, **automat
 | **Consequently** | adv. | 結果、因此 | **So, Therefore, As a result** | e.g., "*Therefore*, the system can maintain stable throughput." |
 | **Fluctuations** | n. | 波動、起伏 | **Changes, Variations** | e.g., "...and does not require special handling for latency *variations*..." |
 | **Robustness** | n. | 魯棒性、強健性 | **Stability** | e.g., "To test the system's *stability*..." |
+| **Deficit** | n. | 延遲赤字、不足量 | **Delay** | e.g., "...tracks the *accumulated delay*..." |
 
 ## 📝 Rules for Updating this Guide
 When the user indicates that a specific word is too difficult, update this skill by adding the word to the table above, providing its part of speech, meaning, and simpler alternatives.

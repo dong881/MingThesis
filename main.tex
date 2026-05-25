@@ -214,9 +214,9 @@ S_{\mathrm{adj}} = \mathit{offset} / T_{\mathrm{slot}}
 \subsection{Delay Management}
 \label{subsec:delay_management}
 
-\textcolor{blue}{To counteract changing network latency and maintain scheduling stability, a dynamic delay management strategy is implemented. This strategy operates as an Asymmetric Feedback Controller based on a Deficit-Aware Predictive Model, periodically evaluating the observed worst-case late arrival offset ($e_{\mathrm{late}}$) reported by the PNF.}
+\textcolor{blue}{To counteract changing network latency and maintain scheduling stability, a dynamic delay management strategy is implemented. This strategy operates as an Asymmetric Feedback Controller based on a Delay-Aware Predictive Model, periodically evaluating the observed worst-case late arrival offset ($e_{\mathrm{late}}$) reported by the PNF.}
 
-\subsubsection{EWMA-Based Deficit and Uncertainty Estimation}
+\subsubsection{EWMA-Based Delay and Uncertainty Estimation}
 \textcolor{blue}{To smooth high-frequency network noise while remaining sensitive to timing drift, the VNF Delay Manager maintains a running mean of the late offset ($\mu_{\mathrm{late}}$) and the network jitter ($v_{\mathrm{jitter}}$). Let $e_{\mathrm{late}, i}$ be the observed worst-case late offset in scheduling slot $i$. The EWMA updates for mean latency and jitter are defined as:}
 \begin{equation}
 \mu_{\mathrm{late}, i} = \mu_{\mathrm{late}, i-1} + \alpha \cdot (e_{\mathrm{late}, i} - \mu_{\mathrm{late}, i-1})
@@ -226,29 +226,29 @@ v_{\mathrm{jitter}, i} = v_{\mathrm{jitter}, i-1} + \beta \cdot (|e_{\mathrm{lat
 \end{equation}
 \textcolor{blue}{where the smoothing factors are chosen as $\alpha = 1/8$ to track the long-term latency trend, and $\beta = 1/4$ to capture fast jitter fluctuations. These parameters are designed as negative powers of two ($\alpha = 2^{-3}$, $\beta = 2^{-2}$) to allow the controller to perform fast bitwise shift operations in real time.}
 
-\textcolor{blue}{To guide timing adjustments, the controller combines the mean late offset and the estimated jitter to predict the timing deficit ($D_{\mathrm{pred}}$). The predicted timing deficit for slot $i$ is calculated as the sum of the worst-case boundary of the late offset and the network jitter:}
+\textcolor{blue}{To guide timing adjustments, the controller combines the mean late offset and the estimated jitter to predict the timing delay ($D_{\mathrm{pred}}$). The predicted timing delay for slot $i$ is calculated as the sum of the worst-case boundary of the late offset and the network jitter:}
 \begin{equation}
 D_{\mathrm{pred}, i} = \max(e_{\mathrm{late}, i}, \mu_{\mathrm{late}, i}) + v_{\mathrm{jitter}, i}
 \end{equation}
-\textcolor{blue}{Based on this deficit estimation, the controller recursively tracks the accumulated timing deficit ($D_{\mathrm{accum}}$) and the safety margin ($M_{\mathrm{safe}}$):}
+\textcolor{blue}{Based on this delay estimation, the controller recursively tracks the accumulated timing delay ($D_{\mathrm{accum}}$) and the safety margin ($M_{\mathrm{safe}}$):}
 \begin{equation}
 D_{\mathrm{accum}, i} = D_{\mathrm{accum}, i-1} + \alpha \cdot (\max(0, D_{\mathrm{pred}, i}) - D_{\mathrm{accum}, i-1})
 \end{equation}
 \begin{equation}
 M_{\mathrm{safe}, i} = M_{\mathrm{safe}, i-1} + \alpha \cdot (\max(0, -D_{\mathrm{pred}, i}) - M_{\mathrm{safe}, i-1})
 \end{equation}
-\textcolor{blue}{The accumulated timing deficit $D_{\mathrm{accum}}$ aggregates timing violations and predicted deficits over time, and the safety margin $M_{\mathrm{safe}}$ tracks the average buffer capacity when the system operates without risk. The system is considered deficit-free if $D_{\mathrm{accum}}$ decays to zero ($D_{\mathrm{accum}} \approx 0$).}
+\textcolor{blue}{The accumulated timing delay $D_{\mathrm{accum}}$ aggregates timing violations and predicted delays over time, and the safety margin $M_{\mathrm{safe}}$ tracks the average buffer capacity when the system operates without risk. The system is considered delay-free if $D_{\mathrm{accum}}$ decays to zero ($D_{\mathrm{accum}} \approx 0$).}
 
 \subsubsection{Asymmetric Predictive Feedback Control}
 \label{subsubsec:delay_control}
-\textcolor{blue}{The update of the slots ahead trigger timing $S_{\mathrm{next}}$ is governed by an asymmetric control law. Under this law, the scheduler reacts immediately to timing violations or positive timing deficit, while slowly decreasing the lead time only when the system has remained stable for a sustained duration:}
+\textcolor{blue}{The update of the slots ahead trigger timing $S_{\mathrm{next}}$ is governed by an asymmetric control law. Under this law, the scheduler reacts immediately to timing violations or positive timing delay, while slowly decreasing the lead time only when the system has remained stable for a sustained duration:}
 \begin{itemize}
-    \item \textbf{Rapid Compensation (Preserve Throughput):} \textcolor{blue}{If a timing violation is detected ($e_{\mathrm{late}} > 0$) or the predicted timing deficit is positive ($D_{\mathrm{pred}} > 0$), the controller immediately increments the slots ahead parameter to prevent scheduling timeouts:}
+    \item \textbf{Rapid Compensation (Preserve Throughput):} \textcolor{blue}{If a timing violation is detected ($e_{\mathrm{late}} > 0$) or the predicted timing delay is positive ($D_{\mathrm{pred}} > 0$), the controller immediately increments the slots ahead parameter to prevent scheduling timeouts:}
           \begin{equation}
           S_{\mathrm{next}} = \min\left(S_{\mathrm{curr}} + 1, \left\lfloor \frac{T_{\mathrm{window}}}{T_{\mathrm{slot}}} \right\rfloor\right)
           \end{equation}
           \textcolor{blue}{and resets the stable observation counter $C_{\mathrm{stable}} = 0$.}
-    \item \textbf{Gradual Relaxation (Optimize Latency):} \textcolor{blue}{If the system is cleared of accumulated timing deficit ($D_{\mathrm{accum}} = 0$), the current sample has no predicted deficit ($D_{\mathrm{pred}} \le 0$), and the safety margin is sufficient ($M_{\mathrm{safe}} \ge v_{\mathrm{jitter}}$), the controller decrements the slots ahead timing once the stability condition is satisfied:}
+    \item \textbf{Gradual Relaxation (Optimize Latency):} \textcolor{blue}{If the system is cleared of accumulated timing delay ($D_{\mathrm{accum}} = 0$), the current sample has no predicted delay ($D_{\mathrm{pred}} \le 0$), and the safety margin is sufficient ($M_{\mathrm{safe}} \ge v_{\mathrm{jitter}}$), the controller decrements the slots ahead timing once the stability condition is satisfied:}
           \begin{equation}
           S_{\mathrm{next}} = \max(S_{\mathrm{curr}} - 1, 1)
           \end{equation}
@@ -269,15 +269,15 @@ M_{\mathrm{safe}, i} = M_{\mathrm{safe}, i-1} + \alpha \cdot (\max(0, -D_{\mathr
 \Statex 
 \Statex \textbf{Notation:} 
 \Statex $\mu_{\mathrm{late}}$ (EWMA mean late offset), $v_{\mathrm{jitter}}$ (EWMA network jitter)
-\Statex $D_{\mathrm{pred}}$ (Predicted timing deficit), $D_{\mathrm{accum}}$ (EWMA accumulated timing deficit), $M_{\mathrm{safe}}$ (EWMA safety margin)
+\Statex $D_{\mathrm{pred}}$ (Predicted timing delay), $D_{\mathrm{accum}}$ (EWMA accumulated timing delay), $M_{\mathrm{safe}}$ (EWMA safety margin)
 \Statex $C_{\mathrm{stable}}$ (Stable observation counter)
 \Statex $\alpha, \beta$ (Smoothing factors for latency and jitter)
  
 \Statex \textbf{Phase I: EWMA Latency and Jitter Estimation}
 \State $\mu_{\mathrm{late}} \gets \mu_{\mathrm{late}} + \alpha \cdot (e_{\mathrm{late}} - \mu_{\mathrm{late}})$ \Comment{Update mean late offset}
 \State $v_{\mathrm{jitter}} \gets v_{\mathrm{jitter}} + \beta \cdot (|e_{\mathrm{late}} - \mu_{\mathrm{late}}| - v_{\mathrm{jitter}})$ \Comment{Update network jitter}
-\State $D_{\mathrm{pred}} \gets \max(e_{\mathrm{late}}, \mu_{\mathrm{late}}) + v_{\mathrm{jitter}}$ \Comment{Evaluate predicted timing deficit}
-\State $D_{\mathrm{accum}} \gets D_{\mathrm{accum}} + \alpha \cdot (\max(0, D_{\mathrm{pred}}) - D_{\mathrm{accum}})$ \Comment{Update accumulated deficit}
+\State $D_{\mathrm{pred}} \gets \max(e_{\mathrm{late}}, \mu_{\mathrm{late}}) + v_{\mathrm{jitter}}$ \Comment{Evaluate predicted timing delay}
+\State $D_{\mathrm{accum}} \gets D_{\mathrm{accum}} + \alpha \cdot (\max(0, D_{\mathrm{pred}}) - D_{\mathrm{accum}})$ \Comment{Update accumulated delay}
 \State $M_{\mathrm{safe}} \gets M_{\mathrm{safe}} + \alpha \cdot (\max(0, -D_{\mathrm{pred}}) - M_{\mathrm{safe}})$ \Comment{Update safety margin}
 
 \Statex \textbf{Phase II: Asymmetric Timing Adjustment}
@@ -303,7 +303,7 @@ M_{\mathrm{safe}, i} = M_{\mathrm{safe}, i-1} + \alpha \cdot (\max(0, -D_{\mathr
 \subsection{Coordination between Node Sync and Delay Management}
 \label{subsec:loop_coordination}
 
-\textcolor{blue}{To ensure stable operation under real-world conditions, Node Sync and Delay Management must coordinate without inducing control loop oscillations. The microsecond-level Node Sync focuses strictly on correcting clock phase offsets to align the VNF's scheduling thread with the PNF's slot transitions. Because it directly shifts the VNF's time base, any clock adjustment ($S_{adj}, \mu s_{adj}$) temporarily shifts the arrival timestamp reference. The Delay Manager is designed to absorb this transient shifting. By relying on the history-weighted accumulated timing deficit ($D_{\mathrm{accum}}$), the Delay Manager avoids reacting to the temporary timing offsets caused by clock adjustments, allowing Node Sync to converge. Once Node Sync locks synchronization ($sync\_locked = 1$), the time base stabilizes, allowing the Delay Manager to achieve precise slot-level optimizations ($S_{\mathrm{ahead}}$).}
+\textcolor{blue}{To ensure stable operation under real-world conditions, Node Sync and Delay Management must coordinate without inducing control loop oscillations. The microsecond-level Node Sync focuses strictly on correcting clock phase offsets to align the VNF's scheduling thread with the PNF's slot transitions. Because it directly shifts the VNF's time base, any clock adjustment ($S_{adj}, \mu s_{adj}$) temporarily shifts the arrival timestamp reference. The Delay Manager is designed to absorb this transient shifting. By relying on the history-weighted accumulated timing delay ($D_{\mathrm{accum}}$), the Delay Manager avoids reacting to the temporary timing offsets caused by clock adjustments, allowing Node Sync to converge. Once Node Sync locks synchronization ($sync\_locked = 1$), the time base stabilizes, allowing the Delay Manager to achieve precise slot-level optimizations ($S_{\mathrm{ahead}}$).}
 
 \section{Experimental Results}
 \label{sec:experiments}
