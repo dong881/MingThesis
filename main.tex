@@ -153,11 +153,11 @@ Note that RTT denotes the Round-Trip Time. To validate the split-architecture st
 \begin{equation}
 \mathit{offset} = \frac{d_1 - d_2}{2}
 \end{equation}
-\textcolor{blue}{To prevent timing adjustments from causing control loop oscillations, the synchronization control loop implements a state-based dual-threshold hysteresis mechanism. The system has two synchronization states: locked ($\mathit{sync\_locked} = 1$) and unlocked ($\mathit{sync\_locked} = 0$). In the locked state, the VNF monitors the drift of the local clock. If the absolute offset exceeds the slot duration $T_{\mathrm{slot}}$:}
+\textcolor{blue}{To prevent timing adjustments from causing control loop oscillations, the synchronization control loop implements a state-based locking mechanism. The system has two synchronization states: locked ($\mathit{sync\_locked} = 1$) and unlocked ($\mathit{sync\_locked} = 0$). In the locked state, the VNF monitors the drift of the local clock. If the absolute offset exceeds the slot duration $T_{\mathrm{slot}}$:}
 \begin{equation}
 |\mathit{offset}| > T_{\mathrm{slot}}
 \end{equation}
-\textcolor{blue}{the VNF unlocks the synchronization ($\mathit{sync\_locked} = 0$) to trigger re-synchronization. In the unlocked state, the VNF checks whether the offset has converged within the synchronization locking tolerance limit $\delta$. If $|\mathit{offset}| \le \delta$, the system locks the synchronization state ($\mathit{sync\_locked} = 1$). Otherwise, the VNF decomposes the offset into a slot-level adjustment $S_{\mathrm{adj}}$ and a microsecond-level adjustment $\mu s_{\mathrm{adj}}$ based on the slot duration $T_{\mathrm{slot}}$:}
+\textcolor{blue}{the VNF unlocks the synchronization ($\mathit{sync\_locked} = 0$) to trigger re-synchronization. In the unlocked state, the VNF checks whether the offset has converged within the slot duration $T_{\mathrm{slot}}$. If $|\mathit{offset}| \le T_{\mathrm{slot}}$, the system locks the synchronization state ($\mathit{sync\_locked} = 1$). Otherwise, the VNF decomposes the offset into a slot-level adjustment $S_{\mathrm{adj}}$ and a microsecond-level adjustment $\mu s_{\mathrm{adj}}$ based on the slot duration $T_{\mathrm{slot}}$:}
 \begin{equation}
 S_{\mathrm{adj}} = \mathit{offset} / T_{\mathrm{slot}}
 \end{equation}
@@ -182,7 +182,6 @@ S_{\mathrm{adj}} = \mathit{offset} / T_{\mathrm{slot}}
 
 \Statex \textbf{Notation:} 
 \Statex $\mathit{offset}$ (Instantaneous timing offset), $\mathit{sync\_locked}$ (Synchronization lock state)
-\Statex $\delta$ (Synchronization locking tolerance)
 \Statex $T_{\mathrm{slot}}$ (Slot duration in \textmu s), $T_{\mathrm{wrap}}$ (Wrap-around period, $10240000$ \textmu s)
 \Statex $\text{WrapCorrection}(x, T)$ (Corrects $x$ within $[-T/2, T/2]$)
 
@@ -197,7 +196,7 @@ S_{\mathrm{adj}} = \mathit{offset} / T_{\mathrm{slot}}
 \EndIf
 
 \If{$\mathit{sync\_locked} = 0$}
-    \If{$|\mathit{offset}| \le \delta$}
+    \If{$|\mathit{offset}| \le T_{\mathrm{slot}}$}
         \State $\mathit{sync\_locked} \gets 1$ \Comment{Lock synchronization}
     \Else
         \State $S_{\mathrm{adj}} \gets \mathit{offset} / T_{\mathrm{slot}}$ \Comment{Integer division}
@@ -235,14 +234,7 @@ R_{\mathrm{pred}} = \max(e_{\mathrm{late}}, \mu_{\mathrm{late}}) + U_{\mathrm{ti
 \begin{equation}
 M_{\mathrm{curr}} = \max(0, -R_{\mathrm{pred}})
 \end{equation}
-\textcolor{blue}{The long-term risk debt ($D_{\mathrm{risk}}$) and the average safety margin ($M_{\mathrm{safe}}$) are updated recursively using the factor $\alpha$:}
-\begin{equation}
-D_{\mathrm{risk}, i} = D_{\mathrm{risk}, i-1} + \alpha \cdot (\max(0, R_{\mathrm{pred}}) - D_{\mathrm{risk}, i-1})
-\end{equation}
-\begin{equation}
-M_{\mathrm{safe}, i} = M_{\mathrm{safe}, i-1} + \alpha \cdot (M_{\mathrm{curr}} - M_{\mathrm{safe}, i-1})
-\end{equation}
-\textcolor{blue}{The system is considered debt-free if $D_{\mathrm{risk}}$ decays to zero.}
+\textcolor{blue}{To capture long-term trends and filter out transient noise, the long-term risk debt ($D_{\mathrm{risk}}$) and the average safety margin ($M_{\mathrm{safe}}$) are tracked recursively using an Exponentially Weighted Moving Average (EWMA) of the timing risk ($\max(0, R_{\mathrm{pred}}$)) and the current safety margin ($M_{\mathrm{curr}}$), respectively. The system is considered debt-free if $D_{\mathrm{risk}}$ decays to zero.}
 
 \subsubsection{Asymmetric Predictive Feedback Control}
 \label{subsubsec:delay_control}
@@ -283,9 +275,9 @@ M_{\mathrm{safe}, i} = M_{\mathrm{safe}, i-1} + \alpha \cdot (M_{\mathrm{curr}} 
 \State $v_{\mathrm{jitter}} \gets v_{\mathrm{jitter}} + \beta \cdot (|error| - v_{\mathrm{jitter}})$
 \State $U_{\mathrm{timing}} \gets 4 \cdot v_{\mathrm{jitter}}$
 \State $R_{\mathrm{pred}} \gets \max(e_{\mathrm{late}}, \mu_{\mathrm{late}}) + U_{\mathrm{timing}}$
-\State $D_{\mathrm{risk}} \gets D_{\mathrm{risk}} + \alpha \cdot (\max(0, R_{\mathrm{pred}}) - D_{\mathrm{risk}})$
+\State $D_{\mathrm{risk}} \gets \mathrm{EWMA}(D_{\mathrm{risk}}, \max(0, R_{\mathrm{pred}}))$
 \State $M_{\mathrm{curr}} \gets \max(0, -R_{\mathrm{pred}})$
-\State $M_{\mathrm{safe}} \gets M_{\mathrm{safe}} + \alpha \cdot (M_{\mathrm{curr}} - M_{\mathrm{safe}})$
+\State $M_{\mathrm{safe}} \gets \mathrm{EWMA}(M_{\mathrm{safe}}, M_{\mathrm{curr}})$
 
 \Statex \textbf{Phase II: Asymmetric Timing Adjustment}
 \If{$e_{\mathrm{late}} > 0 \lor R_{\mathrm{pred}} > 0$}
