@@ -106,20 +106,20 @@ nFAPI, O-RAN, Functional Split, Adaptive Control.
   \label{fig:System-Architecture}
 \end{figure}
 
-\subsection{O-DU High: MAC, Scheduler, and Dual-Loop Timing Core}
+\subsection{O-DU High: MAC, Scheduler, and Timing Core}
 \label{subsec:B_odu_high}
-\textcolor{blue}{Within the O-DU High virtualized network function, the timing control is organized as a Dual-Loop Control System. The core components handling this timing core include the Scheduler, the Node Sync Module (Inner-Loop), and the nFAPI Delay Manager (Outer-Loop):
+\textcolor{blue}{Within the O-DU High virtualized network function, the timing control is organized as a unified timing control system. The core components handling this timing core include the Scheduler, the Node Sync Module, and the nFAPI Delay Manager:
 \begin{itemize}
 \item \textbf{Scheduler:} Critical for allocating the available radio resources (such as time-frequency resource blocks) and determining the exact priority and timing of downlink/uplink data transmissions.
-\item \textbf{Node Sync Module (Inner-Loop):} Responsible for software-level clock synchronization. This module periodically exchanges NTP-style timestamps ($t_1 \sim t_4$) with the PNF via standard \textit{DL/UL\_node\_sync} messages. It calculates the instantaneous clock offset and applies slot-level ($S_{adj}$) and microsecond-level ($\mu s_{adj}$) adjustments to align the VNF's local clock to the PNF baseline, eliminating long-term hardware clock drift.
-\item \textbf{nFAPI Delay Manager (Outer-Loop):} Operates on top of the stabilized clock phase established by the inner loop. The delay manager utilizes the arrival offset ($\Delta t_{arrive}$) feedback from the PNF to dynamically estimate transport network jitter. It then actively adjusts the slots ahead ($S_{ahead}$) trigger offset of the scheduler. This outer-loop control compensates for the non-deterministic packet transport delays and VNF processing delays without inducing synchronization loss.
+\item \textbf{Node Sync Module:} Responsible for software-level clock synchronization. This module periodically exchanges NTP-style timestamps ($t_1 \sim t_4$) with the PNF via standard \textit{DL/UL\_node\_sync} messages. It calculates the instantaneous clock offset and applies slot-level ($S_{adj}$) and microsecond-level ($\mu s_{adj}$) adjustments to align the VNF's local clock to the PNF baseline, eliminating long-term hardware clock drift.
+\item \textbf{nFAPI Delay Manager:} Operates on top of the stabilized clock phase established by Node Sync. The delay manager utilizes the arrival offset ($\Delta t_{arrive}$) feedback from the PNF to dynamically estimate transport network jitter. It then actively adjusts the slots ahead ($S_{\mathrm{ahead}}$) trigger offset of the scheduler. This control compensates for the non-deterministic packet transport delays and VNF processing delays without inducing synchronization loss.
 \end{itemize}}
 
 \subsection{O-DU Low: High PHY and Timing Window}
 \label{subsec:C_odu_low}
 \textcolor{blue}{The O-DU Low manages the higher-level baseband processing of the physical layer (High PHY). At this level, the most critical synchronization mechanism is the nFAPI PNF Timing Window:
 \begin{itemize}
-\item \textbf{Timing Window:} A predefined, strict time duration. When the scheduling message (specifically the \texttt{DL\_TTI.request}) sent by the O-DU High propagates across the network, it must accurately arrive and fall exactly within this Window. Otherwise, the High PHY will reject the message and fail to process the slot data.
+\item \textbf{Timing Window:} A predefined, strict time duration. Let $T_{\mathrm{window}}$ denote the duration of this PNF timing window, and $T_{\mathrm{slot}}$ denote the subframe slot duration. When the scheduling message (specifically the \texttt{DL\_TTI.request}) sent by the O-DU High propagates across the network, it must accurately arrive and fall exactly within this Window. Otherwise, the High PHY will reject the message and fail to process the slot data.
 \item \textbf{Timing Info ($\Delta t_{arrive}$):} The PNF continuously monitors the exact arrival offset of control messages relative to the transmission deadline. This offset, denoted as $\Delta t_{arrive}$, represents the remaining time margin within the timing window. The PNF periodically sends this information back to the Delay Manager in the MAC layer. This establishes a closed-loop feedback control system, compensating for the unpredictable transmission latency variations between the VNF and PNF machines.
 \end{itemize}}
 
@@ -141,10 +141,10 @@ Note that RTT denotes the Round-Trip Time. To validate the split-architecture st
 \section{Proposed Method}
 \label{sec:proposed_method}
 
-\textcolor{blue}{This section details the proposed dynamic timing adjustment framework. To resolve the unstable latency during packet transmission between the PNF and VNF, we propose two core timing control algorithms: Node Sync for software-level clock synchronization and Delay Management for slot-level adaptive delay management. The timing control of this system is organized as a closed-loop system, ensuring that the VNF-side scheduling can dynamically track and compensate for both clock drift and slot-level transport latency variation. The two control loops cooperate as follows:}
+\textcolor{blue}{This section details the proposed dynamic timing adjustment framework. To resolve the unstable latency during packet transmission between the PNF and VNF, we propose two core timing control algorithms: Node Sync for software-level clock synchronization and Delay Management for slot-level adaptive delay management. The timing control of this system is organized as a closed-loop system, ensuring that the VNF-side scheduling can dynamically track and compensate for both clock drift and slot-level transport latency variation. The two algorithms cooperate as follows:}
 \begin{enumerate}
-    \item \textcolor{blue}{\textbf{Node Sync (Inner-Loop):} Maintains phase and slot boundary alignment between the VNF and PNF. It periodically exchanges timestamps to calculate the absolute phase offset, correcting for hardware clock drift.}
-    \item \textcolor{blue}{\textbf{Delay Management (Outer-Loop):} Tracks and estimates packet transport delays and jitter at the slot level, dynamically adjusting the slots ahead ($S_{ahead}$) to guarantee that control messages fall within the PNF's strict timing window.}
+    \item \textcolor{blue}{\textbf{Node Sync:} Maintains phase and slot boundary alignment between the VNF and PNF. It periodically exchanges timestamps to calculate the absolute phase offset, correcting for hardware clock drift.}
+    \item \textcolor{blue}{\textbf{Delay Management:} Tracks and estimates packet transport delays and jitter at the slot level, dynamically adjusting the slots ahead ($S_{\mathrm{ahead}}$) to guarantee that control messages fall within the PNF's strict timing window.}
 \end{enumerate}
 
 \subsection{Node Sync}
@@ -213,45 +213,52 @@ S_{\mathrm{adj}} = \mathit{offset} / T_{\mathrm{slot}}
 \subsection{Delay Management}
 \label{subsec:delay_management}
 
-\textcolor{blue}{To counteract changing network latency and maintain scheduling stability, the outer loop implements a dynamic delay management strategy. This strategy operates as an Asymmetric Feedback Controller based on a Risk-Aware Predictive Model, periodically evaluating the observed worst-case late arrival offset ($e_{\mathrm{late}}$) reported by the PNF.}
+\textcolor{blue}{To counteract changing network latency and maintain scheduling stability, a dynamic delay management strategy is implemented. This strategy operates as an Asymmetric Feedback Controller based on a Risk-Aware Predictive Model, periodically evaluating the observed worst-case late arrival offset ($e_{\mathrm{late}}$) reported by the PNF.}
 
 \subsubsection{EWMA-Based Risk and Uncertainty Estimation}
-\textcolor{blue}{To smooth high-frequency network noise while remaining sensitive to timing drift, the VNF Delay Manager maintains a running mean of the late offset ($\mu_{\mathrm{late}}$) and its directional jitter deviation ($J_{\mathrm{late}}$) along with the variance ($v_{\mathrm{jitter}}$). Let $e_{\mathrm{late}, i}$ be the observed worst-case late offset in scheduling window $i$. The EWMA updates are defined as:}
+\textcolor{blue}{To smooth high-frequency network noise while remaining sensitive to timing drift, the VNF Delay Manager maintains a running mean of the late offset ($\mu_{\mathrm{late}}$) along with the smoothed jitter variance ($v_{\mathrm{jitter}}$). Let $e_{\mathrm{late}, i}$ be the observed worst-case late offset in scheduling slot $i$. The EWMA updates are defined as:}
 \begin{equation}
 \mu_{\mathrm{late}, i} = \mu_{\mathrm{late}, i-1} + \alpha \cdot (e_{\mathrm{late}, i} - \mu_{\mathrm{late}, i-1})
 \end{equation}
 \begin{equation}
 v_{\mathrm{jitter}, i} = v_{\mathrm{jitter}, i-1} + \beta \cdot (|e_{\mathrm{late}, i} - \mu_{\mathrm{late}, i}| - v_{\mathrm{jitter}, i-1})
 \end{equation}
-\textcolor{blue}{where the smoothing factors are chosen as $\alpha = 1/8$ and $\beta = 1/4$. These parameters are specifically designed as negative powers of two ($\alpha = 2^{-3}$, $\beta = 2^{-2}$) to allow the controller to perform fast bitwise shift operations in real time while maintaining an optimal balance between estimation stability and tracking sensitivity.
-The timing uncertainty is then calculated as the sum of the directional jitter and the average variation:}
+\textcolor{blue}{where the smoothing factors are chosen as $\alpha = 1/8$ and $\beta = 1/4$. These parameters are specifically designed as negative powers of two ($\alpha = 2^{-3}$, $\beta = 2^{-2}$) to allow the controller to perform fast bitwise shift operations in real time.
+The timing uncertainty $U_{\mathrm{timing}}$ is then calculated directly from the jitter variance:}
 \begin{equation}
-U_{\mathrm{timing}} = J_{\mathrm{late}} + v_{\mathrm{jitter}}
+U_{\mathrm{timing}} = 4 \cdot v_{\mathrm{jitter}}
 \end{equation}
-\textcolor{blue}{where $J_{\mathrm{late}}$ is updated recursively using the factor $\beta$ on the positive (late) or negative (early) offset deviations. Using this uncertainty, the predicted risk ($Risk_{\mathrm{pred}}$) and the safety margin ($M_{\mathrm{sample}}$) are evaluated:}
+\textcolor{blue}{Using this uncertainty, the predicted timing risk ($R_{\mathrm{pred}}$) and the current safety margin ($M_{\mathrm{curr}}$) are evaluated:}
 \begin{equation}
-Risk_{\mathrm{pred}} = \max(e_{\mathrm{late}}, \mu_{\mathrm{late}}) + U_{\mathrm{timing}}
+R_{\mathrm{pred}} = \max(e_{\mathrm{late}}, \mu_{\mathrm{late}}) + U_{\mathrm{timing}}
 \end{equation}
 \begin{equation}
-M_{\mathrm{sample}} = \max(0, -Risk_{\mathrm{pred}})
+M_{\mathrm{curr}} = \max(0, -R_{\mathrm{pred}})
 \end{equation}
-\textcolor{blue}{The long-term risk debt ($Debt_{\mathrm{risk}}$) and the average safety margin ($M_{\mathrm{safe\_ewma}}$) are updated recursively using the factor $\alpha$. The system is considered debt-free if $Debt_{\mathrm{risk}}$ decays to zero.}
+\textcolor{blue}{The long-term risk debt ($D_{\mathrm{risk}}$) and the average safety margin ($M_{\mathrm{safe}}$) are updated recursively using the factor $\alpha$:}
+\begin{equation}
+D_{\mathrm{risk}, i} = D_{\mathrm{risk}, i-1} + \alpha \cdot (\max(0, R_{\mathrm{pred}}) - D_{\mathrm{risk}, i-1})
+\end{equation}
+\begin{equation}
+M_{\mathrm{safe}, i} = M_{\mathrm{safe}, i-1} + \alpha \cdot (M_{\mathrm{curr}} - M_{\mathrm{safe}, i-1})
+\end{equation}
+\textcolor{blue}{The system is considered debt-free if $D_{\mathrm{risk}}$ decays to zero.}
 
 \subsubsection{Asymmetric Predictive Feedback Control}
 \label{subsubsec:delay_control}
-\textcolor{blue}{The update of the slots ahead trigger timing $S_{next}$ is governed by an asymmetric control law. Under this law, the scheduler reacts immediately to timing violations or positive risk, while slowly decreasing the lead time only when the system has remained stable for a sustained duration:}
+\textcolor{blue}{The update of the slots ahead trigger timing $S_{\mathrm{next}}$ is governed by an asymmetric control law. Under this law, the scheduler reacts immediately to timing violations or positive risk, while slowly decreasing the lead time only when the system has remained stable for a sustained duration:}
 \begin{itemize}
-    \item \textbf{Rapid Compensation (Preserve Throughput):} \textcolor{blue}{If a timing violation is detected ($e_{\mathrm{late}} > 0$) or the predicted risk is positive ($Risk_{\mathrm{pred}} > 0$), the controller immediately increments the slots ahead parameter to prevent scheduling timeouts:}
+    \item \textbf{Rapid Compensation (Preserve Throughput):} \textcolor{blue}{If a timing violation is detected ($e_{\mathrm{late}} > 0$) or the predicted risk is positive ($R_{\mathrm{pred}} > 0$), the controller immediately increments the slots ahead parameter to prevent scheduling timeouts:}
           \begin{equation}
-          S_{next} = \min\left(S_{curr} + 1, \left\lfloor \frac{T_{\mathrm{window}}}{T_{\mathrm{slot}}} \right\rfloor\right)
+          S_{\mathrm{next}} = \min\left(S_{\mathrm{curr}} + 1, \left\lfloor \frac{T_{\mathrm{window}}}{T_{\mathrm{slot}}} \right\rfloor\right)
           \end{equation}
-          \textcolor{blue}{and resets the stable observation counter $count_{stable} = 0$.}
-    \item \textbf{Gradual Relaxation (Optimize Latency):} \textcolor{blue}{If the system is cleared of risk debt ($Debt_{\mathrm{risk}} = 0$), the current sample has no risk, and the safety margin is sufficient ($M_{\mathrm{safe\_ewma}} \ge U_{\mathrm{timing}}$), the controller decrements the slots ahead timing once the stability condition is satisfied:}
+          \textcolor{blue}{and resets the stable observation counter $C_{\mathrm{stable}} = 0$.}
+    \item \textbf{Gradual Relaxation (Optimize Latency):} \textcolor{blue}{If the system is cleared of risk debt ($D_{\mathrm{risk}} = 0$), the current sample has no risk ($R_{\mathrm{pred}} \le 0$), and the safety margin is sufficient ($M_{\mathrm{safe}} \ge U_{\mathrm{timing}}$), the controller decrements the slots ahead timing once the stability condition is satisfied:}
           \begin{equation}
-          S_{next} = \max(S_{curr} - 1, 1)
+          S_{\mathrm{next}} = \max(S_{\mathrm{curr}} - 1, 1)
           \end{equation}
-          \textcolor{blue}{and resets $count_{stable} = 0$. To prevent premature timing reductions as the scheduling buffer grows, the required stable count threshold increases quadratically with $S_{curr}$.}
-    \item \textbf{Maintain Baseline:} \textcolor{blue}{Otherwise, the controller holds the current timing, $S_{next} = S_{curr}$. The stable counter $count_{stable}$ is incremented if the current sample is safe.}
+          \textcolor{blue}{and resets $C_{\mathrm{stable}} = 0$. To prevent premature timing reductions as the scheduling buffer grows, the required stable count threshold increases quadratically with $S_{\mathrm{curr}}$.}
+    \item \textbf{Maintain Baseline:} \textcolor{blue}{Otherwise, the controller holds the current timing, $S_{\mathrm{next}} = S_{\mathrm{curr}}$. The stable counter $C_{\mathrm{stable}}$ is incremented if the current sample is safe ($R_{\mathrm{pred}} \le 0$).}
 \end{itemize}
 
 \textcolor{blue}{The core adjustment strategy is condensed in Algorithm~\ref{alg:delay_management}.}
@@ -260,50 +267,50 @@ M_{\mathrm{sample}} = \max(0, -Risk_{\mathrm{pred}})
 \caption{Delay Management}
 \label{alg:delay_management}
 \begin{algorithmic}[1]
-\Require $e_{\mathrm{late}}$ (Worst-case observed late offset), $S_{curr}$ (Current trigger timing)
-\Ensure $S_{next}$ (Trigger timing for the next MAC schedule)
+\Require $e_{\mathrm{late}}$ (Worst-case observed late offset), $S_{\mathrm{curr}}$ (Current trigger timing), $T_{\mathrm{window}}$ (Timing window), $T_{\mathrm{slot}}$ (Slot duration)
+\Ensure $S_{\mathrm{next}}$ (Trigger timing for the next MAC schedule)
 
 \Statex \textbf{Notation:} 
 \Statex $\mu_{\mathrm{late}}$ (EWMA mean late offset), $v_{\mathrm{jitter}}$ (EWMA jitter variance)
-\Statex $U_{\mathrm{timing}}$ (Timing uncertainty), $Risk_{\mathrm{pred}}$ (Predicted timing risk)
-\Statex $Debt_{\mathrm{risk}}$ (EWMA risk debt), $M_{\mathrm{safe\_ewma}}$ (EWMA safety margin)
-\Statex $count_{stable}$ (Stable observation counter)
+\Statex $U_{\mathrm{timing}}$ (Timing uncertainty), $R_{\mathrm{pred}}$ (Predicted timing risk)
+\Statex $D_{\mathrm{risk}}$ (EWMA risk debt), $M_{\mathrm{safe}}$ (EWMA safety margin), $M_{\mathrm{curr}}$ (Current safety margin)
+\Statex $C_{\mathrm{stable}}$ (Stable observation counter)
 \Statex $\alpha, \beta$ (Smoothing factors, where $\alpha=1/8, \beta=1/4$)
 
 \Statex \textbf{Phase I: EWMA Risk and Uncertainty Tracking}
 \State $error \gets e_{\mathrm{late}} - \mu_{\mathrm{late}}$
 \State $\mu_{\mathrm{late}} \gets \mu_{\mathrm{late}} + \alpha \cdot error$
 \State $v_{\mathrm{jitter}} \gets v_{\mathrm{jitter}} + \beta \cdot (|error| - v_{\mathrm{jitter}})$
-\State $U_{\mathrm{timing}} \gets \text{CalculateUncertainty}(v_{\mathrm{jitter}}, \beta)$
-\State $Risk_{\mathrm{pred}} \gets \max(e_{\mathrm{late}}, \mu_{\mathrm{late}}) + U_{\mathrm{timing}}$
-\State $Debt_{\mathrm{risk}} \gets Debt_{\mathrm{risk}} + \alpha \cdot (\max(0, Risk_{\mathrm{pred}}) - Debt_{\mathrm{risk}})$
-\State $M_{\mathrm{sample}} \gets \max(0, -Risk_{\mathrm{pred}})$
-\State $M_{\mathrm{safe\_ewma}} \gets M_{\mathrm{safe\_ewma}} + \alpha \cdot (M_{\mathrm{sample}} - M_{\mathrm{safe\_ewma}})$
+\State $U_{\mathrm{timing}} \gets 4 \cdot v_{\mathrm{jitter}}$
+\State $R_{\mathrm{pred}} \gets \max(e_{\mathrm{late}}, \mu_{\mathrm{late}}) + U_{\mathrm{timing}}$
+\State $D_{\mathrm{risk}} \gets D_{\mathrm{risk}} + \alpha \cdot (\max(0, R_{\mathrm{pred}}) - D_{\mathrm{risk}})$
+\State $M_{\mathrm{curr}} \gets \max(0, -R_{\mathrm{pred}})$
+\State $M_{\mathrm{safe}} \gets M_{\mathrm{safe}} + \alpha \cdot (M_{\mathrm{curr}} - M_{\mathrm{safe}})$
 
 \Statex \textbf{Phase II: Asymmetric Timing Adjustment}
-\If{$e_{\mathrm{late}} > 0 \lor Risk_{\mathrm{pred}} > 0$}
-    \State $S_{next} \gets \min(S_{curr} + 1, \lfloor T_{\mathrm{window}} / T_{\mathrm{slot}} \rfloor)$ \Comment{Rapid Compensation}
-    \State $count_{stable} \gets 0$
-\ElsIf{$Debt_{\mathrm{risk}} \approx 0 \land e_{\mathrm{late}} \le 0 \land M_{\mathrm{safe\_ewma}} \ge U_{\mathrm{timing}}$}
+\If{$e_{\mathrm{late}} > 0 \lor R_{\mathrm{pred}} > 0$}
+    \State $S_{\mathrm{next}} \gets \min(S_{\mathrm{curr}} + 1, \lfloor T_{\mathrm{window}} / T_{\mathrm{slot}} \rfloor)$ \Comment{Rapid Compensation}
+    \State $C_{\mathrm{stable}} \gets 0$
+\ElsIf{$D_{\mathrm{risk}} \approx 0 \land R_{\mathrm{pred}} \le 0 \land M_{\mathrm{safe}} \ge U_{\mathrm{timing}}$}
     \If{stability condition is satisfied}
-        \State $S_{next} \gets \max(S_{curr} - 1, 1)$ \Comment{Gradual Relaxation}
-        \State $count_{stable} \gets 0$
+        \State $S_{\mathrm{next}} \gets \max(S_{\mathrm{curr}} - 1, 1)$ \Comment{Gradual Relaxation}
+        \State $C_{\mathrm{stable}} \gets 0$
     \Else
-        \State $S_{next} \gets S_{curr}$
-        \State $count_{stable} \gets count_{stable} + 1$
+        \State $S_{\mathrm{next}} \gets S_{\mathrm{curr}}$
+        \State $C_{\mathrm{stable}} \gets C_{\mathrm{stable}} + 1$
     \EndIf
 \Else
-    \State $S_{next} \gets S_{curr}$
-    \State $count_{stable} \gets 0$
+    \State $S_{\mathrm{next}} \gets S_{\mathrm{curr}}$
+    \State $C_{\mathrm{stable}} \gets 0$
 \EndIf
-\State \Return $S_{next}$
+\State \Return $S_{\mathrm{next}}$
 \end{algorithmic}
 \end{algorithm}
 
-\subsection{Coordination between Inner and Outer Loops}
+\subsection{Coordination between Node Sync and Delay Management}
 \label{subsec:loop_coordination}
 
-\textcolor{blue}{To ensure stable operation under real-world conditions, the inner and outer loops must coordinate without inducing control loop oscillations. The microsecond-level Node Sync (Inner-Loop) focuses strictly on correcting clock phase offsets to align the VNF's scheduling thread with the PNF's slot transitions. Because it directly shifts the VNF's time base, any clock adjustment ($S_{adj}, \mu s_{adj}$) temporarily shifts the arrival timestamp reference. The outer loop's Delay Manager (Outer-Loop) is designed to absorb this transient shifting. By relying on the history-weighted risk debt ($Debt_{risk}$), the outer loop avoids reacting to the temporary timing offsets caused by clock adjustments, allowing the inner loop to converge. Once the inner loop locks synchronization ($sync\_locked = 1$), the time base stabilizes, allowing the outer loop to achieve precise slot-level optimizations ($S_{ahead}$).}
+\textcolor{blue}{To ensure stable operation under real-world conditions, Node Sync and Delay Management must coordinate without inducing control loop oscillations. The microsecond-level Node Sync focuses strictly on correcting clock phase offsets to align the VNF's scheduling thread with the PNF's slot transitions. Because it directly shifts the VNF's time base, any clock adjustment ($S_{adj}, \mu s_{adj}$) temporarily shifts the arrival timestamp reference. The Delay Manager is designed to absorb this transient shifting. By relying on the history-weighted risk debt ($D_{risk}$), the Delay Manager avoids reacting to the temporary timing offsets caused by clock adjustments, allowing Node Sync to converge. Once Node Sync locks synchronization ($sync\_locked = 1$), the time base stabilizes, allowing the Delay Manager to achieve precise slot-level optimizations ($S_{\mathrm{ahead}}$).}
 
 \section{Experimental Results}
 \label{sec:experiments}
@@ -361,7 +368,7 @@ Fronthaul & O-RAN F release \\
 \subsection{Rigorous System-Level Validation and Generalization}
 \label{subsec:software_validation}
 
-\textcolor{blue}{To prove the stability, generalization capability, and compatibility of the proposed dual-loop timing control and nFAPI modifications, our software implementation was submitted and successfully merged into the official upstream OpenAirInterface (OAI) repository. Beyond our localized end-to-end evaluation using the rApp framework, the proposed solution underwent rigorous testing in the official OAI Continuous Integration and Continuous Deployment (CI/CD) pipeline. Specifically, the code successfully passed all image building and cross-compilation tests across standard x86 and ARM64-based architectures, including enterprise-grade Red Hat Enterprise Linux (RHEL) clusters and NVIDIA Jetson edge platforms. Furthermore, our implementation successfully completed key system-level integration and physical layer regression tests. These tests include 5G Standalone (SA) end-to-end integration, real radio frequency (RF) transmissions using USRP B200 and AW2S radio units, standard F1/N2 interface control-plane handover procedures, and 3GPP-compliant physical layer channel simulations. These regression and compilation results confirm that our proposed software-defined timing loops are highly robust, backward-compatible, and ready for diverse commercial cloud hardware deployments without introducing any hardware dependency.}
+\textcolor{blue}{To prove the stability, generalization capability, and compatibility of the proposed timing control and nFAPI modifications, our software implementation was submitted and successfully merged into the official upstream OpenAirInterface (OAI) repository. Beyond our localized end-to-end evaluation using the rApp framework, the proposed solution underwent rigorous testing in the official OAI Continuous Integration and Continuous Deployment (CI/CD) pipeline. Specifically, the code successfully passed all image building and cross-compilation tests across standard x86 and ARM64-based architectures, including enterprise-grade Red Hat Enterprise Linux (RHEL) clusters and NVIDIA Jetson edge platforms. Furthermore, our implementation successfully completed key system-level integration and physical layer regression tests. These tests include 5G Standalone (SA) end-to-end integration, real radio frequency (RF) transmissions using USRP B200 and AW2S radio units, standard F1/N2 interface control-plane handover procedures, and 3GPP-compliant physical layer channel simulations. These regression and compilation results confirm that our proposed software-defined timing loops are highly robust, backward-compatible, and ready for diverse commercial cloud hardware deployments without introducing any hardware dependency.}
 
 \subsection{Scenario I: Validation of EWMA for PNF Timing Info}
 \label{subsec:scenario_1}
