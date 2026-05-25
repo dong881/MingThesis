@@ -47,6 +47,8 @@ S_{\mathrm{adj}} = \mathit{offset} / T_{\mathrm{slot}}
 \label{alg:node_sync_simplified}
 \small
 \begin{algorithmic}[1]
+\algrenewcommand\algorithmicrequire{\textbf{Input:}}
+\algrenewcommand\algorithmicensure{\textbf{Output:}}
 \Require $t_1, t_2, t_3$ (Timestamps from PNF \textit{UL\_node\_sync}), $t_4$ (VNF local receive timestamp)
 \Ensure $\mathit{slot\_adjustment}$ (Slot adjustment accumulator), $\mathit{us\_adjustment}$ (Microsecond adjustment accumulator)
 
@@ -89,33 +91,8 @@ S_{\mathrm{adj}} = \mathit{offset} / T_{\mathrm{slot}}
 
 \subsection{EWMA-Based Risk and Uncertainty Estimation}
 \label{subsubsec:ewma_estimation}
-\textcolor{blue}{To smooth high-frequency network noise while remaining sensitive to timing drift, the VNF Delay Manager maintains a running mean of the late offset ($\mu_{\mathrm{late}}$) along with the smoothed jitter variance ($v_{\mathrm{jitter}}$). Let $e_{\mathrm{late}, i}$ be the observed worst-case late offset in scheduling slot $i$. The EWMA updates are defined as:}
-\begin{equation}
-\mu_{\mathrm{late}, i} = \mu_{\mathrm{late}, i-1} + \alpha \cdot (e_{\mathrm{late}, i} - \mu_{\mathrm{late}, i-1})
-\end{equation}
-\begin{equation}
-v_{\mathrm{jitter}, i} = v_{\mathrm{jitter}, i-1} + \beta \cdot (|e_{\mathrm{late}, i} - \mu_{\mathrm{late}, i}| - v_{\mathrm{jitter}, i-1})
-\end{equation}
 \textcolor{blue}{where the smoothing factors are chosen as $\alpha = 1/8$ and $\beta = 1/4$. These parameters are specifically designed as negative powers of two ($\alpha = 2^{-3}$, $\beta = 2^{-2}$) to allow the controller to perform fast bitwise shift operations in real time.
-Let $d_i = e_{\mathrm{late}, i} - \mu_{\mathrm{late}, i}$ represent the current late offset deviation. The late-side directional jitter $J_{\mathrm{late}}$ is updated recursively as:}
-\begin{equation}
-J_{\mathrm{late}, i} = \begin{cases}
-J_{\mathrm{late}, i-1} + \beta \cdot (d_i - J_{\mathrm{late}, i-1}) & \text{if } d_i > 0 \\
-J_{\mathrm{late}, i-1} & \text{otherwise}
-\end{cases}
-\end{equation}
-\textcolor{blue}{The timing uncertainty $U_{\mathrm{timing}}$ is then evaluated as the sum of the late-side jitter and the average absolute jitter:}
-\begin{equation}
-U_{\mathrm{timing}} = J_{\mathrm{late}} + v_{\mathrm{jitter}}
-\end{equation}
-\textcolor{blue}{Using this uncertainty, the predicted timing risk ($R_{\mathrm{pred}}$) and the current safety margin ($M_{\mathrm{curr}}$) are evaluated:}
-\begin{equation}
-R_{\mathrm{pred}} = \max(e_{\mathrm{late}}, \mu_{\mathrm{late}}) + U_{\mathrm{timing}}
-\end{equation}
-\begin{equation}
-M_{\mathrm{curr}} = \max(0, -R_{\mathrm{pred}})
-\end{equation}
-\textcolor{blue}{To capture long-term trends and filter out transient noise, the long-term risk debt ($D_{\mathrm{risk}}$) and the average safety margin ($M_{\mathrm{safe}}$) are tracked recursively using an Exponentially Weighted Moving Average (EWMA) of the timing risk ($\max(0, R_{\mathrm{pred}}$)) and the current safety margin ($M_{\mathrm{curr}}$), respectively. The system is considered debt-free if $D_{\mathrm{risk}}$ decays to zero.}
+To smooth high-frequency network noise while remaining sensitive to timing drift, the VNF Delay Manager maintains a running mean of the late offset ($\mu_{\mathrm{late}}$) using a smoothing factor $\alpha$, and estimates the transport network jitter using a smoothing factor $\beta$. Specifically, $\alpha = 1/8$ is chosen to track the long-term latency trend, and $\beta = 1/4$ is chosen to capture fast jitter fluctuations. By combining the mean late offset and the estimated jitter, the controller evaluates the timing uncertainty and the predicted timing risk ($R_{\mathrm{pred}}$). Based on these estimations, the controller recursively tracks the risk debt ($D_{\mathrm{risk}}$) and the safety margin ($M_{\mathrm{safe}}$) to guide timing adjustments. The system is considered debt-free if $D_{\mathrm{risk}}$ decays to zero.}
 
 \subsection{Asymmetric Predictive Feedback Control}
 \label{subsubsec:delay_control}
@@ -126,7 +103,7 @@ M_{\mathrm{curr}} = \max(0, -R_{\mathrm{pred}})
           S_{\mathrm{next}} = \min\left(S_{\mathrm{curr}} + 1, \left\lfloor \frac{T_{\mathrm{window}}}{T_{\mathrm{slot}}} \right\rfloor\right)
           \end{equation}
           \textcolor{blue}{and resets the stable observation counter $C_{\mathrm{stable}} = 0$.}
-    \item \textcolor{blue}{\textbf{Gradual Relaxation (Optimize Latency):} If the system is cleared of risk debt ($D_{\mathrm{risk}} = 0$), the current sample has no risk ($R_{\mathrm{pred}} \le 0$), and the safety margin is sufficient ($M_{\mathrm{safe}} \ge U_{\mathrm{timing}}$), the controller decrements the slots ahead timing once the stability condition is satisfied:}
+    \item \textcolor{blue}{\textbf{Gradual Relaxation (Optimize Latency):} If the system is cleared of risk debt ($D_{\mathrm{risk}} = 0$), the current sample has no risk ($R_{\mathrm{pred}} \le 0$), and the safety margin is sufficient ($M_{\mathrm{safe}} \ge \text{Jitter}$), the controller decrements the slots ahead timing once the stability condition is satisfied:}
           \begin{equation}
           S_{\mathrm{next}} = \max(S_{\mathrm{curr}} - 1, 1)
           \end{equation}
@@ -141,29 +118,24 @@ The core adjustment strategy is condensed in Algorithm~\ref{alg:delay_management
 \label{alg:delay_management}
 \footnotesize
 \begin{algorithmic}[1]
+\algrenewcommand\algorithmicrequire{\textbf{Input:}}
+\algrenewcommand\algorithmicensure{\textbf{Output:}}
 \Require $e_{\mathrm{late}}$ (Worst-case observed late offset), $S_{\mathrm{curr}}$ (Current trigger timing),
 \Statex \hskip\algorithmicindent $T_{\mathrm{window}}$ (Timing window), $T_{\mathrm{slot}}$ (Slot duration)
 \Ensure $S_{\mathrm{next}}$ (Trigger timing for the next MAC schedule)
 \Statex 
 \Statex \textbf{Notation:} 
-\Statex $\mu_{\mathrm{late}}$ (EWMA mean late offset), $v_{\mathrm{jitter}}$ (EWMA jitter variance), $J_{\mathrm{late}}$ (Late-side jitter)
-\Statex $U_{\mathrm{timing}}$ (Timing uncertainty), $R_{\mathrm{pred}}$ (Predicted timing risk)
-\Statex $D_{\mathrm{risk}}$ (EWMA risk debt), $M_{\mathrm{safe}}$ (EWMA safety margin),
-\Statex $M_{\mathrm{curr}}$ (Current safety margin), $C_{\mathrm{stable}}$ (Stable observation counter)
-\Statex $\alpha, \beta$ (Smoothing factors, where $\alpha=1/8, \beta=1/4$)
+\Statex $\mu_{\mathrm{late}}$ (EWMA mean late offset), $\text{Jitter}$ (Estimated network jitter)
+\Statex $R_{\mathrm{pred}}$ (Predicted timing risk), $D_{\mathrm{risk}}$ (EWMA risk debt), $M_{\mathrm{safe}}$ (EWMA safety margin)
+\Statex $C_{\mathrm{stable}}$ (Stable observation counter)
+\Statex $\alpha, \beta$ (Smoothing factors for latency and jitter)
  
-\Statex \textbf{Phase I: EWMA Risk and Uncertainty Tracking}
-\State $error \gets e_{\mathrm{late}} - \mu_{\mathrm{late}}$
-\State $\mu_{\mathrm{late}} \gets \mu_{\mathrm{late}} + \alpha \cdot error$
-\If{$error > 0$}
-    \State $J_{\mathrm{late}} \gets \mathrm{EWMA}(J_{\mathrm{late}}, error)$
-\EndIf
-\State $v_{\mathrm{jitter}} \gets v_{\mathrm{jitter}} + \beta \cdot (|error| - v_{\mathrm{jitter}})$
-\State $U_{\mathrm{timing}} \gets J_{\mathrm{late}} + v_{\mathrm{jitter}}$
-\State $R_{\mathrm{pred}} \gets \max(e_{\mathrm{late}}, \mu_{\mathrm{late}}) + U_{\mathrm{timing}}$
-\State $D_{\mathrm{risk}} \gets \mathrm{EWMA}(D_{\mathrm{risk}}, \max(0, R_{\mathrm{pred}}))$
-\State $M_{\mathrm{curr}} \gets \max(0, -R_{\mathrm{pred}})$
-\State $M_{\mathrm{safe}} \gets \mathrm{EWMA}(M_{\mathrm{safe}}, M_{\mathrm{curr}})$
+\Statex \textbf{Phase I: EWMA Latency and Jitter Estimation}
+\State $\mu_{\mathrm{late}} \gets \mathrm{EWMA}_{\alpha}(\mu_{\mathrm{late}}, e_{\mathrm{late}})$ \Comment{Track mean late offset}
+\State $\text{Jitter} \gets \mathrm{EWMA}_{\beta}(\text{Jitter}, |e_{\mathrm{late}} - \mu_{\mathrm{late}}|)$ \Comment{Track network jitter}
+\State $R_{\mathrm{pred}} \gets \text{PredictTimingRisk}(\mu_{\mathrm{late}}, \text{Jitter})$
+\State $D_{\mathrm{risk}} \gets \text{UpdateRiskDebt}(R_{\mathrm{pred}})$
+\State $M_{\mathrm{safe}} \gets \text{UpdateSafetyMargin}(R_{\mathrm{pred}})$
 
 \Statex \textbf{Phase II: Asymmetric Timing Adjustment}
 \If{$e_{\mathrm{late}} > 0 \lor R_{\mathrm{pred}} > 0$}
