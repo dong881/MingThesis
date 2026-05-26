@@ -87,7 +87,7 @@ S_{\mathrm{adj}} = \mathit{offset} / T_{\mathrm{slot}}
 \section{Delay Management}
 \label{subsec:delay_management}
 
-\textcolor{blue}{To counteract changing network latency and maintain scheduling stability, a dynamic delay management strategy is implemented. This strategy operates as an Asymmetric Feedback Controller based on a Worst-Case Delay Model, periodically evaluating the observed worst-case late arrival offset ($e_{\mathrm{late}}$) reported by the PNF.}
+\textcolor{blue}{To counteract changing network latency and maintain scheduling stability, a dynamic delay management strategy is implemented. This strategy operates as a Fast-Up and Slow-Down Feedback Controller based on a Worst-Case Delay Model, periodically evaluating the observed worst-case late arrival offset ($e_{\mathrm{late}}$) reported by the PNF.}
 
 \subsection{Delay and Uncertainty Estimation}
 \label{subsubsec:ewma_estimation}
@@ -98,31 +98,28 @@ S_{\mathrm{adj}} = \mathit{offset} / T_{\mathrm{slot}}
 \begin{equation}
 v_{\mathrm{jitter}, i} = v_{\mathrm{jitter}, i-1} + \beta \cdot (|e_{\mathrm{late}, i} - \mu_{\mathrm{late}, i}| - v_{\mathrm{jitter}, i-1})
 \end{equation}
-\textcolor{blue}{where the smoothing factors are chosen as $\alpha = 1/8$ to track the long-term latency trend, and $\beta = 1/4$ to capture fast jitter fluctuations. These parameters are designed as negative powers of two ($\alpha = 2^{-3}$, $\beta = 2^{-2}$) to allow the controller to perform fast bitwise shift operations in real time.}
+\textcolor{blue}{where the smoothing factors are chosen as $\alpha = 1/8$ to track the long-term latency trend, and $\beta = 1/4$ to capture fast jitter variations. These parameters are designed as negative powers of two ($\alpha = 2^{-3}$, $\beta = 2^{-2}$) to allow the controller to perform fast bitwise shift operations in real time.}
 
 \textcolor{blue}{To guide timing adjustments, the controller combines the mean late offset and the estimated jitter to estimate the worst-case timing delay ($D_{\mathrm{worst}}$). The worst-case timing delay for slot $i$ is calculated as the sum of the worst-case boundary of the late offset and the network jitter:}
 \begin{equation}
 D_{\mathrm{worst}, i} = \max(e_{\mathrm{late}, i}, \mu_{\mathrm{late}, i}) + v_{\mathrm{jitter}, i}
 \end{equation}
-\textcolor{blue}{Based on this worst-case delay estimation, the controller recursively tracks the accumulated timing delay ($D_{\mathrm{accum}}$) and the safety margin ($M_{\mathrm{safe}}$):}
+\textcolor{blue}{Based on this worst-case delay estimation, the controller recursively tracks the accumulated timing delay ($D_{\mathrm{accum}}$):}
 \begin{equation}
-D_{\mathrm{accum}, i} = D_{\mathrm{accum}, i-1} + \alpha \cdot (\max(0, D_{\mathrm{worst}, i}) - D_{\mathrm{accum}, i-1})
+D_{\mathrm{accum}, i} = \max(0, D_{\mathrm{accum}, i-1} + D_{\mathrm{worst}, i})
 \end{equation}
-\begin{equation}
-M_{\mathrm{safe}, i} = M_{\mathrm{safe}, i-1} + \alpha \cdot (\max(0, -D_{\mathrm{worst}, i}) - M_{\mathrm{safe}, i-1})
-\end{equation}
-\textcolor{blue}{The accumulated timing delay $D_{\mathrm{accum}}$ aggregates timing violations and worst-case delays over time, and the safety margin $M_{\mathrm{safe}}$ tracks the average buffer capacity when the system operates without timing delays. The system is considered delay-free if $D_{\mathrm{accum}}$ decays to zero ($D_{\mathrm{accum}} \approx 0$).}
+\textcolor{blue}{The accumulated timing delay $D_{\mathrm{accum}}$ aggregates timing violations and worst-case delays over time. The system is considered delay-free if $D_{\mathrm{accum}}$ decays to zero ($D_{\mathrm{accum}} = 0$).}
 
-\subsection{Asymmetric Feedback Control}
+\subsection{Fast-Up and Slow-Down Feedback Control}
 \label{subsubsec:delay_control}
-\textcolor{blue}{The update of the slots ahead trigger timing $S_{\mathrm{next}}$ is governed by an asymmetric control law. Under this law, the scheduler reacts immediately to timing violations or positive timing delay, while slowly decreasing the lead time only when the system has remained stable for a sustained duration:}
+\textcolor{blue}{The update of the slots ahead trigger timing $S_{\mathrm{next}}$ is governed by a fast-up and slow-down control law. Under this law, the scheduler reacts immediately to timing violations or positive timing delay, while slowly decreasing the lead time only when the system has remained stable for a sustained duration:}
 \begin{itemize}
-    \item \textcolor{blue}{\textbf{Rapid Compensation (Preserve Throughput):} If a timing violation is detected ($e_{\mathrm{late}} > 0$) or the worst-case timing delay is positive ($D_{\mathrm{worst}} > 0$), the controller immediately increments the slots ahead parameter to prevent scheduling timeouts:}
+    \item \textcolor{blue}{\textbf{Rapid Increase (Preserve Throughput):} If a timing violation is detected ($e_{\mathrm{late}} > 0$) or the worst-case timing delay is positive ($D_{\mathrm{worst}} > 0$), the controller immediately increments the slots ahead parameter to prevent scheduling timeouts:}
           \begin{equation}
           S_{\mathrm{next}} = \min\left(S_{\mathrm{curr}} + 1, \left\lfloor \frac{T_{\mathrm{window}}}{T_{\mathrm{slot}}} \right\rfloor\right)
           \end{equation}
           \textcolor{blue}{and resets the stable observation counter $C_{\mathrm{stable}} = 0$.}
-    \item \textcolor{blue}{\textbf{Gradual Relaxation (Optimize Latency):} If the system is cleared of accumulated timing delay ($D_{\mathrm{accum}} = 0$), the current sample has no timing delay ($D_{\mathrm{worst}} \le 0$), and the safety margin is sufficient ($M_{\mathrm{safe}} \ge v_{\mathrm{jitter}}$), the controller decrements the slots ahead timing once the stability condition is satisfied:}
+    \item \textcolor{blue}{\textbf{Gradual Decrease (Optimize Latency):} If the system has no accumulated timing delay ($D_{\mathrm{accum}} = 0$) and the current worst-case timing delay is safe ($D_{\mathrm{worst}} \le -v_{\mathrm{jitter}}$), the controller decrements the slots ahead timing once the stability condition is satisfied:}
           \begin{equation}
           S_{\mathrm{next}} = \max(S_{\mathrm{curr}} - 1, 1)
           \end{equation}
@@ -145,7 +142,7 @@ The core adjustment strategy is condensed in Algorithm~\ref{alg:delay_management
 \Statex 
 \Statex \textbf{Notation:} 
 \Statex $\mu_{\mathrm{late}}$ (smoothed mean late offset), $v_{\mathrm{jitter}}$ (smoothed network jitter)
-\Statex $D_{\mathrm{worst}}$ (Worst-case timing delay), $D_{\mathrm{accum}}$ (Accumulated timing delay), $M_{\mathrm{safe}}$ (Safety margin)
+\Statex $D_{\mathrm{worst}}$ (Worst-case timing delay), $D_{\mathrm{accum}}$ (Accumulated timing delay)
 \Statex $C_{\mathrm{stable}}$ (Stable observation counter)
 \Statex $\alpha, \beta$ (Smoothing factors for latency and jitter)
  
@@ -153,16 +150,15 @@ The core adjustment strategy is condensed in Algorithm~\ref{alg:delay_management
 \State $\mu_{\mathrm{late}} \gets \mu_{\mathrm{late}} + \alpha \cdot (e_{\mathrm{late}} - \mu_{\mathrm{late}})$ \Comment{Update mean late offset}
 \State $v_{\mathrm{jitter}} \gets v_{\mathrm{jitter}} + \beta \cdot (|e_{\mathrm{late}} - \mu_{\mathrm{late}}| - v_{\mathrm{jitter}})$ \Comment{Update network jitter}
 \State $D_{\mathrm{worst}} \gets \max(e_{\mathrm{late}}, \mu_{\mathrm{late}}) + v_{\mathrm{jitter}}$ \Comment{Evaluate worst-case timing delay}
-\State $D_{\mathrm{accum}} \gets D_{\mathrm{accum}} + \alpha \cdot (\max(0, D_{\mathrm{worst}}) - D_{\mathrm{accum}})$ \Comment{Update accumulated delay}
-\State $M_{\mathrm{safe}} \gets M_{\mathrm{safe}} + \alpha \cdot (\max(0, -D_{\mathrm{worst}}) - M_{\mathrm{safe}})$ \Comment{Update safety margin}
+\State $D_{\mathrm{accum}} \gets \max(0, D_{\mathrm{accum}} + D_{\mathrm{worst}})$ \Comment{Update accumulated delay}
 
-\Statex \textbf{Phase II: Asymmetric Timing Adjustment}
+\Statex \textbf{Phase II: Fast-Up and Slow-Down Timing Adjustment}
 \If{$e_{\mathrm{late}} > 0 \lor D_{\mathrm{worst}} > 0$}
-    \State $S_{\mathrm{next}} \gets \min(S_{\mathrm{curr}} + 1, \lfloor T_{\mathrm{window}} / T_{\mathrm{slot}} \rfloor)$ \Comment{Rapid Compensation}
+    \State $S_{\mathrm{next}} \gets \min(S_{\mathrm{curr}} + 1, \lfloor T_{\mathrm{window}} / T_{\mathrm{slot}} \rfloor)$ \Comment{Rapid Increase}
     \State $C_{\mathrm{stable}} \gets 0$
-\ElsIf{$D_{\mathrm{accum}} \approx 0 \land D_{\mathrm{worst}} \le 0 \land M_{\mathrm{safe}} \ge v_{\mathrm{jitter}}$}
+\ElsIf{$D_{\mathrm{accum}} = 0 \land D_{\mathrm{worst}} \le -v_{\mathrm{jitter}}$}
     \If{stability condition is satisfied}
-        \State $S_{\mathrm{next}} \gets \max(S_{\mathrm{curr}} - 1, 1)$ \Comment{Gradual Relaxation}
+        \State $S_{\mathrm{next}} \gets \max(S_{\mathrm{curr}} - 1, 1)$ \Comment{Gradual Decrease}
         \State $C_{\mathrm{stable}} \gets 0$
     \Else
         \State $S_{\mathrm{next}} \gets S_{\mathrm{curr}}$
