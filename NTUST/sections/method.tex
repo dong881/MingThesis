@@ -9,8 +9,8 @@
 This chapter details the proposed dynamic timing adjustment framework. To address the unstable transmission latency during packet transmission between the PNF and VNF, we propose two core timing control algorithms: Node Sync for software-level clock synchronization and Delay Management for slot-level adaptive delay management. The timing control of this system is organized as a closed-loop system, ensuring that the VNF-side scheduling can dynamically track and compensate for both microsecond-level clock drift and slot-level transport latency variation. The two core algorithms cooperate as follows:
 
 \begin{enumerate}
-    \item \textcolor{blue}{\textbf{Node Sync:} Maintains phase and slot boundary alignment between the VNF and PNF. It periodically exchanges timestamps to calculate the absolute phase offset, correcting for hardware clock drift (Clock Drift).}
-    \item \textcolor{blue}{\textbf{Delay Management:} Tracks and estimates packet transport delays and jitter at the slot level, dynamically adjusting the slots ahead ($S_{\mathrm{ahead}}$) to guarantee that control messages fall within the PNF's strict timing window.}
+    \item \textbf{Node Sync:} Maintains phase and slot boundary alignment between the VNF and PNF. It periodically exchanges timestamps to calculate the absolute phase offset, correcting for hardware clock drift (Clock Drift).
+    \item \textbf{Delay Management:} Tracks and estimates packet transport delays and jitter at the slot level, dynamically adjusting the slots ahead ($S_{\mathrm{ahead}}$) to guarantee that control messages fall within the PNF's strict timing window.
 \end{enumerate}
 
 \iffalse
@@ -18,29 +18,29 @@ This chapter details the proposed dynamic timing adjustment framework. To addres
 \fi
 \section{Node Sync}
 \label{subsec:node_sync}
-\textcolor{blue}{To perform software-level clock synchronization, the system adopts a timestamp exchange mechanism. The VNF periodically transmits a downlink node synchronization message with a local timestamp $t_1$. Upon receiving the message, the PNF records the local arrival timestamp $t_2$ and transmits an uplink node synchronization message back to the VNF, including the transmit timestamp $t_3$ and the echoed $t_2$. When the VNF receives the message, it records its local arrival timestamp $t_4$. Because the nFAPI timestamps are constrained by a 1024 subframe number (SFN) loop, they wrap around every $10.24$~seconds ($10240000$~\textmu s). The algorithm calculates the differences $d_1 = t_2 - t_1$ and $d_2 = t_4 - t_3$, applying a wrap-around correction to align them within the interval $[-5120000, 5120000]$~\textmu s. The VNF then calculates the instantaneous clock offset:}
+To perform software-level clock synchronization, the system adopts a timestamp exchange mechanism. The VNF periodically transmits a downlink node synchronization message with a local timestamp $t_1$. Upon receiving the message, the PNF records the local arrival timestamp $t_2$ and transmits an uplink node synchronization message back to the VNF, including the transmit timestamp $t_3$ and the echoed $t_2$. When the VNF receives the message, it records its local arrival timestamp $t_4$. Because the nFAPI timestamps are constrained by a 1024 subframe number (SFN) loop, they wrap around every $10.24$~seconds ($10240000$~\textmu s). The algorithm calculates the differences $d_1 = t_2 - t_1$ and $d_2 = t_4 - t_3$, applying a wrap-around correction to align them within the interval $[-5120000, 5120000]$~\textmu s. The VNF then calculates the instantaneous clock offset:
 \begin{equation}
 \mathit{offset} = \frac{d_1 - d_2}{2}
 \end{equation}
-\textcolor{blue}{To prevent timing adjustments from causing control loop oscillations, the synchronization control loop implements a state-based locking mechanism. The system has two synchronization states: locked ($\mathit{sync\_locked} = 1$) and unlocked ($\mathit{sync\_locked} = 0$). In the locked state, the VNF monitors the drift of the local clock. If the absolute offset exceeds the slot duration $T_{\mathrm{slot}}$:}
+To prevent timing adjustments from causing control loop oscillations, the synchronization control loop implements a state-based locking mechanism. The system has two synchronization states: locked ($\mathit{sync\_locked} = 1$) and unlocked ($\mathit{sync\_locked} = 0$). In the locked state, the VNF monitors the drift of the local clock. If the absolute offset exceeds the slot duration $T_{\mathrm{slot}}$:
 \begin{equation}
 |\mathit{offset}| > T_{\mathrm{slot}}
 \end{equation}
-\textcolor{blue}{the VNF unlocks the synchronization ($\mathit{sync\_locked} = 0$) to trigger re-synchronization. In the unlocked state, the VNF checks whether the offset has converged within the slot duration $T_{\mathrm{slot}}$. If $|\mathit{offset}| \le T_{\mathrm{slot}}$, the system locks the synchronization state ($\mathit{sync\_locked} = 1$). Otherwise, the VNF decomposes the offset into a slot-level adjustment $S_{\mathrm{adj}}$ and a microsecond-level adjustment $\mu s_{\mathrm{adj}}$ based on the slot duration $T_{\mathrm{slot}}$:}
+the VNF unlocks the synchronization ($\mathit{sync\_locked} = 0$) to trigger re-synchronization. In the unlocked state, the VNF checks whether the offset has converged within the slot duration $T_{\mathrm{slot}}$. If $|\mathit{offset}| \le T_{\mathrm{slot}}$, the system locks the synchronization state ($\mathit{sync\_locked} = 1$). Otherwise, the VNF decomposes the offset into a slot-level adjustment $S_{\mathrm{adj}}$ and a microsecond-level adjustment $\mu s_{\mathrm{adj}}$ based on the slot duration $T_{\mathrm{slot}}$:
 \begin{equation}
 S_{\mathrm{adj}} = \mathit{offset} / T_{\mathrm{slot}}
 \end{equation}
 \begin{equation}
 \mu s_{\mathrm{adj}} = \mathit{offset} \pmod{T_{\mathrm{slot}}}
 \end{equation}
-\textcolor{blue}{These adjustments are accumulated into the global adjustment variables:}
+These adjustments are accumulated into the global adjustment variables:
 \begin{equation}
 \mathit{slot\_adjustment} \gets \mathit{slot\_adjustment} + S_{\mathrm{adj}}
 \end{equation}
 \begin{equation}
 \mathit{us\_adjustment} \gets \mathit{us\_adjustment} - \mu s_{\mathrm{adj}}
 \end{equation}
-\textcolor{blue}{The negative sign in the microsecond adjustment reduces the local thread sleep time when the VNF clock is behind, speeding up the slot transition rate to catch up. The synchronization process is summarized in Algorithm~\ref{alg:node_sync_simplified}.}
+The negative sign in the microsecond adjustment reduces the local thread sleep time when the VNF clock is behind, speeding up the slot transition rate to catch up. The synchronization process is summarized in Algorithm~\ref{alg:node_sync_simplified}.
 
 \begin{algorithm}[H]
 \caption{Node Sync}
@@ -87,44 +87,44 @@ S_{\mathrm{adj}} = \mathit{offset} / T_{\mathrm{slot}}
 \section{Delay Management}
 \label{subsec:delay_management}
 
-\textcolor{blue}{To counteract changing network latency and maintain scheduling stability, a dynamic delay management strategy is implemented. This strategy operates as a Fast-Up and Slow-Down Feedback Controller based on a Worst-Case Delay Model, periodically evaluating the observed arrival offset ($\Delta t_{\mathrm{arrive}}$) reported by the PNF.}
+To counteract changing network latency and maintain scheduling stability, a dynamic delay management strategy is implemented. This strategy operates as a Fast-Up and Slow-Down Feedback Controller based on a Worst-Case Delay Model, periodically evaluating the observed arrival offset ($\Delta t_{\mathrm{arrive}}$) reported by the PNF.
 
 \subsection{Delay and Uncertainty Estimation}
 \label{subsubsec:ewma_estimation}
-\textcolor{blue}{To smooth high-frequency network noise while remaining sensitive to timing drift, the VNF Delay Manager maintains a running mean of the arrival offset ($\mu_{\mathrm{arrive}}$) and the arrival jitter ($dev_{\mathrm{arrive}}$). Let $\Delta t_{\mathrm{arrive}, i}$ be the observed arrival offset in scheduling slot $i$. The EWMA updates for mean arrival offset and jitter are defined as:}
+To smooth high-frequency network noise while remaining sensitive to timing drift, the VNF Delay Manager maintains a running mean of the arrival offset ($\mu_{\mathrm{arrive}}$) and the arrival jitter ($dev_{\mathrm{arrive}}$). Let $\Delta t_{\mathrm{arrive}, i}$ be the observed arrival offset in scheduling slot $i$. The EWMA updates for mean arrival offset and jitter are defined as:
 \begin{equation}
 \mu_{\mathrm{arrive}, i} = \mu_{\mathrm{arrive}, i-1} + \alpha \cdot (\Delta t_{\mathrm{arrive}, i} - \mu_{\mathrm{arrive}, i-1})
 \end{equation}
 \begin{equation}
 dev_{\mathrm{arrive}, i} = dev_{\mathrm{arrive}, i-1} + \beta \cdot (|\Delta t_{\mathrm{arrive}, i} - \mu_{\mathrm{arrive}, i}| - dev_{\mathrm{arrive}, i-1})
 \end{equation}
-\textcolor{blue}{where the smoothing factors are chosen as $\alpha = 1/8$ to track the long-term trend, and $\beta = 1/4$ to capture fast jitter variations. These parameters are designed as negative powers of two ($\alpha = 2^{-3}$, $\beta = 2^{-2}$) to allow the controller to perform fast bitwise shift operations in real time.}
+where the smoothing factors are chosen as $\alpha = 1/8$ to track the long-term trend, and $\beta = 1/4$ to capture fast jitter variations. These parameters are designed as negative powers of two ($\alpha = 2^{-3}$, $\beta = 2^{-2}$) to allow the controller to perform fast bitwise shift operations in real time.
 
-\textcolor{blue}{To guide timing adjustments, the controller combines the mean arrival offset and the estimated jitter to estimate the worst-case timing delay ($D_{\mathrm{worst}}$). The worst-case timing delay for slot $i$ is calculated as the sum of the worst-case boundary of the arrival offset and the arrival jitter:}
+To guide timing adjustments, the controller combines the mean arrival offset and the estimated jitter to estimate the worst-case timing delay ($D_{\mathrm{worst}}$). The worst-case timing delay for slot $i$ is calculated as the sum of the worst-case boundary of the arrival offset and the arrival jitter:
 \begin{equation}
 D_{\mathrm{worst}, i} = \max(\Delta t_{\mathrm{arrive}, i}, \mu_{\mathrm{arrive}, i}) + dev_{\mathrm{arrive}, i}
 \end{equation}
-\textcolor{blue}{Based on this worst-case delay estimation, the controller recursively tracks the accumulated timing delay ($D_{\mathrm{accum}}$):}
+Based on this worst-case delay estimation, the controller recursively tracks the accumulated timing delay ($D_{\mathrm{accum}}$):
 \begin{equation}
 D_{\mathrm{accum}, i} = \max(0, D_{\mathrm{accum}, i-1} + D_{\mathrm{worst}, i})
 \end{equation}
-\textcolor{blue}{The accumulated timing delay $D_{\mathrm{accum}}$ aggregates timing violations and worst-case delays over time. The system is considered delay-free if $D_{\mathrm{accum}}$ is below the arrival jitter level ($D_{\mathrm{accum}} \le dev_{\mathrm{arrive}}$).}
+The accumulated timing delay $D_{\mathrm{accum}}$ aggregates timing violations and worst-case delays over time. The system is considered delay-free if $D_{\mathrm{accum}}$ is below the arrival jitter level ($D_{\mathrm{accum}} \le dev_{\mathrm{arrive}}$).
 
 \subsection{Fast-Up and Slow-Down Feedback Control}
 \label{subsubsec:delay_control}
-\textcolor{blue}{The update of the slots ahead trigger timing $S_{\mathrm{next}}$ is governed by a fast-up and slow-down control law. Under this law, the scheduler reacts immediately to timing violations or positive timing delay, while slowly decreasing the lead time only when the system has remained stable for a sustained duration:}
+The update of the slots ahead trigger timing $S_{\mathrm{next}}$ is governed by a fast-up and slow-down control law. Under this law, the scheduler reacts immediately to timing violations or positive timing delay, while slowly decreasing the lead time only when the system has remained stable for a sustained duration:
 \begin{itemize}
-    \item \textcolor{blue}{\textbf{Rapid Increase (Preserve Throughput):} If a timing violation is detected ($\Delta t_{\mathrm{arrive}} > 0$) or the worst-case timing delay is positive ($D_{\mathrm{worst}} > 0$), the controller immediately increments the slots ahead parameter to prevent scheduling timeouts:}
+    \item \textbf{Rapid Increase (Preserve Throughput):} If a timing violation is detected ($\Delta t_{\mathrm{arrive}} > 0$) or the worst-case timing delay is positive ($D_{\mathrm{worst}} > 0$), the controller immediately increments the slots ahead parameter to prevent scheduling timeouts:
           \begin{equation}
           S_{\mathrm{next}} = \min\left(S_{\mathrm{curr}} + 1, \left\lfloor \frac{T_{\mathrm{window}}}{T_{\mathrm{slot}}} \right\rfloor\right)
           \end{equation}
-          \textcolor{blue}{and resets the stable observation counter $C_{\mathrm{stable}} = 0$.}
-    \item \textcolor{blue}{\textbf{Gradual Decrease (Optimize Latency):} If the system's accumulated timing delay is below the jitter level ($D_{\mathrm{accum}} \le dev_{\mathrm{arrive}}$) and the current worst-case timing delay is safe ($D_{\mathrm{worst}} \le -dev_{\mathrm{arrive}}$), the controller decrements the slots ahead timing once the stability condition is satisfied:}
+          and resets the stable observation counter $C_{\mathrm{stable}} = 0$.
+    \item \textbf{Gradual Decrease (Optimize Latency):} If the system's accumulated timing delay is below the jitter level ($D_{\mathrm{accum}} \le dev_{\mathrm{arrive}}$) and the current worst-case timing delay is safe ($D_{\mathrm{worst}} \le -dev_{\mathrm{arrive}}$), the controller decrements the slots ahead timing once the stability condition is satisfied:
           \begin{equation}
           S_{\mathrm{next}} = \max(S_{\mathrm{curr}} - 1, 1)
           \end{equation}
-          \textcolor{blue}{and resets $C_{\mathrm{stable}} = 0$. To prevent premature timing reductions as the scheduling buffer grows, the required stable count threshold increases quadratically with $S_{\mathrm{curr}}$.}
-    \item \textcolor{blue}{\textbf{Maintain Baseline:} Otherwise, the controller holds the current timing, $S_{\mathrm{next}} = S_{\mathrm{curr}}$. The stable counter $C_{\mathrm{stable}}$ is incremented if the current sample is safe ($D_{\mathrm{worst}} \le 0$).}
+          and resets $C_{\mathrm{stable}} = 0$. To prevent premature timing reductions as the scheduling buffer grows, the required stable count threshold increases quadratically with $S_{\mathrm{curr}}$.
+    \item \textbf{Maintain Baseline:} Otherwise, the controller holds the current timing, $S_{\mathrm{next}} = S_{\mathrm{curr}}$. The stable counter $C_{\mathrm{stable}}$ is incremented if the current sample is safe ($D_{\mathrm{worst}} \le 0$).
 \end{itemize}
 
 The core adjustment strategy is condensed in Algorithm~\ref{alg:delay_management}.
@@ -175,6 +175,6 @@ The core adjustment strategy is condensed in Algorithm~\ref{alg:delay_management
 \subsection{Coordination between Node Sync and Delay Management}
 \label{subsec:loop_coordination}
 
-\textcolor{blue}{To ensure stable operation under real-world conditions, Node Sync and Delay Management must coordinate without inducing control loop oscillations. The microsecond-level Node Sync focuses strictly on correcting clock phase offsets to align the VNF's scheduling thread with the PNF's slot transitions. Because it directly shifts the VNF's time base, any clock adjustment ($S_{adj}, \mu s_{adj}$) temporarily shifts the arrival timestamp reference. The Delay Manager is designed to absorb this transient shifting. By relying on the history-weighted accumulated timing delay ($D_{\mathrm{accum}}$), the Delay Manager avoids reacting to the temporary timing offsets caused by clock adjustments, allowing Node Sync to converge. Once Node Sync locks synchronization ($sync\_locked = 1$), the time base stabilizes, allowing the Delay Manager to achieve precise slot-level optimizations ($S_{\mathrm{ahead}}$).}
+To ensure stable operation under real-world conditions, Node Sync and Delay Management must coordinate without inducing control loop oscillations. The microsecond-level Node Sync focuses strictly on correcting clock phase offsets to align the VNF's scheduling thread with the PNF's slot transitions. Because it directly shifts the VNF's time base, any clock adjustment ($S_{adj}, \mu s_{adj}$) temporarily shifts the arrival timestamp reference. The Delay Manager is designed to absorb this transient shifting. By relying on the history-weighted accumulated timing delay ($D_{\mathrm{accum}}$), the Delay Manager avoids reacting to the temporary timing offsets caused by clock adjustments, allowing Node Sync to converge. Once Node Sync locks synchronization ($sync\_locked = 1$), the time base stabilizes, allowing the Delay Manager to achieve precise slot-level optimizations ($S_{\mathrm{ahead}}$).
 
 \end{document}
