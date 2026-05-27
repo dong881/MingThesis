@@ -120,13 +120,54 @@ Therefore, the core research question of this thesis is defined as follows: In a
 \section{Related Works}
 \label{sec:related_works}
 
-In recent years, the rapid development of the Open Radio Access Network (O-RAN) architecture has prompted many studies to optimize the performance and network latency management of the Split Architecture. For instance, the X5G testbed proposed by Villa et al. \cite{11039666} demonstrated an advanced 5G O-RAN deployment solution based on hardware acceleration. This research successfully achieved commercial-grade peak throughput by offloading the massive computations of the Physical Layer (PHY) to dedicated NVIDIA GPUs and Mellanox SmartNICs. However, this architecture, which pursues ultimate performance, highly relies on expensive special hardware equipment, and its prerequisite is that it must operate in an ideal network environment equipped with hardware-level Precision Time Protocol (PTP) synchronization. These strict conditions greatly limit its applicability and deployment flexibility in general packet-switched networks filled with unpredictable latency and jitter.
+In recent years, the rapid development of the Open Radio Access Network (O-RAN) architecture has prompted many studies to optimize
+the performance and network latency management of the Split Architecture. For instance, the X5G testbed proposed by Villa et al.
+\cite{11039666} demonstrated an advanced 5G O-RAN deployment solution based on hardware acceleration. This research successfully
+achieved commercial-grade peak throughput by offloading the massive computations of the Physical Layer (PHY) to dedicated NVIDIA
+GPUs and Mellanox SmartNICs. However, this architecture, which pursues ultimate performance, highly relies on expensive special
+hardware equipment, and its prerequisite is that it must operate in an ideal network environment equipped with hardware-level
+Precision Time Protocol (PTP) synchronization. These strict conditions greatly limit its applicability and deployment flexibility
+in general packet-switched networks filled with unpredictable latency and jitter. To guide researchers and operators in
+transitioning these complex virtualized architectures from software simulators to emulated and real-world testbeds, deployment
+solutions and software interoperability issues on open-source platforms like OpenAirInterface have been comprehensively surveyed
+\cite{herrera2026tutorial}.
 
 To address the limitations of high hardware costs and strict network requirements mentioned above, this thesis proposes a highly universal software-defined solution for non-ideal fronthaul environments. Unlike X5G, which relies on hardware acceleration to overcome latency issues, and unlike traditional methods that rely on static configurations to compromise on delay jitter, this thesis designs an Adaptive Slots Ahead Control Mechanism based on Exponentially Weighted Moving Average (EWMA) delay management specifically for the nFAPI architecture. This mechanism can run on general COTS servers, dynamically tracking and filtering network jitter, and actively adapting to unpredictable network congestion. Experimental results show that the method proposed in this thesis can effectively stabilize the HARQ loop latency (RTT) and maintain system throughput without relying on high-end special hardware or precise clock synchronization equipment, providing a more cost-effective and flexible alternative for O-RAN deployment.
 
-Simultaneously, current academic research on O-RAN delay management has explored various dimensions to address non-deterministic latency. At the intra-node level, Lee et al. \cite{Lee2022} proposed an adaptive transmission strategy based on the FAPI interface, utilizing the variance in Layer 1 software (L1SW) processing times to opportunistically advance transmissions, which effectively complements end-to-end transport delay management. For strict deterministic latency requirements in ultra-reliable low-latency communication (uRLLC), Adamuz-Hinojosa et al. \cite{Adamuz2024ORANUS} introduced the ORANUS framework, employing Stochastic Network Calculus (SNC) to provide strict mathematical bounds for latency violations. Furthermore, from the perspective of User Equipment (UE) Service Quality (QoS), Lv et al. \cite{Lv2024QoS} developed UQ-vRAN, which emphasizes the joint optimization of MAC scheduling and higher-layer orchestration through precise traffic digital twins.
+Simultaneously, current academic research on O-RAN delay management has explored various dimensions to address non-deterministic
+latency. At the intra-node level, Lee et al. \cite{Lee2022} proposed an adaptive transmission strategy based on the FAPI interface,
+utilizing the variance in Layer 1 software (L1SW) processing times to opportunistically advance transmissions, which effectively
+complements end-to-end transport delay management. To further mitigate intra-node scheduling jitter on general-purpose servers,
+Aquifer \cite{jia2024aquifer} introduced transparent microsecond-scale operating system scheduling by exploiting common
+producer-consumer patterns in virtualized base stations. For strict deterministic latency requirements in ultra-reliable
+low-latency communication (uRLLC), Adamuz-Hinojosa et al. \cite{Adamuz2024ORANUS} introduced the ORANUS framework, employing
+Stochastic Network Calculus (SNC) to provide strict mathematical bounds for latency violations. Furthermore, from the perspective
+of User Equipment (UE) Service Quality (QoS), Lv et al. \cite{Lv2024QoS} developed UQ-vRAN, which emphasizes the joint
+optimization of MAC scheduling and higher-layer orchestration through precise traffic digital twins. Additionally, resource
+allocation for Hybrid Automatic Repeat Request (HARQ) retransmissions in mobile networks can be dynamically pre-allocated based
+on user equipment error rates and scheduling cycles, reducing transport block loss and stabilizing scheduler goodput
+\cite{elfiky2024allocation}. From a computational perspective, AegisRAN \cite{hidalgo2025aegisran} dynamically scales computing
+resources to achieve energy savings in virtualized base stations; however, deactivating unused CPU cores can introduce transient
+processing delay fluctuations, which further increases the timing synchronization challenges at the MAC-PHY interface.
 
-While these existing literatures \cite{Lee2022, Adamuz2024ORANUS, Lv2024QoS, Mohammed2026Fronthaul} have proposed optimization schemes ranging from specific intra-node CPU adjustments to long-term QoS orchestration, they generally do not directly address the severe cross-node synchronization failures caused by non-deterministic fronthaul jitter in intermediate-layer splits. This thesis fills the critical gap by targeting the microsecond-level phase synchronization and latency challenges inherent in the nFAPI Split Option 6 architecture. Specifically, we focus on the fact that the Small Cell Forum (SCF) 225 nFAPI specification \cite{SCF225} defines the standard \texttt{Timing Info} message and interface-level delay management fields, yet existing open-source implementations only support static parameter initialization. Our proposed dynamic timing control completes this standardized framework by implementing an adaptive timing closed-loop feedback, presenting a unique academic contribution to realizing dynamic time synchronization under a pure software-defined network architecture without relying on specialized hardware.
+To understand the delay bounds and capacity constraints of packet-switched transport networks, researchers have modeled fronthaul
+latency using queuing theory. Diez et al. \cite{diez2021flexible} developed a comprehensive end-to-end queuing model based on
+Open Jackson Networks to analyze how background traffic and heterogeneous architectures influence latency across different split
+points, demonstrating that delay increases significantly as load approaches link capacity. This queuing-based framework was
+subsequently extended by Khan et al. \cite{khan2026evaluating} to model time-window relationships and priority-based scheduling
+over spine-leaf fronthaul topologies, providing operators with analytical tools to evaluate delay violations without relying on
+full network emulation.
+
+While these existing literatures \cite{Lee2022, jia2024aquifer, Adamuz2024ORANUS, Lv2024QoS, elfiky2024allocation,
+hidalgo2025aegisran, diez2021flexible, khan2026evaluating, Mohammed2026Fronthaul} have proposed optimization and delay-modeling
+schemes ranging from specific intra-node CPU adjustments to long-term QoS orchestration, they generally do not directly address
+the severe cross-node synchronization failures caused by non-deterministic fronthaul jitter in intermediate-layer splits. This
+thesis fills the critical gap by targeting the microsecond-level phase synchronization and latency challenges inherent in the
+nFAPI Split Option 6 architecture. Specifically, we focus on the fact that the Small Cell Forum (SCF) 225 nFAPI specification
+\cite{SCF225} defines the standard \texttt{Timing Info} message and interface-level delay management fields, yet existing
+open-source implementations only support static parameter initialization. Our proposed dynamic timing control completes this
+standardized framework by implementing an adaptive timing closed-loop feedback, presenting a unique academic contribution to
+realizing dynamic time synchronization under a pure software-defined network architecture without relying on specialized hardware.
 
 To clearly position the proposed work within the current state-of-the-art (SOTA) literature, Table~\ref{tab:sota_comparison} summarizes the comparison across key architectural and performance characteristics.
 

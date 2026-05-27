@@ -57,9 +57,38 @@ nFAPI, O-RAN, Functional Split, Adaptive Control.
 
 \subsection{Related Works}
 
-\textcolor{blue}{Recent advancements in Open RAN (O-RAN) architectures have driven significant research into optimizing split-architecture performance and managing network latency. For instance, the X5G testbed proposed by Villa \textit{et al.} \cite{11039666} demonstrates a state-of-the-art approach by deploying a hardware-accelerated private 5G O-RAN network. By offloading Physical (PHY) layer processing to dedicated NVIDIA GPUs and Mellanox SmartNICs, X5G successfully achieves commercial-grade peak throughputs. However, this high performance relies heavily on expensive, specialized hardware and demands strict, ideal network conditions equipped with hardware-level Precision Time Protocol (PTP) synchronization. Such stringent requirements significantly limit its applicability and deployment flexibility in general packet-switched networks, where unpredictable latency and jitter are prevalent.}
+\textcolor{blue}{Recent advancements in Open RAN (O-RAN) architectures have driven significant research into optimizing
+split-architecture performance and managing network latency. For instance, the X5G testbed proposed by Villa \textit{et al.}
+\cite{11039666} demonstrates a state-of-the-art approach by deploying a hardware-accelerated private 5G O-RAN network.
+By offloading Physical (PHY) layer processing to dedicated NVIDIA GPUs and Mellanox SmartNICs, X5G successfully achieves
+commercial-grade peak throughputs. However, this high performance relies heavily on expensive, specialized hardware and
+demands strict, ideal network conditions equipped with hardware-level Precision Time Protocol (PTP) synchronization.
+Such stringent requirements significantly limit its applicability and deployment flexibility in general packet-switched
+networks, where unpredictable latency and jitter are prevalent. To guide the transition of these complex virtualized
+architectures from simulators to emulated and real-world O-RAN testbeds, deployment guidelines and interoperability
+challenges using open-source software such as OpenAirInterface have been documented \cite{herrera2026tutorial}.}
 
-\textcolor{blue}{Beyond hardware acceleration, software-driven delay management strategies have also been explored from various perspectives. At the intra-node computational level, Lee \textit{et al.} \cite{Lee2022} proposed an adaptive Layer 1 transmission strategy that opportunistically advances transmissions when software processing finishes early. From a network orchestration perspective, Adamuz-Hinojosa \textit{et al.} \cite{Adamuz2024ORANUS} introduced ORANUS, employing Stochastic Network Calculus (SNC) to provide mathematical latency bounds for ultra-reliable low-latency communications (uRLLC). Moreover, Lv \textit{et al.} \cite{Lv2024QoS} emphasized User Equipment (UE) QoS support by integrating MAC resource allocation with high-level network orchestration. While these frameworks \cite{Lee2022, Adamuz2024ORANUS, Lv2024QoS} provide robust solutions for processing variance, capacity bounds, and QoS scheduling, they do not directly address the critical synchronization failures caused by unpredictable fronthaul network jitter in intermediate-layer splits.}
+\textcolor{blue}{Beyond hardware acceleration, software-driven delay management strategies have also been explored from
+various perspectives. At the intra-node computational level, Lee \textit{et al.} \cite{Lee2022} proposed an adaptive Layer 1
+transmission strategy that opportunistically advances transmissions when software processing finishes early. To complement
+this, Aquifer \cite{jia2024aquifer} introduced transparent microsecond-scale OS scheduling to mitigate processing delay
+variations in vRAN workloads. From a network orchestration perspective, Adamuz-Hinojosa \textit{et al.} \cite{Adamuz2024ORANUS}
+introduced ORANUS, employing Stochastic Network Calculus (SNC) to provide mathematical latency bounds for ultra-reliable
+low-latency communications (uRLLC). Moreover, Lv \textit{et al.} \cite{Lv2024QoS} emphasized User Equipment (UE) QoS support
+by integrating MAC resource allocation with high-level network orchestration. Additionally, the efficiency of mobile
+scheduler resource allocation is heavily impacted by HARQ retransmission delays, where dynamic pre-allocation schemes
+have been proposed to minimize block loss rate and stabilize link-layer throughput \cite{elfiky2024allocation}. To improve
+energy efficiency, frameworks like AegisRAN \cite{hidalgo2025aegisran} dynamically scale vRAN CPU resources, though
+deactivating idle cores introduces transient processing delay spikes that further complicate timing synchronization.
+While these frameworks \cite{Lee2022, jia2024aquifer, Adamuz2024ORANUS, Lv2024QoS, elfiky2024allocation, hidalgo2025aegisran}
+provide robust solutions for processing variance, capacity bounds, energy conservation, and QoS scheduling, they do not
+directly address the critical synchronization failures caused by unpredictable fronthaul network jitter in intermediate-layer
+splits.}
+
+\textcolor{blue}{Fronthaul transmission delays and capacity limits have also been modeled using queuing theory. Diez \textit{et al.}
+\cite{diez2021flexible} developed an end-to-end queuing model to characterize fronthaul latency across flexible splits,
+demonstrating how background traffic dramatically inflates delay. This was further extended by Khan \textit{et al.}
+\cite{khan2026evaluating} to evaluate time-window boundaries and latency budget constraints in spine-leaf fronthaul topologies.}
 
 \textcolor{blue}{To address the limitations of high hardware costs and strict synchronization requirements, this paper proposes a cost-effective, software-based solution tailored for non-ideal fronthaul environments. Specifically, we focus on the fact that the Small Cell Forum (SCF) 225 nFAPI specification \cite{SCF225} defines the standard \texttt{Timing Info} message and interface-level delay management fields, yet existing open-source implementations only support static parameter initialization. Our work introduces an adaptive slot-ahead timing control mechanism based on Exponentially Weighted Moving Average (EWMA) delay management to complete this standardized dynamic feedback loop. This approach dynamically tracks and filters network jitter using general-purpose Commercial Off-the-Shelf (COTS) servers. Experimental results demonstrate that our proposed method ensures stable Hybrid Automatic Repeat Request (HARQ) Round-Trip Times (RTT) and stable system throughput without the need for high-end specialized equipment or strict hardware synchronization, thereby offering a more flexible and economically viable alternative for O-RAN deployments.}
 
