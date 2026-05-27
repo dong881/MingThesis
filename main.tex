@@ -98,9 +98,9 @@ demonstrating how background traffic dramatically inflates delay. This was furth
 
 \textcolor{blue}{In this paper, we focus on the nFAPI-based Option 6 split as a representative case of timing-sensitive yet transport-flexible RAN disaggregation. While Option 6 offers significant advantages in terms of reduced fronthaul bandwidth and deployment flexibility, its performance is highly sensitive to non-deterministic latency introduced by transport networks and server processing.}
 
-\textcolor{blue}{We identify that existing open-source implementations, including OpenAirInterface (OAI), do not implement a generic and spec-compliant nFAPI interface according to the SCF standards. Instead, they use an incorrect approach where the raw \texttt{slot.indication} is forwarded directly over the network, and they rely on a statically configured slots-ahead parameter. This static approach leads to high latency and makes the system highly sensitive to packet-switched network jitter. To address this issue, we re-develop the nFAPI interface based on the OAI project to support the standard Node Sync and Delay Management mechanisms. By providing generic inputs and outputs rather than hardcoded slot forwarding, our framework enables dynamic timing control and flexible deployment. We also plan to contribute this re-developed nFAPI implementation back to the upstream OAI repository.}
+\textcolor{blue}{We identify that existing open-source implementations, including OpenAirInterface (OAI), do not implement a generic and spec-compliant nFAPI interface according to the SCF standards. Instead, they use an incorrect approach where the raw \texttt{slot.indication} is forwarded directly over the network, and they rely on a statically configured slots-ahead parameter. This static approach leads to high latency and makes the system highly sensitive to packet-switched network jitter. To address this issue, we re-develop the nFAPI interface based on the OAI project to support the standard Node sync and Delay Management mechanisms. By providing generic inputs and outputs rather than hardcoded slot forwarding, our framework enables dynamic timing control and flexible deployment. We also plan to contribute this re-developed nFAPI implementation back to the upstream OAI repository.}
 
-\textcolor{blue}{To address this issue, we propose an adaptive timing control framework that dynamically adjusts scheduling lead time based on real-time latency estimation. The proposed approach consists of two main components: Node Sync, which aligns frame and slot boundaries between the VNF and PNF, and Delay Management, which applies an Exponentially Weighted Moving Average (EWMA) to smooth the timing information and dynamically adjust the slots ahead to ensure that scheduling messages arrive within the valid timing window.}
+\textcolor{blue}{To address this issue, we propose an adaptive timing control framework that dynamically adjusts scheduling lead time based on real-time latency estimation. The proposed approach consists of two main components: Node sync, which aligns frame and slot boundaries between the VNF and PNF, and Delay Management, which applies an Exponentially Weighted Moving Average (EWMA) to smooth the timing information and dynamically adjust the slots ahead to ensure that scheduling messages arrive within the valid timing window.}
 
 \textcolor{blue}{The main contributions of this paper are summarized as follows:}
 
@@ -137,11 +137,11 @@ demonstrating how background traffic dramatically inflates delay. This was furth
 
 \subsection{O-DU High: MAC, Scheduler, and Timing Core}
 \label{subsec:B_odu_high}
-\textcolor{blue}{Within the O-DU High virtualized network function, the timing control is organized as a unified timing control system. The core components handling this timing core include the Scheduler, the Node Sync Module, and the nFAPI Delay Manager:
+\textcolor{blue}{Within the O-DU High virtualized network function, the timing control is organized as a unified timing control system. The core processes handling this timing core include the Scheduler, Node sync, and Delay Management:
 \begin{itemize}
 \item \textbf{Scheduler:} Critical for allocating the available radio resources (such as time-frequency resource blocks) and determining the exact priority and timing of downlink/uplink data transmissions.
-\item \textbf{Node Sync Module:} Responsible for software-level clock synchronization. This module periodically exchanges synchronization timestamps ($t_1 \sim t_4$) with the PNF via standard \textit{DL/UL\_node\_sync} messages. It calculates the instantaneous clock offset and applies slot-level ($S_{adj}$) and microsecond-level ($\mu s_{adj}$) adjustments to align the VNF's local clock to the PNF baseline, eliminating long-term hardware clock drift.
-\item \textbf{nFAPI Delay Manager:} Operates on top of the stabilized clock phase established by Node Sync. The delay manager utilizes the arrival offset ($\Delta t_{arrive}$) feedback from the PNF to dynamically estimate transport network jitter. It then actively adjusts the slots ahead ($S_{\mathrm{ahead}}$) trigger offset of the scheduler. This control compensates for the non-deterministic packet transport delays and VNF processing delays without inducing synchronization loss.
+\item \textbf{Node sync:} Responsible for software-level clock synchronization. This procedure periodically exchanges synchronization timestamps ($t_1 \sim t_4$) with the PNF via standard \textit{DL/UL\_node\_sync} messages. It calculates the instantaneous clock offset and applies slot-level ($S_{adj}$) and microsecond-level ($\mu s_{adj}$) adjustments to align the VNF's local clock to the PNF baseline, eliminating long-term hardware clock drift.
+\item \textbf{Delay Management:} Operates on top of the stabilized clock phase established by Node sync. This mechanism utilizes the arrival offset ($\Delta t_{arrive}$) feedback from the PNF to dynamically estimate transport network jitter. It then actively adjusts the slots ahead ($S_{\mathrm{ahead}}$) trigger offset of the scheduler. This control compensates for the non-deterministic packet transport delays and VNF processing delays without inducing synchronization loss.
 \end{itemize}}
 
 \subsection{O-DU Low: High PHY and Timing Window}
@@ -149,7 +149,7 @@ demonstrating how background traffic dramatically inflates delay. This was furth
 \textcolor{blue}{The O-DU Low manages the higher-level baseband processing of the physical layer (High PHY). At this level, the most critical synchronization mechanism is the nFAPI PNF Timing Window:
 \begin{itemize}
 \item \textbf{Timing Window:} A predefined, strict time duration. Let $T_{\mathrm{window}}$ denote the duration of this PNF timing window, and $T_{\mathrm{slot}}$ denote the subframe slot duration. When the scheduling message (specifically the \texttt{DL\_TTI.request}) sent by the O-DU High propagates across the network, it must accurately arrive and fall exactly within this Window. Otherwise, the High PHY will reject the message and fail to process the slot data.
-\item \textbf{Timing Info ($\Delta t_{arrive}$):} The PNF continuously monitors the exact arrival offset of control messages relative to the transmission deadline. This offset, denoted as $\Delta t_{arrive}$, represents the remaining time margin within the timing window. The PNF periodically sends this information back to the Delay Manager in the MAC layer. This establishes a closed-loop feedback control system, compensating for the unpredictable transmission latency variations between the VNF and PNF machines.
+\item \textbf{Timing Info ($\Delta t_{arrive}$):} The PNF continuously monitors the exact arrival offset of control messages relative to the transmission deadline. This offset, denoted as $\Delta t_{arrive}$, represents the remaining time margin within the timing window. The PNF periodically sends this information back to the MAC layer for Delay Management. This establishes a closed-loop feedback control system, compensating for the unpredictable transmission latency variations between the VNF and PNF machines.
 \end{itemize}}
 
 \subsection{Key Validation Metrics}
@@ -170,13 +170,13 @@ Note that RTT denotes the Round-Trip Time. To validate the split-architecture st
 \section{Proposed Method}
 \label{sec:proposed_method}
 
-\textcolor{blue}{This section details the proposed dynamic timing adjustment framework. To resolve the unstable latency during packet transmission between the PNF and VNF, we propose two core timing control algorithms: Node Sync for software-level clock synchronization and Delay Management for slot-level adaptive delay management. The timing control of this system is organized as a closed-loop system, ensuring that the VNF-side scheduling can dynamically track and compensate for both clock drift and slot-level transport latency variation. The two algorithms cooperate as follows:}
+\textcolor{blue}{This section details the proposed dynamic timing adjustment framework. To resolve the unstable latency during packet transmission between the PNF and VNF, we propose two core timing control algorithms: Node sync for software-level clock synchronization and Delay Management for slot-level adaptive delay management. The timing control of this system is organized as a closed-loop system, ensuring that the VNF-side scheduling can dynamically track and compensate for both clock drift and slot-level transport latency variation. The two algorithms cooperate as follows:}
 \begin{enumerate}
-    \item \textcolor{blue}{\textbf{Node Sync:} Maintains phase and slot boundary alignment between the VNF and PNF. It periodically exchanges timestamps to calculate the absolute phase offset, correcting for hardware clock drift.}
+    \item \textcolor{blue}{\textbf{Node sync:} Maintains phase and slot boundary alignment between the VNF and PNF. It periodically exchanges timestamps to calculate the absolute phase offset, correcting for hardware clock drift.}
     \item \textcolor{blue}{\textbf{Delay Management:} Tracks and estimates packet transport delays and jitter at the slot level, dynamically adjusting the slots ahead ($S_{\mathrm{ahead}}$) to guarantee that control messages fall within the PNF's strict timing window.}
 \end{enumerate}
 
-\subsection{Node Sync}
+\subsection{Node sync}
 \label{subsec:node_sync}
 \textcolor{blue}{To perform software-level clock synchronization, the system adopts a timestamp exchange mechanism. The VNF periodically transmits a downlink node synchronization message with a local timestamp $t_1$. Upon receiving the message, the PNF records the local arrival timestamp $t_2$ and transmits an uplink node synchronization message back to the VNF, including the transmit timestamp $t_3$ and the echoed $t_2$. When the VNF receives the message, it records its local arrival timestamp $t_4$. Because the nFAPI timestamps are constrained by a 1024 subframe number (SFN) loop, they wrap around every $10.24$~seconds ($10240000$~\textmu s). The algorithm calculates the differences $d_1 = t_2 - t_1$ and $d_2 = t_4 - t_3$, applying a wrap-around correction to align them within the interval $[-5120000, 5120000]$~\textmu s. The VNF then calculates the instantaneous clock offset:}
 \begin{equation}
@@ -203,7 +203,7 @@ S_{\mathrm{adj}} = \mathit{offset} / T_{\mathrm{slot}}
 \textcolor{blue}{The negative sign in the microsecond adjustment reduces the local thread sleep time when the VNF clock is behind, speeding up the slot transition rate to catch up. The synchronization process is summarized in Algorithm~\ref{alg:node_sync_simplified}.}
 
 \begin{algorithm}
-\caption{Node Sync}
+\caption{Node sync}
 \label{alg:node_sync_simplified}
 \begin{algorithmic}[1]
 \algrenewcommand\algorithmicrequire{\textbf{Input:}}
@@ -246,7 +246,7 @@ S_{\mathrm{adj}} = \mathit{offset} / T_{\mathrm{slot}}
 \textcolor{blue}{To counteract changing network latency and maintain scheduling stability, a dynamic delay management strategy is implemented. This strategy operates as a Fast-Up and Slow-Down Feedback Controller based on a Worst-Case Delay Model, periodically evaluating the observed arrival offset ($\Delta t_{\mathrm{arrive}}$) reported by the PNF.}
 
 \subsubsection{Delay and Uncertainty Estimation}
-\textcolor{blue}{To smooth high-frequency network noise while remaining sensitive to timing drift, the VNF Delay Manager maintains a running mean of the arrival offset ($\mu_{\mathrm{arrive}}$) and the arrival jitter ($dev_{\mathrm{arrive}}$). Let $\Delta t_{\mathrm{arrive}, i}$ be the observed arrival offset in scheduling slot $i$. The EWMA updates for mean arrival offset and jitter are defined as:}
+\textcolor{blue}{To smooth high-frequency network noise while remaining sensitive to timing drift, Delay Management maintains a running mean of the arrival offset ($\mu_{\mathrm{arrive}}$) and the arrival jitter ($dev_{\mathrm{arrive}}$). Let $\Delta t_{\mathrm{arrive}, i}$ be the observed arrival offset in scheduling slot $i$. The EWMA updates for mean arrival offset and jitter are defined as:}
 \begin{equation}
 \mu_{\mathrm{arrive}, i} = \mu_{\mathrm{arrive}, i-1} + \alpha \cdot (\Delta t_{\mathrm{arrive}, i} - \mu_{\mathrm{arrive}, i-1})
 \end{equation}
@@ -325,10 +325,10 @@ D_{\mathrm{accum}, i} = \max(0, D_{\mathrm{accum}, i-1} + D_{\mathrm{worst}, i})
 \end{algorithmic}
 \end{algorithm}
 
-\subsection{Coordination between Node Sync and Delay Management}
-\label{subsec:loop_coordination}
+\subsection{Coordination between Node sync and Delay Management}
+\label{subsec:coordination}
 
-\textcolor{blue}{To ensure stable operation under real-world conditions, Node Sync and Delay Management must coordinate without inducing control loop oscillations. The microsecond-level Node Sync focuses strictly on correcting clock phase offsets to align the VNF's scheduling thread with the PNF's slot transitions. Because it directly shifts the VNF's time base, any clock adjustment ($S_{adj}, \mu s_{adj}$) temporarily shifts the arrival timestamp reference. The Delay Manager is designed to absorb this transient shifting. By relying on the history-weighted accumulated timing delay ($D_{\mathrm{accum}}$), the Delay Manager avoids reacting to the temporary timing offsets caused by clock adjustments, allowing Node Sync to converge. Once Node Sync locks synchronization ($sync\_locked = 1$), the time base stabilizes, allowing the Delay Manager to achieve precise slot-level optimizations ($S_{\mathrm{ahead}}$).}
+\textcolor{blue}{To ensure stable operation under real-world conditions, Node sync and Delay Management must coordinate without inducing control loop oscillations. The microsecond-level Node sync focuses strictly on correcting clock phase offsets to align the VNF's scheduling thread with the PNF's slot transitions. Because it directly shifts the VNF's time base, any clock adjustment ($S_{adj}, \mu s_{adj}$) temporarily shifts the arrival timestamp reference. Delay Management is designed to absorb this transient shifting. By relying on the history-weighted accumulated timing delay ($D_{\mathrm{accum}}$), Delay Management avoids reacting to the temporary timing offsets caused by clock adjustments, allowing Node sync to converge. Once Node sync locks synchronization ($sync\_locked = 1$), the time base stabilizes, allowing Delay Management to achieve precise slot-level optimizations ($S_{\mathrm{ahead}}$).}
 
 \section{Experimental Results}
 \label{sec:experiments}

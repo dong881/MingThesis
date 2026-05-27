@@ -6,17 +6,17 @@
 \chapter{Proposed Method}
 \label{sec:method}
 
-This chapter details the proposed dynamic timing adjustment framework. To address the unstable transmission latency during packet transmission between the PNF and VNF, we propose two core timing control algorithms: Node Sync for software-level clock synchronization and Delay Management for slot-level adaptive delay management. The timing control of this system is organized as a closed-loop system, ensuring that the VNF-side scheduling can dynamically track and compensate for both microsecond-level clock drift and slot-level transport latency variation. The two core algorithms cooperate as follows:
+This chapter details the proposed dynamic timing adjustment framework. To address the unstable transmission latency during packet transmission between the PNF and VNF, we propose two core timing control algorithms: Node sync for software-level clock synchronization and Delay Management for slot-level adaptive delay management. The timing control of this system is organized as a closed-loop system, ensuring that the VNF-side scheduling can dynamically track and compensate for both microsecond-level clock drift and slot-level transport latency variation. The two core algorithms cooperate as follows:
 
 \begin{enumerate}
-    \item \textbf{Node Sync:} Maintains phase and slot boundary alignment between the VNF and PNF. It periodically exchanges timestamps to calculate the absolute phase offset, correcting for hardware clock drift (Clock Drift).
+    \item \textbf{Node sync:} Maintains phase and slot boundary alignment between the VNF and PNF. It periodically exchanges timestamps to calculate the absolute phase offset, correcting for hardware clock drift (Clock Drift).
     \item \textbf{Delay Management:} Tracks and estimates packet transport delays and jitter at the slot level, dynamically adjusting the slots ahead ($S_{\mathrm{ahead}}$) to guarantee that control messages fall within the PNF's strict timing window.
 \end{enumerate}
 
 \iffalse
 \section{節點同步}
 \fi
-\section{Node Sync}
+\section{Node sync}
 \label{subsec:node_sync}
 To perform software-level clock synchronization, the system adopts a timestamp exchange mechanism. The VNF periodically transmits a downlink node synchronization message with a local timestamp $t_1$. Upon receiving the message, the PNF records the local arrival timestamp $t_2$ and transmits an uplink node synchronization message back to the VNF, including the transmit timestamp $t_3$ and the echoed $t_2$. When the VNF receives the message, it records its local arrival timestamp $t_4$. Because the nFAPI timestamps are constrained by a 1024 subframe number (SFN) loop, they wrap around every $10.24$~seconds ($10240000$~\textmu s). The algorithm calculates the differences $d_1 = t_2 - t_1$ and $d_2 = t_4 - t_3$, applying a wrap-around correction to align them within the interval $[-5120000, 5120000]$~\textmu s. The VNF then calculates the instantaneous clock offset:
 \begin{equation}
@@ -43,7 +43,7 @@ These adjustments are accumulated into the global adjustment variables:
 The negative sign in the microsecond adjustment reduces the local thread sleep time when the VNF clock is behind, speeding up the slot transition rate to catch up. The synchronization process is summarized in Algorithm~\ref{alg:node_sync_simplified}.
 
 \begin{algorithm}[H]
-\caption{Node Sync}
+\caption{Node sync}
 \label{alg:node_sync_simplified}
 \small
 \begin{algorithmic}[1]
@@ -91,7 +91,7 @@ To counteract changing network latency and maintain scheduling stability, a dyna
 
 \subsection{Delay and Uncertainty Estimation}
 \label{subsubsec:ewma_estimation}
-To smooth high-frequency network noise while remaining sensitive to timing drift, the VNF Delay Manager maintains a running mean of the arrival offset ($\mu_{\mathrm{arrive}}$) and the arrival jitter ($dev_{\mathrm{arrive}}$). Let $\Delta t_{\mathrm{arrive}, i}$ be the observed arrival offset in scheduling slot $i$. The EWMA updates for mean arrival offset and jitter are defined as:
+To smooth high-frequency network noise while remaining sensitive to timing drift, Delay Management maintains a running mean of the arrival offset ($\mu_{\mathrm{arrive}}$) and the arrival jitter ($dev_{\mathrm{arrive}}$). Let $\Delta t_{\mathrm{arrive}, i}$ be the observed arrival offset in scheduling slot $i$. The EWMA updates for mean arrival offset and jitter are defined as:
 \begin{equation}
 \mu_{\mathrm{arrive}, i} = \mu_{\mathrm{arrive}, i-1} + \alpha \cdot (\Delta t_{\mathrm{arrive}, i} - \mu_{\mathrm{arrive}, i-1})
 \end{equation}
@@ -172,9 +172,9 @@ The core adjustment strategy is condensed in Algorithm~\ref{alg:delay_management
 \end{algorithmic}
 \end{algorithm}
 
-\subsection{Coordination between Node Sync and Delay Management}
-\label{subsec:loop_coordination}
+\subsection{Coordination between Node sync and Delay Management}
+\label{subsec:coordination}
 
-To ensure stable operation under real-world conditions, Node Sync and Delay Management must coordinate without inducing control loop oscillations. The microsecond-level Node Sync focuses strictly on correcting clock phase offsets to align the VNF's scheduling thread with the PNF's slot transitions. Because it directly shifts the VNF's time base, any clock adjustment ($S_{adj}, \mu s_{adj}$) temporarily shifts the arrival timestamp reference. The Delay Manager is designed to absorb this transient shifting. By relying on the history-weighted accumulated timing delay ($D_{\mathrm{accum}}$), the Delay Manager avoids reacting to the temporary timing offsets caused by clock adjustments, allowing Node Sync to converge. Once Node Sync locks synchronization ($sync\_locked = 1$), the time base stabilizes, allowing the Delay Manager to achieve precise slot-level optimizations ($S_{\mathrm{ahead}}$).
+To ensure stable operation under real-world conditions, Node sync and Delay Management must coordinate without inducing control loop oscillations. The microsecond-level Node sync focuses strictly on correcting clock phase offsets to align the VNF's scheduling thread with the PNF's slot transitions. Because it directly shifts the VNF's time base, any clock adjustment ($S_{adj}, \mu s_{adj}$) temporarily shifts the arrival timestamp reference. Delay Management is designed to absorb this transient shifting. By relying on the history-weighted accumulated timing delay ($D_{\mathrm{accum}}$), Delay Management avoids reacting to the temporary timing offsets caused by clock adjustments, allowing Node sync to converge. Once Node sync locks synchronization ($\mathit{sync\_locked} = 1$), the time base stabilizes, allowing Delay Management to achieve precise slot-level optimizations ($S_{\mathrm{ahead}}$).
 
 \end{document}
