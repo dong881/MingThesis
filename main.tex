@@ -389,17 +389,17 @@ Fronthaul & O-RAN F release \\
 \subsection{Scenario I: Validation of EWMA for PNF Timing Info}
 \label{subsec:scenario_1}
 
-\textcolor{blue}{This scenario validates the application of an Exponentially Weighted Moving Average (EWMA) to smooth the PNF Timing Info ($\Delta t_{arrive}$). Fig.~\ref{fig:exp1}(a) shows the timing control directly using the raw PNF Timing Info ($\Delta t_{arrive}$), where the raw timing values change a lot due to network jitter. Fig.~\ref{fig:exp1}(b) is the cumulative distribution function (CDF) of the accumulated packets exceeding the deadline when the timing adjustment directly uses the raw PNF Timing Info ($\Delta t_{arrive}$). The EWMA mechanism filters out the high-frequency jitter, as shown in the PNF Timing Info ($\Delta t_{arrive}$) after applying EWMA in Fig.~\ref{fig:exp1}(c). Finally, Fig.~\ref{fig:exp1}(d) shows the CDF of the accumulated packets exceeding the deadline under the EWMA-based timing control. The results show that applying EWMA allows the timing loop to adjust the slots ahead stably, which significantly reduces the number of packets that arrive after the deadline.}
+\textcolor{blue}{This scenario validates the application of an Exponentially Weighted Moving Average (EWMA) to smooth the PNF Timing Info ($\Delta t_{arrive}$). Fig.~\ref{fig:exp1}(a) shows the timing control directly using the raw PNF Timing Info ($\Delta t_{arrive}$), where the raw timing values change a lot due to network jitter. Fig.~\ref{fig:exp1}(b) is the cumulative count of the packets exceeding the deadline when the timing adjustment directly uses the raw PNF Timing Info ($\Delta t_{arrive}$). The EWMA mechanism filters out the high-frequency jitter, as shown in the PNF Timing Info ($\Delta t_{arrive}$) after applying EWMA in Fig.~\ref{fig:exp1}(c). Finally, Fig.~\ref{fig:exp1}(d) shows the cumulative count of the packets exceeding the deadline under the EWMA-based timing control. The results show that applying EWMA allows the timing loop to adjust the slots ahead stably, which significantly reduces the number of packets that arrive after the deadline.}
 
 \begin{figure}[!htbp]
   \centering
   \subfloat[Direct Use of \(\Delta t_{arrive}\)]{\includegraphics[width=0.48\columnwidth]{figures/exp1a.png}\label{fig:exp1a}}
   \hfill
-  \subfloat[CDF of Packets Exceeding Deadline under Direct Use]{\includegraphics[width=0.48\columnwidth]{figures/exp1b.png}\label{fig:exp1b}}
+  \subfloat[Cumulative Count of Packets Exceeding Deadline under Direct Use]{\includegraphics[width=0.48\columnwidth]{figures/exp1b.png}\label{fig:exp1b}}
   
   \subfloat[EWMA Application on \(\Delta t_{arrive}\)]{\includegraphics[width=0.48\columnwidth]{figures/exp1c.png}\label{fig:exp1c}}
   \hfill
-  \subfloat[CDF of Packets Exceeding Deadline under EWMA]{\includegraphics[width=0.48\columnwidth]{figures/exp1d.png}\label{fig:exp1d}}
+  \subfloat[Cumulative Count of Packets Exceeding Deadline under EWMA]{\includegraphics[width=0.48\columnwidth]{figures/exp1d.png}\label{fig:exp1d}}
   \caption{Validation of EWMA processing on PNF Timing Info.}
   \label{fig:exp1}
 \end{figure}
