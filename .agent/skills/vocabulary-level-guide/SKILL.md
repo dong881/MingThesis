@@ -32,6 +32,10 @@ Whenever you encounter or consider using a word from the "Avoid" list, **automat
 | **Fluctuations** | n. | 波動、起伏 | **Changes, Variations** | e.g., "...and does not require special handling for latency *variations*..." |
 | **Robustness** | n. | 魯棒性、強健性 | **Stability** | e.g., "To test the system's *stability*..." |
 | **Deficit** | n. | 延遲赤字、不足量 | **Delay** | e.g., "...tracks the *accumulated delay*..." |
+| **Hypothesis** | n. | 假說、假設 | **Idea, Design, Theory** | e.g., "To validate our *design*..." |
+| **Rigorous** | adj. | 嚴謹的、嚴格的 | **Thorough, Strict, Detailed, Complete** | e.g., "...underwent *thorough* testing..." |
+| **Fluctuates drastically** | v. + adv. | 劇烈波動、劇烈起伏 | **Changes a lot, Changes quickly, Varies a lot** | e.g., "...the arrival offset *changes a lot*..." |
+| **Underwent** | v. (past) | 經歷、接受、遭受 | **Went through, Experienced, Had** | e.g., "...*went through* thorough testing..." |
 
 ## 📝 Rules for Updating this Guide
 When the user indicates that a specific word is too difficult, update this skill by adding the word to the table above, providing its part of speech, meaning, and simpler alternatives.

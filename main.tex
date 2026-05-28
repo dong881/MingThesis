@@ -141,7 +141,7 @@ demonstrating how background traffic dramatically inflates delay. This was furth
 \begin{itemize}
 \item \textbf{Scheduler:} Critical for allocating the available radio resources (such as time-frequency resource blocks) and determining the exact priority and timing of downlink/uplink data transmissions.
 \item \textbf{Node sync:} Responsible for software-level clock synchronization. This procedure periodically exchanges synchronization timestamps ($t_1 \sim t_4$) with the PNF via standard \textit{DL/UL\_node\_sync} messages. It calculates the instantaneous clock offset and applies slot-level ($S_{adj}$) and microsecond-level ($\mu s_{adj}$) adjustments to align the VNF's local clock to the PNF baseline, eliminating long-term hardware clock drift.
-\item \textbf{Delay Management:} Operates on top of the stabilized clock phase established by Node sync. This mechanism utilizes the arrival offset ($\Delta t_{arrive}$) feedback from the PNF to dynamically estimate transport network jitter. It then actively adjusts the slots ahead ($S_{\mathrm{ahead}}$) trigger offset of the scheduler. This control compensates for the non-deterministic packet transport delays and VNF processing delays without inducing synchronization loss.
+\item \textbf{Delay Management:} Operates on top of the stabilized clock phase established by Node sync. This mechanism utilizes the PNF Timing Info ($\Delta t_{arrive}$) feedback from the PNF to dynamically estimate transport network jitter. It then actively adjusts the slots ahead ($S_{\mathrm{ahead}}$) trigger offset of the scheduler. This control compensates for the non-deterministic packet transport delays and VNF processing delays without inducing synchronization loss.
 \end{itemize}}
 
 \subsection{O-DU Low: High PHY and Timing Window}
@@ -149,7 +149,7 @@ demonstrating how background traffic dramatically inflates delay. This was furth
 \textcolor{blue}{The O-DU Low manages the higher-level baseband processing of the physical layer (High PHY). At this level, the most critical synchronization mechanism is the nFAPI PNF Timing Window:
 \begin{itemize}
 \item \textbf{Timing Window:} A predefined, strict time duration. Let $T_{\mathrm{window}}$ denote the duration of this PNF timing window, and $T_{\mathrm{slot}}$ denote the subframe slot duration. When the scheduling message (specifically the \texttt{DL\_TTI.request}) sent by the O-DU High propagates across the network, it must accurately arrive and fall exactly within this Window. Otherwise, the High PHY will reject the message and fail to process the slot data.
-\item \textbf{Timing Info ($\Delta t_{arrive}$):} The PNF continuously monitors the exact arrival offset of control messages relative to the transmission deadline. This offset, denoted as $\Delta t_{arrive}$, represents the remaining time margin within the timing window. The PNF periodically sends this information back to the MAC layer for Delay Management. This establishes a closed-loop feedback control system, compensating for the unpredictable transmission latency variations between the VNF and PNF machines.
+\item \textbf{Timing Info ($\Delta t_{arrive}$):} The PNF continuously monitors the exact timing info of control messages relative to the transmission deadline. This information, denoted as $\Delta t_{arrive}$, represents the remaining time margin within the timing window. The PNF periodically sends this information back to the MAC layer for Delay Management. This establishes a closed-loop feedback control system, compensating for the unpredictable transmission latency variations between the VNF and PNF machines.
 \end{itemize}}
 
 \subsection{Key Validation Metrics}
@@ -243,10 +243,10 @@ S_{\mathrm{adj}} = \mathit{offset} / T_{\mathrm{slot}}
 \subsection{Delay Management}
 \label{subsec:delay_management}
 
-\textcolor{blue}{To counteract changing network latency and maintain scheduling stability, a dynamic delay management strategy is implemented. This strategy operates as a Fast-Up and Slow-Down Feedback Controller based on a Worst-Case Delay Model, periodically evaluating the observed arrival offset ($\Delta t_{\mathrm{arrive}}$) reported by the PNF.}
+\textcolor{blue}{To counteract changing network latency and maintain scheduling stability, a dynamic delay management strategy is implemented. This strategy operates as a Fast-Up and Slow-Down Feedback Controller based on a Worst-Case Delay Model, periodically evaluating the observed PNF Timing Info ($\Delta t_{\mathrm{arrive}}$) reported by the PNF.}
 
 \subsubsection{Delay and Uncertainty Estimation}
-\textcolor{blue}{To smooth high-frequency network noise while remaining sensitive to timing drift, Delay Management maintains a running mean of the arrival offset ($\mu_{\mathrm{arrive}}$) and the arrival jitter ($dev_{\mathrm{arrive}}$). Let $\Delta t_{\mathrm{arrive}, i}$ be the observed arrival offset in scheduling slot $i$. The EWMA updates for mean arrival offset and jitter are defined as:}
+\textcolor{blue}{To smooth high-frequency network noise while remaining sensitive to timing drift, Delay Management maintains a running mean of the PNF Timing Info ($\mu_{\mathrm{arrive}}$) and the jitter ($dev_{\mathrm{arrive}}$). Let $\Delta t_{\mathrm{arrive}, i}$ be the observed PNF Timing Info in scheduling slot $i$. The EWMA updates for mean PNF Timing Info and jitter are defined as:}
 \begin{equation}
 \mu_{\mathrm{arrive}, i} = \mu_{\mathrm{arrive}, i-1} + \alpha \cdot (\Delta t_{\mathrm{arrive}, i} - \mu_{\mathrm{arrive}, i-1})
 \end{equation}
@@ -255,7 +255,7 @@ dev_{\mathrm{arrive}, i} = dev_{\mathrm{arrive}, i-1} + \beta \cdot (|\Delta t_{
 \end{equation}
 \textcolor{blue}{where the smoothing factors are chosen as $\alpha = 1/8$ to track the long-term trend, and $\beta = 1/4$ to capture fast jitter variations. These parameters are designed as negative powers of two ($\alpha = 2^{-3}$, $\beta = 2^{-2}$) to allow the controller to perform fast bitwise shift operations in real time.}
 
-\textcolor{blue}{To guide timing adjustments, the controller combines the mean arrival offset and the estimated jitter to estimate the worst-case timing delay ($D_{\mathrm{worst}}$). The worst-case timing delay for slot $i$ is calculated as the sum of the worst-case boundary of the arrival offset and the arrival jitter:}
+\textcolor{blue}{To guide timing adjustments, the controller combines the mean PNF Timing Info and the estimated jitter to estimate the worst-case timing delay ($D_{\mathrm{worst}}$). The worst-case timing delay for slot $i$ is calculated as the sum of the worst-case boundary of the PNF Timing Info and the jitter:}
 \begin{equation}
 D_{\mathrm{worst}, i} = \max(\Delta t_{\mathrm{arrive}, i}, \mu_{\mathrm{arrive}, i}) + dev_{\mathrm{arrive}, i}
 \end{equation}
@@ -290,17 +290,17 @@ D_{\mathrm{accum}, i} = \max(0, D_{\mathrm{accum}, i-1} + D_{\mathrm{worst}, i})
 \begin{algorithmic}[1]
 \algrenewcommand\algorithmicrequire{\textbf{Input:}}
 \algrenewcommand\algorithmicensure{\textbf{Output:}}
-\Require $\Delta t_{\mathrm{arrive}}$ (Observed arrival offset), $S_{\mathrm{curr}}$ (Current trigger timing), $T_{\mathrm{window}}$ (Timing window), $T_{\mathrm{slot}}$ (Slot duration)
+\Require $\Delta t_{\mathrm{arrive}}$ (Observed PNF Timing Info), $S_{\mathrm{curr}}$ (Current trigger timing), $T_{\mathrm{window}}$ (Timing window), $T_{\mathrm{slot}}$ (Slot duration)
 \Ensure $S_{\mathrm{next}}$ (Trigger timing for the next MAC schedule)
 \Statex 
 \Statex \textbf{Notation:} 
-\Statex $\mu_{\mathrm{arrive}}$ (smoothed mean arrival offset), $dev_{\mathrm{arrive}}$ (smoothed arrival jitter)
+\Statex $\mu_{\mathrm{arrive}}$ (smoothed mean PNF Timing Info), $dev_{\mathrm{arrive}}$ (smoothed arrival jitter)
 \Statex $D_{\mathrm{worst}}$ (Worst-case timing delay), $D_{\mathrm{accum}}$ (Accumulated timing delay)
 \Statex $C_{\mathrm{stable}}$ (Stable observation counter)
 \Statex $\alpha, \beta$ (Smoothing factors for latency and jitter)
  
 \Statex \textbf{Phase I: Latency and Jitter Estimation}
-\State $\mu_{\mathrm{arrive}} \gets \mu_{\mathrm{arrive}} + \alpha \cdot (\Delta t_{\mathrm{arrive}} - \mu_{\mathrm{arrive}})$ \Comment{Update mean arrival offset}
+\State $\mu_{\mathrm{arrive}} \gets \mu_{\mathrm{arrive}} + \alpha \cdot (\Delta t_{\mathrm{arrive}} - \mu_{\mathrm{arrive}})$ \Comment{Update mean PNF Timing Info}
 \State $dev_{\mathrm{arrive}} \gets dev_{\mathrm{arrive}} + \beta \cdot (|\Delta t_{\mathrm{arrive}} - \mu_{\mathrm{arrive}}| - dev_{\mathrm{arrive}})$ \Comment{Update arrival jitter}
 \State $D_{\mathrm{worst}} \gets \max(\Delta t_{\mathrm{arrive}}, \mu_{\mathrm{arrive}}) + dev_{\mathrm{arrive}}$ \Comment{Evaluate worst-case timing delay}
 \State $D_{\mathrm{accum}} \gets \max(0, D_{\mathrm{accum}} + D_{\mathrm{worst}})$ \Comment{Update accumulated delay}
@@ -383,21 +383,21 @@ Fronthaul & O-RAN F release \\
   \label{fig:rapp_architecture}
 \end{figure}
 
-\subsection{Rigorous System-Level Validation and Generalization}
+\subsection{Thorough System-Level Validation and Generalization}
 \label{subsec:software_validation}
 
-\textcolor{blue}{To prove the stability, generalization capability, and compatibility of the proposed timing control and nFAPI modifications, our software implementation was submitted and successfully merged into the official upstream OpenAirInterface (OAI) repository. Beyond our localized end-to-end evaluation using the rApp framework, the proposed solution underwent rigorous testing in the official OAI Continuous Integration and Continuous Deployment (CI/CD) pipeline. Specifically, the code successfully passed all image building and cross-compilation tests across standard x86 and ARM64-based architectures, including enterprise-grade Red Hat Enterprise Linux (RHEL) clusters and NVIDIA Jetson edge platforms. Furthermore, our implementation successfully completed key system-level integration and physical layer regression tests. These tests include 5G Standalone (SA) end-to-end integration, real radio frequency (RF) transmissions using USRP B200 and AW2S radio units, standard F1/N2 interface control-plane handover procedures, and 3GPP-compliant physical layer channel simulations. These regression and compilation results confirm that our proposed software-defined timing loops are highly robust, backward-compatible, and ready for diverse commercial cloud hardware deployments without introducing any hardware dependency.}
+\textcolor{blue}{To prove the stability, generalization capability, and compatibility of the proposed timing control and nFAPI modifications, our software implementation was submitted and successfully merged into the official upstream OpenAirInterface (OAI) repository. Beyond our localized end-to-end evaluation using the rApp framework, the proposed solution went through thorough testing in the official OAI Continuous Integration and Continuous Deployment (CI/CD) pipeline. Specifically, the code successfully passed all image building and cross-compilation tests across standard x86 and ARM64-based architectures, including enterprise-grade Red Hat Enterprise Linux (RHEL) clusters and NVIDIA Jetson edge platforms. Furthermore, our implementation successfully completed key system-level integration and physical layer regression tests. These tests include 5G Standalone (SA) end-to-end integration, real radio frequency (RF) transmissions using USRP B200 and AW2S radio units, standard F1/N2 interface control-plane handover procedures, and 3GPP-compliant physical layer channel simulations. These regression and compilation results confirm that our proposed software-defined timing loops are highly robust, backward-compatible, and ready for diverse commercial cloud hardware deployments without introducing any hardware dependency.}
 
 \subsection{Scenario I: Validation of EWMA for PNF Timing Info}
 \label{subsec:scenario_1}
 
-\textcolor{blue}{This scenario validates the application of an Exponentially Weighted Moving Average (EWMA) to smooth the PNF Timing Info. Without EWMA processing, the raw timing information exhibits high variance due to network jitter, as shown in Fig.~\ref{fig:exp1}(a). Applying EWMA effectively filters out this high-frequency jitter (Fig.~\ref{fig:exp1}(b)), providing a stable baseline for the dynamic timing adjustment algorithm. Furthermore, as illustrated in Fig.~\ref{fig:exp1}(c) and Fig.~\ref{fig:exp1}(d), the smoothed data enables the system to reliably detect downward trends in the arrival offset ($\Delta t_{arrive}$). Therefore, when $\Delta t_{arrive}$ begins to exhibit a downward trend, the algorithm can stably judge this condition and actively advance more ahead time to maintain synchronization.}
+\textcolor{blue}{This scenario validates the application of an Exponentially Weighted Moving Average (EWMA) to smooth the PNF Timing Info ($\Delta t_{arrive}$). Fig.~\ref{fig:exp1}(a) shows the direct use of the PNF Timing Info ($\Delta t_{arrive}$), where the raw timing values change a lot due to network jitter. Fig.~\ref{fig:exp1}(b) is the cumulative distribution function (CDF) of the accumulated packets exceeding the deadline when directly using the raw PNF Timing Info ($\Delta t_{arrive}$). The EWMA mechanism filters out the high-frequency jitter, as shown in the trend analysis in Fig.~\ref{fig:exp1}(c) and Fig.~\ref{fig:exp1}(d). The smoothed data enables the system to reliably detect downward trends in the PNF Timing Info ($\Delta t_{arrive}$). Therefore, when the PNF Timing Info ($\Delta t_{arrive}$) begins to exhibit a downward trend, the algorithm can stably judge this condition and actively advance more ahead time to maintain synchronization.}
 
 \begin{figure}[!htbp]
   \centering
-  \subfloat[Non-applied EWMA]{\includegraphics[width=0.48\columnwidth]{figures/exp1a.png}\label{fig:exp1a}}
+  \subfloat[Direct Use of \(\Delta t_{arrive}\)]{\includegraphics[width=0.48\columnwidth]{figures/exp1a.png}\label{fig:exp1a}}
   \hfill
-  \subfloat[Applied EWMA]{\includegraphics[width=0.48\columnwidth]{figures/exp1b.png}\label{fig:exp1b}}
+  \subfloat[CDF of Packets Exceeding Deadline under Direct Use]{\includegraphics[width=0.48\columnwidth]{figures/exp1b.png}\label{fig:exp1b}}
   
   \subfloat[Trend Detection]{\includegraphics[width=0.48\columnwidth]{figures/exp1c.png}\label{fig:exp1c}}
   \hfill

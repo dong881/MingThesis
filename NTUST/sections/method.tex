@@ -87,11 +87,11 @@ The negative sign in the microsecond adjustment reduces the local thread sleep t
 \section{Delay Management}
 \label{subsec:delay_management}
 
-To counteract changing network latency and maintain scheduling stability, a dynamic delay management strategy is implemented. This strategy operates as a Fast-Up and Slow-Down Feedback Controller based on a Worst-Case Delay Model, periodically evaluating the observed arrival offset ($\Delta t_{\mathrm{arrive}}$) reported by the PNF.
+To counteract changing network latency and maintain scheduling stability, a dynamic delay management strategy is implemented. This strategy operates as a Fast-Up and Slow-Down Feedback Controller based on a Worst-Case Delay Model, periodically evaluating the observed PNF Timing Info ($\Delta t_{\mathrm{arrive}}$) reported by the PNF.
 
 \subsection{Delay and Uncertainty Estimation}
 \label{subsubsec:ewma_estimation}
-To smooth high-frequency network noise while remaining sensitive to timing drift, Delay Management maintains a running mean of the arrival offset ($\mu_{\mathrm{arrive}}$) and the arrival jitter ($dev_{\mathrm{arrive}}$). Let $\Delta t_{\mathrm{arrive}, i}$ be the observed arrival offset in scheduling slot $i$. The EWMA updates for mean arrival offset and jitter are defined as:
+To smooth high-frequency network noise while remaining sensitive to timing drift, Delay Management maintains a running mean of the PNF Timing Info ($\mu_{\mathrm{arrive}}$) and the jitter ($dev_{\mathrm{arrive}}$). Let $\Delta t_{\mathrm{arrive}, i}$ be the observed PNF Timing Info in scheduling slot $i$. The EWMA updates for mean PNF Timing Info and jitter are defined as:
 \begin{equation}
 \mu_{\mathrm{arrive}, i} = \mu_{\mathrm{arrive}, i-1} + \alpha \cdot (\Delta t_{\mathrm{arrive}, i} - \mu_{\mathrm{arrive}, i-1})
 \end{equation}
@@ -100,7 +100,7 @@ dev_{\mathrm{arrive}, i} = dev_{\mathrm{arrive}, i-1} + \beta \cdot (|\Delta t_{
 \end{equation}
 where the smoothing factors are chosen as $\alpha = 1/8$ to track the long-term trend, and $\beta = 1/4$ to capture fast jitter variations. These parameters are designed as negative powers of two ($\alpha = 2^{-3}$, $\beta = 2^{-2}$) to allow the controller to perform fast bitwise shift operations in real time.
 
-To guide timing adjustments, the controller combines the mean arrival offset and the estimated jitter to estimate the worst-case timing delay ($D_{\mathrm{worst}}$). The worst-case timing delay for slot $i$ is calculated as the sum of the worst-case boundary of the arrival offset and the arrival jitter:
+To guide timing adjustments, the controller combines the mean PNF Timing Info and the estimated jitter to estimate the worst-case timing delay ($D_{\mathrm{worst}}$). The worst-case timing delay for slot $i$ is calculated as the sum of the worst-case boundary of the PNF Timing Info and the jitter:
 \begin{equation}
 D_{\mathrm{worst}, i} = \max(\Delta t_{\mathrm{arrive}, i}, \mu_{\mathrm{arrive}, i}) + dev_{\mathrm{arrive}, i}
 \end{equation}
@@ -136,18 +136,18 @@ The core adjustment strategy is condensed in Algorithm~\ref{alg:delay_management
 \begin{algorithmic}[1]
 \algrenewcommand\algorithmicrequire{\textbf{Input:}}
 \algrenewcommand\algorithmicensure{\textbf{Output:}}
-\Require $\Delta t_{\mathrm{arrive}}$ (Observed arrival offset), $S_{\mathrm{curr}}$ (Current trigger timing),
+\Require $\Delta t_{\mathrm{arrive}}$ (Observed PNF Timing Info), $S_{\mathrm{curr}}$ (Current trigger timing),
 \Statex \hskip\algorithmicindent $T_{\mathrm{window}}$ (Timing window), $T_{\mathrm{slot}}$ (Slot duration)
 \Ensure $S_{\mathrm{next}}$ (Trigger timing for the next MAC schedule)
 \Statex 
 \Statex \textbf{Notation:} 
-\Statex $\mu_{\mathrm{arrive}}$ (smoothed mean arrival offset), $dev_{\mathrm{arrive}}$ (smoothed arrival jitter)
+\Statex $\mu_{\mathrm{arrive}}$ (smoothed mean PNF Timing Info), $dev_{\mathrm{arrive}}$ (smoothed arrival jitter)
 \Statex $D_{\mathrm{worst}}$ (Worst-case timing delay), $D_{\mathrm{accum}}$ (Accumulated timing delay)
 \Statex $C_{\mathrm{stable}}$ (Stable observation counter)
 \Statex $\alpha, \beta$ (Smoothing factors for latency and jitter)
  
 \Statex \textbf{Phase I: Latency and Jitter Estimation}
-\State $\mu_{\mathrm{arrive}} \gets \mu_{\mathrm{arrive}} + \alpha \cdot (\Delta t_{\mathrm{arrive}} - \mu_{\mathrm{arrive}})$ \Comment{Update mean arrival offset}
+\State $\mu_{\mathrm{arrive}} \gets \mu_{\mathrm{arrive}} + \alpha \cdot (\Delta t_{\mathrm{arrive}} - \mu_{\mathrm{arrive}})$ \Comment{Update mean PNF Timing Info}
 \State $dev_{\mathrm{arrive}} \gets dev_{\mathrm{arrive}} + \beta \cdot (|\Delta t_{\mathrm{arrive}} - \mu_{\mathrm{arrive}}| - dev_{\mathrm{arrive}})$ \Comment{Update arrival jitter}
 \State $D_{\mathrm{worst}} \gets \max(\Delta t_{\mathrm{arrive}}, \mu_{\mathrm{arrive}}) + dev_{\mathrm{arrive}}$ \Comment{Evaluate worst-case timing delay}
 \State $D_{\mathrm{accum}} \gets \max(0, D_{\mathrm{accum}} + D_{\mathrm{worst}})$ \Comment{Update accumulated delay}

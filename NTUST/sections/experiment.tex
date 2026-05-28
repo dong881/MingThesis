@@ -8,7 +8,7 @@
 
 This study conducts experiments in an OpenAirInterface (OAI) nFAPI end-to-end environment to verify the proposed delay management method. To ensure the statistical reliability of the evaluation, each throughput value reported represents the average of 180 data points (3 independent trials $\times$ 60 samples per trial).
 
-To validate the hypothesis and the effectiveness of the proposed dynamic trigger scheduling algorithm, the experimental scenarios are arranged as follows: Section~\ref{subsec:experimental_scenario} outlines the hardware and software environment as well as the automated evaluation framework. Section~\ref{subsec:scenario_1} validates the Exponentially Weighted Moving Average (EWMA) mechanism for the PNF arrival offset ($\Delta t_{arrive}$). Section~\ref{subsec:scenario_2} benchmarks the performance of peak throughput and MAC layer Round-Trip Time (RTT) against static baselines. Section~\ref{subsec:scenario_3} evaluates the stability of the proposed method under varying degrees of network congestion.
+To validate our design and the effectiveness of the proposed dynamic trigger scheduling algorithm, the experimental scenarios are arranged as follows: Section~\ref{subsec:experimental_scenario} outlines the hardware and software environment as well as the automated evaluation framework. Section~\ref{subsec:scenario_1} validates the Exponentially Weighted Moving Average (EWMA) mechanism for the PNF Timing Info ($\Delta t_{arrive}$). Section~\ref{subsec:scenario_2} benchmarks the performance of peak throughput and MAC layer Round-Trip Time (RTT) against static baselines. Section~\ref{subsec:scenario_3} evaluates the stability of the proposed method under varying degrees of network congestion.
 
 \iffalse
 \section{實驗情境}
@@ -70,10 +70,10 @@ To ensure consistent data quality for automated measurement and analysis, this s
   \label{fig:rapp_architecture}
 \end{figure}
 
-\subsection{Rigorous System-Level Validation and Generalization}
+\subsection{Thorough System-Level Validation and Generalization}
 \label{subsec:software_validation}
 
-To prove the stability, generalization capability, and compatibility of the proposed timing control and nFAPI modifications, our software implementation was submitted and successfully merged into the official upstream OpenAirInterface (OAI) repository \cite{nikaein2014openairinterface}. Beyond our localized end-to-end evaluation using the rApp framework, the proposed solution underwent rigorous testing in the official OAI Continuous Integration and Continuous Deployment (CI/CD) pipeline \cite{oai_gitlab_ci}. This automated pipeline executes multi-platform builds and physical layer regression suites to ensure production-grade software quality.
+To prove the stability, generalization capability, and compatibility of the proposed timing control and nFAPI modifications, our software implementation was submitted and successfully merged into the official upstream OpenAirInterface (OAI) repository \cite{nikaein2014openairinterface}. Beyond our localized end-to-end evaluation using the rApp framework, the proposed solution went through thorough testing in the official OAI Continuous Integration and Continuous Deployment (CI/CD) pipeline \cite{oai_gitlab_ci}. This automated pipeline executes multi-platform builds and physical layer regression suites to ensure production-grade software quality.
 
 In the software compilation and image deployment stage, the proposed implementation demonstrates high portability across heterogeneous hardware architectures. As compiled in Table~\ref{tab:oai_cicd_build}, the cross-platform builds successfully passed on standard x86 servers, ARM64-based edge servers, and NVIDIA Jetson edge AI platforms under both Ubuntu and enterprise-grade Red Hat Enterprise Linux (RHEL) \cite{redhat_rhel} environments. These results confirm that our proposed timing control is independent of specific hardware acceleration cards, allowing seamless deployment on general-purpose Commercial Off-The-Shelf (COTS) cloud infrastructure.
 
@@ -120,26 +120,26 @@ These regression and compilation results prove that the proposed dynamic delay-a
 \iffalse
 \section{情境 I：PNF 到達偏移量 ($\Delta t_{arrive}$) 之 EWMA 驗證}
 \fi
-\section{Scenario I: EWMA Validation for PNF Arrival Offset ($\Delta t_{arrive}$)}
+\section{Scenario I: EWMA Validation for PNF Timing Info ($\Delta t_{arrive}$)}
 \label{subsec:scenario_1}
 
-This scenario verifies the effectiveness of applying the Exponentially Weighted Moving Average (EWMA) to smooth the PNF arrival offset ($\Delta t_{arrive}$). Due to network jitter and processing delays, the raw timing offset received from the PNF can exhibit high variability. Figure~\ref{fig:exp1} illustrates the impact of EWMA processing. Without EWMA (Figure~\ref{fig:exp1a}), the arrival offset fluctuates drastically, which can lead to unstable scheduling decisions. By applying EWMA (Figure~\ref{fig:exp1b}), high-frequency jitter is effectively filtered, providing a stable baseline for the timing adjustment algorithm. Furthermore, as shown in Figures~\ref{fig:exp1c} and \ref{fig:exp1d}, the smoothed data allows the system to make relatively stable judgments. When $\Delta t_{arrive}$ begins to show a downward trend, the algorithm steadily identifies this trend and actively advances more time ($S_{ahead}$) to maintain synchronization stability.
+This scenario verifies the effectiveness of applying the Exponentially Weighted Moving Average (EWMA) to smooth the PNF Timing Info ($\Delta t_{arrive}$). Due to network jitter and processing delays, directly using the raw PNF Timing Info can lead to unstable scheduling decisions. Figure~\ref{fig:exp1a} shows the direct use of the PNF Timing Info ($\Delta t_{arrive}$), where the raw timing values change a lot. Figure~\ref{fig:exp1b} represents the cumulative distribution function (CDF) of the accumulated packets that exceed the deadline when directly using the raw PNF Timing Info ($\Delta t_{arrive}$). Applying EWMA effectively filters the high-frequency jitter, as shown in the trend analysis in Figures~\ref{fig:exp1c} and \ref{fig:exp1d}, which allows the system to make relatively stable judgments. When the PNF Timing Info ($\Delta t_{arrive}$) begins to show a downward trend, the algorithm steadily identifies this trend and actively advances more time ($S_{ahead}$) to maintain synchronization stability.
 
 \begin{figure}[!htbp]
   \centering
 \iffalse
   \subfloat[未應用 EWMA]{\includegraphics[width=0.65\textwidth]{figures/exp1a.png}\label{fig:exp1a}} \\
 \fi
-  \subfloat[Without EWMA]{\includegraphics[width=0.65\textwidth]{figures/exp1a.png}\label{fig:exp1a}} \\
+  \subfloat[Direct Use of \(\Delta t_{arrive}\)]{\includegraphics[width=0.65\textwidth]{figures/exp1a.png}\label{fig:exp1a}} \\
   \vspace{0.15cm}
 \iffalse
   \subfloat[已應用 EWMA]{\includegraphics[width=0.65\textwidth]{figures/exp1b.png}\label{fig:exp1b}}
 \fi
-  \subfloat[With EWMA]{\includegraphics[width=0.65\textwidth]{figures/exp1b.png}\label{fig:exp1b}}
+  \subfloat[CDF of Packets Exceeding Deadline under Direct Use]{\includegraphics[width=0.65\textwidth]{figures/exp1b.png}\label{fig:exp1b}}
 \iffalse
   \caption{PNF 到達偏移量 ($\Delta t_{arrive}$) 之 EWMA 處理驗證與主動調整。}
 \fi
-  \caption{EWMA processing validation and active adjustment for PNF arrival offset ($\Delta t_{arrive}$).}
+  \caption{EWMA processing validation and active adjustment for PNF Timing Info ($\Delta t_{arrive}$).}
   \label{fig:exp1}
 \end{figure}
 
@@ -160,7 +160,7 @@ This scenario verifies the effectiveness of applying the Exponentially Weighted 
 \iffalse
   \caption{PNF 到達偏移量 ($\Delta t_{arrive}$) 之 EWMA 處理驗證與主動調整（續）。}
 \fi
-  \caption{EWMA processing validation and active adjustment for PNF arrival offset ($\Delta t_{arrive}$) (cont.).}
+  \caption{EWMA processing validation and active adjustment for PNF Timing Info ($\Delta t_{arrive}$) (cont.).}
 \end{figure}
 
 \iffalse
