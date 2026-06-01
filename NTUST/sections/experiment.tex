@@ -8,7 +8,14 @@
 
 This study conducts experiments in an OpenAirInterface (OAI) nFAPI end-to-end environment to verify the proposed delay management method. To ensure the statistical reliability of the evaluation, each throughput value reported represents the average of 180 data points (3 independent trials $\times$ 60 samples per trial).
 
-To validate our design and the effectiveness of the proposed dynamic trigger scheduling algorithm, the experimental scenarios are arranged as follows: Section~\ref{subsec:experimental_scenario} outlines the hardware and software environment as well as the automated evaluation framework. Section~\ref{subsec:scenario_1} validates the Exponentially Weighted Moving Average (EWMA) mechanism for the PNF Timing Info ($\Delta t_{arrive}$). Section~\ref{subsec:scenario_2} benchmarks the performance of peak throughput and MAC layer Round-Trip Time (RTT) against static baselines. Section~\ref{subsec:scenario_3} evaluates the stability of the proposed method under varying degrees of network congestion.
+To systematically evaluate the performance of our proposed closed-loop synchronization and delay-management algorithms, the experimental results are designed to answer the following research questions:
+\begin{itemize}
+\item \textbf{RQ1:} Does the EWMA-based filtering effectively stabilize the noisy PNF Timing Info feedback under transport network jitter?
+\item \textbf{RQ2:} Can the adaptive slots-ahead controller maintain stable throughput while minimizing unnecessary MAC HARQ RTT compared with static baselines?
+\item \textbf{RQ3:} Can the proposed closed-loop delay management preserve end-to-end synchronization stability and throughput under severe network congestion and dynamic jitter?
+\end{itemize}
+
+The rest of this chapter is organized as follows: Section~\ref{subsec:experimental_scenario} outlines the hardware, software, and the automated rApp evaluation framework. Section~\ref{subsec:scenario_1} addresses RQ1 by validating the EWMA mechanism for the PNF Timing Info ($\Delta t_{arrive}$). Section~\ref{subsec:scenario_2} addresses RQ2 by benchmarking the peak throughput and MAC layer Round-Trip Time (RTT) against static baselines. Finally, Section~\ref{subsec:scenario_3} addresses RQ3 by evaluating the stability of the proposed method under injected delay congestion and unpredictable jitter.
 
 \iffalse
 \section{實驗情境}
@@ -171,7 +178,7 @@ This scenario verifies the effectiveness of applying the Exponentially Weighted 
 
 In this scenario, we evaluate the benchmark performance of the proposed adaptive timing mechanism against a standard static slots ahead configuration. Figure~\ref{fig:exp2} presents the performance evaluation in terms of MAC layer latency and system throughput.
 
-Figure~\ref{fig:exp2} displays the performance evaluation under varying Offered Load. The proposed algorithm prioritizes ensuring optimal throughput, consistently maintaining optimal throughput performance under all load conditions. Simultaneously, while ensuring this optimal throughput, the algorithm maximizes the selection of the optimal slots ahead to optimize the MAC layer HARQ Round-Trip Time (RTT), effectively avoiding unnecessary extra overhead.
+Figure~\ref{fig:exp2} displays the performance evaluation under varying Offered Load. The proposed algorithm prioritizes ensuring optimal throughput, consistently maintaining near-peak throughput performance under all load conditions. Simultaneously, while ensuring this optimal throughput, the algorithm optimizes the selection of the slots ahead trigger offset to optimize the MAC layer HARQ Round-Trip Time (RTT), effectively avoiding unnecessary extra overhead.
 
 \begin{figure}[!htbp]
   \centering

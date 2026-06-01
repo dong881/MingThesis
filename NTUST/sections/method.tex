@@ -81,53 +81,50 @@ The negative sign in the microsecond adjustment reduces the local thread sleep t
 \end{algorithmic}
 \end{algorithm}
 
-\iffalse
-\section{延遲管理}
-\fi
 \section{Delay Management}
 \label{subsec:delay_management}
 
-To counteract changing network latency and maintain scheduling stability, a dynamic delay management strategy is implemented. This strategy operates as a Fast-Up and Slow-Down Feedback Controller based on a Worst-Case Delay Model, periodically evaluating the observed PNF Timing Info ($\Delta t_{\mathrm{arrive}}$) reported by the PNF.
+To counteract changing network latency and maintain scheduling stability, a dynamic delay management strategy is implemented. This strategy operates as a closed-loop feedback controller based on standard Small Cell Forum (SCF) PNF Timing Info reported by the PNF. By evaluating the arrival margin relative to the PNF deadline, the controller dynamically adjusts the scheduling lead time $S_{\mathrm{ahead}}$.
 
-\subsection{Delay and Uncertainty Estimation}
+\subsection{EWMA-based Arrival-Margin Estimation}
 \label{subsubsec:ewma_estimation}
-To smooth high-frequency network noise while remaining sensitive to timing drift, Delay Management maintains a running mean of the PNF Timing Info ($\mu_{\mathrm{arrive}}$) and the jitter ($dev_{\mathrm{arrive}}$). Let $\Delta t_{\mathrm{arrive}, i}$ be the observed PNF Timing Info in scheduling slot $i$. The EWMA updates for mean PNF Timing Info and jitter are defined as:
+To smooth high-frequency network noise while remaining sensitive to timing drift, the controller maintains a running mean of the PNF Timing Info ($\mu_{\mathrm{arrive}}$) and the estimated jitter ($dev_{\mathrm{arrive}}$). Let $\Delta t_{\mathrm{arrive}, i}$ be the observed signed PNF Timing Info in scheduling slot $i$. The EWMA updates for mean arrival margin and jitter are defined as:
 \begin{equation}
-\mu_{\mathrm{arrive}, i} = \mu_{\mathrm{arrive}, i-1} + \alpha \cdot (\Delta t_{\mathrm{arrive}, i} - \mu_{\mathrm{arrive}, i-1})
+\mu_{\mathrm{arrive}, i} = (1 - \alpha) \mu_{\mathrm{arrive}, i-1} + \alpha \Delta t_{\mathrm{arrive}, i}
 \end{equation}
 \begin{equation}
-dev_{\mathrm{arrive}, i} = dev_{\mathrm{arrive}, i-1} + \beta \cdot (|\Delta t_{\mathrm{arrive}, i} - \mu_{\mathrm{arrive}, i}| - dev_{\mathrm{arrive}, i-1})
+dev_{\mathrm{arrive}, i} = (1 - \beta) dev_{\mathrm{arrive}, i-1} + \beta |\Delta t_{\mathrm{arrive}, i} - \mu_{\mathrm{arrive}, i}|
 \end{equation}
 where the smoothing factors are chosen as $\alpha = 1/8$ to track the long-term trend, and $\beta = 1/4$ to capture fast jitter variations. These parameters are designed as negative powers of two ($\alpha = 2^{-3}$, $\beta = 2^{-2}$) to allow the controller to perform fast bitwise shift operations in real time.
 
-To guide timing adjustments, the controller combines the mean PNF Timing Info and the estimated jitter to estimate the worst-case timing delay ($D_{\mathrm{worst}}$). The worst-case timing delay for slot $i$ is calculated as the sum of the worst-case boundary of the PNF Timing Info and the jitter:
+The combined timing risk indicator $R_i$ is evaluated to determine whether the arrival margin crosses the deadline boundary:
 \begin{equation}
-D_{\mathrm{worst}, i} = \max(\Delta t_{\mathrm{arrive}, i}, \mu_{\mathrm{arrive}, i}) + dev_{\mathrm{arrive}, i}
+R_i = \mu_{\mathrm{arrive}, i} + dev_{\mathrm{arrive}, i}
 \end{equation}
-Based on this worst-case delay estimation, the controller recursively tracks the accumulated timing delay ($D_{\mathrm{accum}}$):
-\begin{equation}
-D_{\mathrm{accum}, i} = \max(0, D_{\mathrm{accum}, i-1} + D_{\mathrm{worst}, i})
-\end{equation}
-The accumulated timing delay $D_{\mathrm{accum}}$ aggregates timing violations and worst-case delays over time. The system is considered delay-free if $D_{\mathrm{accum}}$ is below the arrival jitter level ($D_{\mathrm{accum}} \le dev_{\mathrm{arrive}}$).
+A positive timing risk ($R_i > 0$) implies that the estimated worst-case arrival margin crosses the deadline, indicating an anomaly condition, whereas a negative risk indicates a safe margin.
 
-\subsection{Fast-Up and Slow-Down Feedback Control}
+\subsection{Adaptive Slots-Ahead Control}
 \label{subsubsec:delay_control}
-The update of the slots ahead trigger timing $S_{\mathrm{next}}$ is governed by a fast-up and slow-down control law. Under this law, the scheduler reacts immediately to timing violations or positive timing delay, while slowly decreasing the lead time only when the system has remained stable for a sustained duration:
+The update of the slots ahead trigger timing $S_{\mathrm{ahead}}$ is governed by a fast-increase and conservative-decrease control law to optimize latency while preserving throughput under dynamic congestion:
 \begin{itemize}
-    \item \textbf{Rapid Increase (Preserve Throughput):} If a timing violation is detected ($\Delta t_{\mathrm{arrive}} > 0$) or the worst-case timing delay is positive ($D_{\mathrm{worst}} > 0$), the controller immediately increments the slots ahead parameter to prevent scheduling timeouts:
+    \item \textbf{Rapid Increase (Preserve Throughput):} If an anomaly timing risk is detected ($R_i > 0$), indicating that the scheduling message is crossing the PNF processing deadline, the controller immediately increases the slots ahead value to prevent late packet arrivals and missing-slot dropouts:
           \begin{equation}
-          S_{\mathrm{next}} = \min\left(S_{\mathrm{curr}} + 1, \left\lfloor \frac{T_{\mathrm{window}}}{T_{\mathrm{slot}}} \right\rfloor\right)
+          S_{\mathrm{ahead}, i+1} = \min\left(S_{\mathrm{ahead}, i} + \left\lceil \frac{R_i}{T_{\mathrm{slot}}} \right\rceil, S_{\max}\right)
           \end{equation}
-          and resets the stable observation counter $C_{\mathrm{stable}} = 0$.
-    \item \textbf{Gradual Decrease (Optimize Latency):} If the system's accumulated timing delay is below the jitter level ($D_{\mathrm{accum}} \le dev_{\mathrm{arrive}}$) and the current worst-case timing delay is safe ($D_{\mathrm{worst}} \le -dev_{\mathrm{arrive}}$), the controller decrements the slots ahead timing once the stability condition is satisfied:
+          and the stable observation counter $C_{\mathrm{stable}}$ is reset to 0. Here, $S_{\max} = \lfloor T_{\mathrm{window}} / T_{\mathrm{slot}} \rfloor$ represents the maximum allowed slots ahead.
+    \item \textbf{Gradual Decrease (Optimize Latency):} If the system is under stable and safe conditions ($R_i < -dev_{\mathrm{arrive}, i}$), indicating that there is a sufficient timing margin, the controller decrements the slots ahead value by one slot once the stability condition is satisfied ($C_{\mathrm{stable}} \ge C_{\mathrm{threshold}}$):
           \begin{equation}
-          S_{\mathrm{next}} = \max(S_{\mathrm{curr}} - 1, 1)
+          S_{\mathrm{ahead}, i+1} = \max\left(S_{\mathrm{ahead}, i} - 1, S_{\min}\right)
           \end{equation}
-          and resets $C_{\mathrm{stable}} = 0$. To prevent premature timing reductions as the scheduling buffer grows, the required stable count threshold increases quadratically with $S_{\mathrm{curr}}$.
-    \item \textbf{Maintain Baseline:} Otherwise, the controller holds the current timing, $S_{\mathrm{next}} = S_{\mathrm{curr}}$. The stable counter $C_{\mathrm{stable}}$ is incremented if the current sample is safe ($D_{\mathrm{worst}} \le 0$).
+          and resets $C_{\mathrm{stable}} = 0$ to prevent premature timing reductions. Here, $S_{\min} = 1$ is the minimum slots ahead trigger offset.
+    \item \textbf{Maintain Baseline:} Otherwise, the trigger timing remains unchanged:
+          \begin{equation}
+          S_{\mathrm{ahead}, i+1} = S_{\mathrm{ahead}, i}
+          \end{equation}
+          and the stable counter $C_{\mathrm{stable}}$ is incremented if the current sample is safe ($R_i \le 0$).
 \end{itemize}
 
-The core adjustment strategy is condensed in Algorithm~\ref{alg:delay_management}.
+The core delay management strategy is condensed in Algorithm~\ref{alg:delay_management}.
 
 \begin{algorithm}[!htbp]
 \caption{Delay Management}
@@ -136,29 +133,27 @@ The core adjustment strategy is condensed in Algorithm~\ref{alg:delay_management
 \begin{algorithmic}[1]
 \algrenewcommand\algorithmicrequire{\textbf{Input:}}
 \algrenewcommand\algorithmicensure{\textbf{Output:}}
-\Require $\Delta t_{\mathrm{arrive}}$ (Observed PNF Timing Info), $S_{\mathrm{curr}}$ (Current trigger timing),
-\Statex \hskip\algorithmicindent $T_{\mathrm{window}}$ (Timing window), $T_{\mathrm{slot}}$ (Slot duration)
+\Require $\Delta t_{\mathrm{arrive}}$ (Observed PNF Timing Info), $S_{\mathrm{curr}}$ (Current trigger timing), $T_{\mathrm{window}}$ (Timing window), $T_{\mathrm{slot}}$ (Slot duration)
 \Ensure $S_{\mathrm{next}}$ (Trigger timing for the next MAC schedule)
 \Statex 
 \Statex \textbf{Notation:} 
 \Statex $\mu_{\mathrm{arrive}}$ (smoothed mean PNF Timing Info), $dev_{\mathrm{arrive}}$ (smoothed arrival jitter)
-\Statex $D_{\mathrm{worst}}$ (Worst-case timing delay), $D_{\mathrm{accum}}$ (Accumulated timing delay)
-\Statex $C_{\mathrm{stable}}$ (Stable observation counter)
+\Statex $R$ (Timing risk indicator), $C_{\mathrm{stable}}$ (Stable observation counter)
+\Statex $C_{\mathrm{threshold}}$ (Stability observation threshold), $S_{\max}, S_{\min}$ (Boundary limits)
 \Statex $\alpha, \beta$ (Smoothing factors for latency and jitter)
  
 \Statex \textbf{Phase I: Latency and Jitter Estimation}
-\State $\mu_{\mathrm{arrive}} \gets \mu_{\mathrm{arrive}} + \alpha \cdot (\Delta t_{\mathrm{arrive}} - \mu_{\mathrm{arrive}})$ \Comment{Update mean PNF Timing Info}
-\State $dev_{\mathrm{arrive}} \gets dev_{\mathrm{arrive}} + \beta \cdot (|\Delta t_{\mathrm{arrive}} - \mu_{\mathrm{arrive}}| - dev_{\mathrm{arrive}})$ \Comment{Update arrival jitter}
-\State $D_{\mathrm{worst}} \gets \max(\Delta t_{\mathrm{arrive}}, \mu_{\mathrm{arrive}}) + dev_{\mathrm{arrive}}$ \Comment{Evaluate worst-case timing delay}
-\State $D_{\mathrm{accum}} \gets \max(0, D_{\mathrm{accum}} + D_{\mathrm{worst}})$ \Comment{Update accumulated delay}
+\State $\mu_{\mathrm{arrive}} \gets (1 - \alpha)\mu_{\mathrm{arrive}} + \alpha \Delta t_{\mathrm{arrive}}$ \Comment{Update mean PNF Timing Info}
+\State $dev_{\mathrm{arrive}} \gets (1 - \beta)dev_{\mathrm{arrive}} + \beta |\Delta t_{\mathrm{arrive}} - \mu_{\mathrm{arrive}}|$ \Comment{Update arrival jitter}
+\State $R \gets \mu_{\mathrm{arrive}} + dev_{\mathrm{arrive}}$ \Comment{Evaluate combined risk indicator}
 
 \Statex \textbf{Phase II: Fast-Up and Slow-Down Timing Adjustment}
-\If{$\Delta t_{\mathrm{arrive}} > 0 \lor D_{\mathrm{worst}} > 0$}
-    \State $S_{\mathrm{next}} \gets \min(S_{\mathrm{curr}} + 1, \lfloor T_{\mathrm{window}} / T_{\mathrm{slot}} \rfloor)$ \Comment{Rapid Increase}
+\If{$R > 0$}
+    \State $S_{\mathrm{next}} \gets \min(S_{\mathrm{curr}} + \lceil R / T_{\mathrm{slot}} \rceil, S_{\max})$ \Comment{Rapid Increase}
     \State $C_{\mathrm{stable}} \gets 0$
-\ElsIf{$D_{\mathrm{accum}} \le dev_{\mathrm{arrive}} \land D_{\mathrm{worst}} \le -dev_{\mathrm{arrive}}$}
-    \If{stability condition is satisfied}
-        \State $S_{\mathrm{next}} \gets \max(S_{\mathrm{curr}} - 1, 1)$ \Comment{Gradual Decrease}
+\ElsIf{$R < -dev_{\mathrm{arrive}}$}
+    \If{$C_{\mathrm{stable}} \ge C_{\mathrm{threshold}}$}
+        \State $S_{\mathrm{next}} \gets \max(S_{\mathrm{curr}} - 1, S_{\min})$ \Comment{Gradual Decrease}
         \State $C_{\mathrm{stable}} \gets 0$
     \Else
         \State $S_{\mathrm{next}} \gets S_{\mathrm{curr}}$
@@ -166,7 +161,11 @@ The core adjustment strategy is condensed in Algorithm~\ref{alg:delay_management
     \EndIf
 \Else
     \State $S_{\mathrm{next}} \gets S_{\mathrm{curr}}$
-    \State $C_{\mathrm{stable}} \gets 0$
+    \If{$R \le 0$}
+        \State $C_{\mathrm{stable}} \gets C_{\mathrm{stable}} + 1$
+    \Else
+        \State $C_{\mathrm{stable}} \gets 0$
+    \EndIf
 \EndIf
 \State \Return $S_{\mathrm{next}}$
 \end{algorithmic}
@@ -175,6 +174,6 @@ The core adjustment strategy is condensed in Algorithm~\ref{alg:delay_management
 \subsection{Coordination between Node sync and Delay Management}
 \label{subsec:coordination}
 
-To ensure stable operation under real-world conditions, Node sync and Delay Management must coordinate without inducing control loop oscillations. The microsecond-level Node sync focuses strictly on correcting clock phase offsets to align the VNF's scheduling thread with the PNF's slot transitions. Because it directly shifts the VNF's time base, any clock adjustment ($S_{adj}, \mu s_{adj}$) temporarily shifts the arrival timestamp reference. Delay Management is designed to absorb this transient shifting. By relying on the history-weighted accumulated timing delay ($D_{\mathrm{accum}}$), Delay Management avoids reacting to the temporary timing offsets caused by clock adjustments, allowing Node sync to converge. Once Node sync locks synchronization ($\mathit{sync\_locked} = 1$), the time base stabilizes, allowing Delay Management to achieve precise slot-level optimizations ($S_{\mathrm{ahead}}$).
+To ensure stable operation under real-world conditions, Node sync and Delay Management must coordinate without inducing control loop oscillations. The microsecond-level Node sync focuses strictly on correcting clock phase offsets to align the VNF's scheduling thread with the PNF's slot transitions. Because it directly shifts the VNF's time base, any clock adjustment ($S_{adj}, \mu s_{adj}$) temporarily shifts the arrival timestamp reference. Delay Management is designed to absorb this transient shifting. By relying on history-weighted EWMA-based risk tracking ($R_i$), Delay Management avoids reacting to the temporary timing offsets caused by clock adjustments, allowing Node sync to converge. Once Node sync locks synchronization ($\mathit{sync\_locked} = 1$), the time base stabilizes, allowing Delay Management to achieve precise slot-level optimizations ($S_{\mathrm{ahead}}$).
 
 \end{document}

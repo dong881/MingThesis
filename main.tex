@@ -35,7 +35,7 @@
 \maketitle
 
 \begin{abstract}
-\textcolor{blue}{Decoupling the Medium Access Control (MAC) and Physical (PHY) layers in the nFAPI (Option 6) functional split introduces severe timing synchronization challenges over packet-switched networks. To prevent message rejection at the physical layer (PNF), the virtualized MAC (VNF) must schedule and transmit control messages ahead of time. This paper proposes an adaptive timing control framework where the VNF dynamically adjusts this scheduling lead time (slots ahead) using closed-loop feedback based on real-time Timing Info reported by the PNF. By continuously updating the slots ahead, the system automatically adapts to diverse deployment environments with dynamic network congestion, including varying offered loads, latencies, and jitters. Experimental validation on an OpenAirInterface (OAI) testbed integrated with a commercial Radio Unit (O-RU) demonstrates that the proposed mechanism effectively eliminates packet errors, stabilizes round-trip times (RTT), and maintains robust throughput under severe network congestion.}
+\textcolor{blue}{nFAPI-based Split Option 6 separates the MAC scheduler and High-PHY across packet-switched transport, where scheduling messages must arrive at the PNF within a strict timing window. Existing static slots-ahead scheduling either over-provisions lead time, increasing MAC HARQ round-trip time (RTT), or under-provisions it, causing late arrivals, missing-slot events, and throughput degradation under network jitter. This paper proposes an adaptive timing control framework for nFAPI Split 6 that dynamically adjusts the scheduler trigger offset using PNF Timing Info feedback. The proposed controller applies EWMA-based arrival-margin and jitter estimation to increase slots ahead rapidly under timing risk and decrease it conservatively under stable conditions. We implement the framework in an OpenAirInterface-based end-to-end testbed with a commercial O-RU and COTS UE. Experimental results show that the proposed method maintains stable throughput under injected delay and jitter while avoiding unnecessary MAC HARQ RTT inflation compared with static slots-ahead baselines.}
 \end{abstract}
 
 \begin{IEEEkeywords}
@@ -45,50 +45,25 @@ nFAPI, O-RAN, Functional Split, Adaptive Control.
 \section{Introduction}
 \subsection{Background and Motivation}
 
-\textcolor{blue}{To address the diverse demands of 5G networks, the 3rd Generation Partnership Project (3GPP) and the O-RAN Alliance have standardized the disaggregation of traditional base stations into Open Central Units (O-CUs), Open Distributed Units (O-DUs), and Open Radio Units (O-RUs) \cite{3gpp_tr_38_801}. Among the proposed architectures, three functional split configurations have emerged as mainstream: Option 2 (O-CU/O-DU), Option 7.2 (O-DU/O-RU), and Option 6 (O-DU High/Low) \cite{11124199}.}
+\textcolor{blue}{In nFAPI-based Split Option 6, the MAC scheduler in the VNF must send DL\_TTI.request messages sufficiently ahead of the target slot so that the PNF can process them within its timing window. If the message arrives later than the deadline, the PNF discards the scheduling request, resulting in missing-slot events and throughput degradation.}
 
-\textcolor{blue}{These splits present distinct synchronization requirements and management strategies. Option 2 relies on sequence numbers and deep buffering over general packet-switched networks, making its timing constraints relatively relaxed. Option 7.2 \cite{oran_wg4_cus}, operating within the physical layer, demands strict phase/symbol-level synchronization enforced by hardware Precision Time Protocol (PTP) over Time-Sensitive Networking (TSN). Occupying a unique intermediate position is Option 6 (the MAC-PHY split). Unlike the FAPI standard which assumes same-machine shared-memory deployment driven by \texttt{slot.indication}, Option 6 is standardized as nFAPI by the Small Cell Forum (SCF) \cite{SCF225} to support multi-machine socket deployment. Option 6 requires frame/slot-level synchronization and focuses on delay management, offering the flexibility to operate over general packet-switched networks without the very high costs of TSN.}
+\textcolor{blue}{Existing OAI nFAPI-style implementations rely on statically configured slots-ahead scheduling. Such a static configuration creates an inherent throughput-latency trade-off: a larger slots-ahead value improves robustness against delay and jitter but increases MAC HARQ RTT, whereas a smaller value reduces latency but becomes vulnerable to late packet arrivals.}
 
-\textcolor{blue}{The rationale for deploying the MAC layer (O-DU High) in a cloud environment via Option 6 is primarily driven by resource pooling, as Layer 2 processing complexity scales dynamically with user equipment (UE) density \cite{Foukas2021_ICC}. However, migrating the MAC layer to a Virtualized Network Function (VNF) introduces internal processing latency that compresses the available margin for fronthaul transmission delay. Unlike Option 7.2, which rigidly drops out-of-window packets, Option 6 must adaptively manage delays to ensure slot-level synchronization over non-deterministic Ethernet transport. Existing open-source implementations typically employ static slots ahead configurations, which fail to accommodate dynamic network jitter and server processing variations, leading to frequent scheduling failures (e.g., missing slot packet).}
+\textcolor{blue}{However, existing open-source implementations such as OAI have historically relied on simplified slot-indication forwarding and static slots-ahead configuration, leaving the SCF-defined Timing Info based delay-management loop incomplete.}
 
-\textcolor{blue}{This highlights a fundamental gap in current disaggregated RAN designs: the lack of adaptive timing control mechanisms for intermediate-layer splits operating under non-ideal transport environments.}
+\textcolor{blue}{To resolve this trade-off, this paper proposes an adaptive timing control framework for nFAPI Split 6. Our approach dynamically adjusts the scheduler trigger offset based on closed-loop feedback using PNF Timing Info reported by the PNF. By applying an Exponentially Weighted Moving Average (EWMA) model, the controller estimates the real-time arrival margin and transport jitter. The controller then applies a fast-increase and conservative-decrease policy to dynamically update the slots ahead, securing system stability under congestion while optimizing latency under stable network conditions.}
+
+\textcolor{blue}{This paper addresses the following problem: how to maintain nFAPI Split 6 scheduling stability over non-deterministic packet-switched transport without relying on hardware-level synchronization or static worst-case over-provisioning. The key challenge is that the scheduler must choose a slots-ahead value before observing the future network delay. A conservative value improves robustness but increases MAC HARQ RTT, while an aggressive value reduces latency but risks late packet arrivals and slot loss. To resolve this trade-off, we propose a closed-loop delay management mechanism that uses PNF Timing Info to estimate the arrival margin and adapt the slots-ahead value online.}
 
 \subsection{Related Works}
 
-\textcolor{blue}{Recent advancements in Open RAN (O-RAN) architectures have driven significant research into optimizing
-split-architecture performance and managing network latency. For instance, the X5G testbed proposed by Villa \textit{et al.}
-\cite{11039666} demonstrates a state-of-the-art approach by deploying a hardware-accelerated private 5G O-RAN network.
-By offloading Physical (PHY) layer processing to dedicated NVIDIA GPUs and Mellanox SmartNICs, X5G successfully achieves
-commercial-grade peak throughputs. However, this high performance relies heavily on expensive, specialized hardware and
-demands strict, ideal network conditions equipped with hardware-level Precision Time Protocol (PTP) synchronization.
-Such stringent requirements significantly limit its applicability and deployment flexibility in general packet-switched
-networks, where unpredictable latency and jitter are prevalent. To guide the transition of these complex virtualized
-architectures from simulators to emulated and real-world O-RAN testbeds, deployment guidelines and interoperability
-challenges using open-source software such as OpenAirInterface have been documented \cite{herrera2026tutorial}.}
+\textcolor{blue}{Recent advancements in Open RAN (O-RAN) architectures have driven significant research into optimizing split-architecture performance and managing network latency. These works can be broadly classified into three categories.}
 
-\textcolor{blue}{Beyond hardware acceleration, software-driven delay management strategies have also been explored from
-various perspectives. At the intra-node computational level, Lee \textit{et al.} \cite{Lee2022} proposed an adaptive Layer 1
-transmission strategy that opportunistically advances transmissions when software processing finishes early. To complement
-this, Aquifer \cite{jia2024aquifer} introduced transparent microsecond-scale OS scheduling to mitigate processing delay
-variations in vRAN workloads. From a network orchestration perspective, Adamuz-Hinojosa \textit{et al.} \cite{Adamuz2024ORANUS}
-introduced ORANUS, employing Stochastic Network Calculus (SNC) to provide mathematical latency bounds for ultra-reliable
-low-latency communications (uRLLC). Moreover, Lv \textit{et al.} \cite{Lv2024QoS} emphasized User Equipment (UE) QoS support
-by integrating MAC resource allocation with high-level network orchestration. Additionally, the efficiency of mobile
-scheduler resource allocation is heavily impacted by HARQ retransmission delays, where dynamic pre-allocation schemes
-have been proposed to minimize block loss rate and stabilize link-layer throughput \cite{elfiky2024allocation}. To improve
-energy efficiency, frameworks like AegisRAN \cite{hidalgo2025aegisran} dynamically scale vRAN CPU resources, though
-deactivating idle cores introduces transient processing delay spikes that further complicate timing synchronization.
-While these frameworks \cite{Lee2022, jia2024aquifer, Adamuz2024ORANUS, Lv2024QoS, elfiky2024allocation, hidalgo2025aegisran}
-provide robust solutions for processing variance, capacity bounds, energy conservation, and QoS scheduling, they do not
-directly address the critical synchronization failures caused by unpredictable fronthaul network jitter in intermediate-layer
-splits.}
+\textcolor{blue}{\textbf{Hardware-assisted Split 7.2:} High-performance testbeds such as X5G \cite{11039666} offload heavy physical layer processing to dedicated GPUs and Mellanox SmartNICs. While achieving commercial-grade peak throughput, these implementations depend on specialized, expensive hardware acceleration and strict synchronization infrastructure (e.g., hardware-level PTP over TSN). This severely limits their deployment flexibility in general-purpose, non-deterministic packet-switched networks.}
 
-\textcolor{blue}{Fronthaul transmission delays and capacity limits have also been modeled using queuing theory. Diez \textit{et al.}
-\cite{diez2021flexible} developed an end-to-end queuing model to characterize fronthaul latency across flexible splits,
-demonstrating how background traffic dramatically inflates delay. This was further extended by Khan \textit{et al.}
-\cite{khan2026evaluating} to evaluate time-window boundaries and latency budget constraints in spine-leaf fronthaul topologies.}
+\textcolor{blue}{\textbf{Intra-node Software Scheduling:} At the intra-node computational level, Lee \textit{et al.} \cite{Lee2022} proposed an adaptive Layer 1 transmission strategy inside FAPI-based gNBs, while Aquifer \cite{jia2024aquifer} optimized OS-level scheduling microservices to absorb processing delay spikes. However, these methods only address intra-node delays and do not handle cross-node timing violations caused by unpredictable fronthaul network transport delay and jitter.}
 
-\textcolor{blue}{To address the limitations of high hardware costs and strict synchronization requirements, this paper proposes a cost-effective, software-based solution tailored for non-ideal fronthaul environments. Specifically, we focus on the fact that the Small Cell Forum (SCF) 225 nFAPI specification \cite{SCF225} defines the standard \texttt{Timing Info} message and interface-level delay management fields, yet existing open-source implementations only support static parameter initialization. Our work introduces an adaptive slots ahead timing control mechanism based on Exponentially Weighted Moving Average (EWMA) delay management to complete this standardized dynamic feedback loop. This approach dynamically tracks and filters network jitter using general-purpose Commercial Off-the-Shelf (COTS) servers. Experimental results demonstrate that our proposed method ensures stable Hybrid Automatic Repeat Request (HARQ) Round-Trip Times (RTT) and stable system throughput without the need for high-end specialized equipment or strict hardware synchronization, thereby offering a more flexible and economically viable alternative for O-RAN deployments.}
+\textcolor{blue}{\textbf{nFAPI Delay Management Gap:} Although the Small Cell Forum (SCF) nFAPI specification \cite{SCF225} defines standard interface messages for Node Sync and Delay Management, existing open-source Split~6 platforms, including OpenAirInterface (OAI), only implement static slots-ahead trigger configurations. This leaves the spec-defined closed-loop dynamic timing adjustment incomplete. Our proposed EWMA-based adaptive trigger offset controller fills this critical gap, providing a cost-effective, software-only solution for COTS servers.}
 
 \textcolor{blue}{Specifically, compared to Split 7.2 implementations like X5G \cite{11039666} that require hardware-level PTP synchronization and GPU/SmartNIC offloads, or FAPI-based Split 6 designs \cite{Lee2022} restricted to intra-node shared memory and process-level adjustments, our proposed framework operates at the slot/TTI level on standard COTS servers, actively managing cross-node network jitter and delay over standard packet-switched Ethernet without hardware acceleration dependencies.}
 
@@ -96,17 +71,12 @@ demonstrating how background traffic dramatically inflates delay. This was furth
 
 \textcolor{blue}{In this paper, we focus on the nFAPI-based Option 6 split as a representative case of timing-sensitive yet transport-flexible RAN disaggregation. While Option 6 offers significant advantages in terms of reduced fronthaul bandwidth and deployment flexibility, its performance is highly sensitive to non-deterministic latency introduced by transport networks and server processing.}
 
-\textcolor{blue}{We identify that existing open-source implementations, including OpenAirInterface (OAI), do not implement a generic and spec-compliant nFAPI interface according to the SCF standards. Instead, they use an incorrect approach where the raw \texttt{slot.indication} is forwarded directly over the network, and they rely on a statically configured slots ahead parameter. This static approach leads to high latency and makes the system highly sensitive to packet-switched network jitter. To address this issue, we re-develop the nFAPI interface based on the OAI project to support the standard Node sync and Delay Management mechanisms. By providing generic inputs and outputs rather than hardcoded slot forwarding, our framework enables dynamic timing control and flexible deployment. We also plan to contribute this re-developed nFAPI implementation back to the upstream OAI repository.}
-
-\textcolor{blue}{To address this issue, we propose an adaptive timing control framework that dynamically adjusts scheduling lead time based on real-time latency estimation. The proposed approach consists of two main components: Node sync, which aligns frame and slot boundaries between the VNF and PNF, and Delay Management, which applies an Exponentially Weighted Moving Average (EWMA) to smooth the timing information and dynamically adjust the slots ahead to ensure that scheduling messages arrive within the valid timing window.}
-
-\textcolor{blue}{The main contributions of this paper are summarized as follows:}
+\textcolor{blue}{To address the limitations of static configurations under such non-deterministic transport environments, this paper introduces a dynamic timing adjustment framework that achieves closed-loop synchronization stability. The main contributions of this paper are summarized as follows:}
 
 \begin{itemize}
-\item \textcolor{blue}{\textbf{Systematic Analysis of Timing Uncertainty in Split 6:} We characterize the impact of non-deterministic latency, including network jitter and processing delay, on synchronization stability in disaggregated RAN systems.}
-\item \textcolor{blue}{\textbf{Adaptive Slots Ahead mechanism:} We propose a dynamic timing adjustment mechanism that continuously aligns scheduling decisions with varying transport delays, effectively mitigating timing violations.}
-\item \textcolor{blue}{\textbf{Experimental Validation on OAI Platform:} We implement the proposed framework in a real-world testbed and demonstrate that it eliminates missing slot packet errors and significantly improves throughput stability under non-ideal fronthaul conditions.}
-\item \textcolor{blue}{\textbf{Open-Source nFAPI Platform Contribution to Upstream OAI:} We submitted our adaptive timing control and nFAPI modifications as a merge request (MR) to the official OpenAirInterface (OAI) repository. This contribution was merged into the official codebase. It provides a standard open-source nFAPI platform that follows the Small Cell Forum (SCF) specification for future development and testing.}
+\item \textcolor{blue}{\textbf{SCF-compliant nFAPI timing framework for OAI Split 6:} We redesign the OAI nFAPI timing path to support Node Sync, PNF Timing Info, and Delay Management, enabling closed-loop timing control instead of simplified static slot forwarding.}
+\item \textcolor{blue}{\textbf{EWMA-based adaptive slots-ahead control:} We propose a lightweight feedback controller that estimates the arrival margin and jitter from PNF Timing Info and dynamically adjusts the scheduler trigger offset to balance throughput robustness and MAC HARQ RTT.}
+\item \textcolor{blue}{\textbf{End-to-end validation under non-deterministic transport:} We implement the proposed method on an OpenAirInterface-based E2E physical testbed with a commercial Pegatron O-RU and COTS UE. We evaluate throughput, MAC HARQ RTT, missing-slot behavior, and stability under injected delay and jitter. The implementation has been successfully merged into the official upstream OAI codebase to support reproducibility and future research.}
 \end{itemize}
 
 \section{System Model}
@@ -149,6 +119,9 @@ demonstrating how background traffic dramatically inflates delay. This was furth
 \item \textbf{Timing Window:} A predefined, strict time duration. Let $T_{\mathrm{window}}$ denote the duration of this PNF timing window, and $T_{\mathrm{slot}}$ denote the subframe slot duration. When the scheduling message (specifically the \texttt{DL\_TTI.request}) sent by the O-DU High propagates across the network, it must accurately arrive and fall exactly within this Window. Otherwise, the High PHY will reject the message and fail to process the slot data.
 \item \textbf{Timing Info ($\Delta t_{arrive}$):} The PNF continuously monitors the exact timing info of control messages relative to the transmission deadline. This information, denoted as $\Delta t_{arrive}$, represents the remaining time margin within the timing window. The PNF periodically sends this information back to the MAC layer for Delay Management. This establishes a closed-loop feedback control system, compensating for the unpredictable transmission latency variations between the VNF and PNF machines.
 \end{itemize}}
+
+\subsection{Timing Model}
+\textcolor{blue}{Let $T_{\mathrm{slot}}$ denote the slot duration and $S_{\mathrm{ahead}}$ denote the number of slots by which the VNF scheduler triggers earlier than the target slot. For a scheduling message generated at VNF time $t_g$, the corresponding target PNF processing deadline is determined by the target slot boundary. The arrival margin reported by the PNF is denoted by $\Delta t_{\mathrm{arrive}}$, where $\Delta t_{\mathrm{arrive}} < 0$ indicates that the message arrives before the deadline, and $\Delta t_{\mathrm{arrive}} > 0$ indicates a late arrival. Therefore, the delay-management objective is to select the minimum stable $S_{\mathrm{ahead}}$ such that late arrivals are avoided ($\Delta t_{\mathrm{arrive}} \le 0$) while MAC HARQ RTT is not unnecessarily inflated.}
 
 \subsection{Key Validation Metrics}
 \label{subsec:D_metrics}
@@ -236,51 +209,49 @@ S_{\mathrm{adj}} = \mathit{offset} / T_{\mathrm{slot}}
 \EndIf
 \State \Return $\mathit{slot\_adjustment}, \mathit{us\_adjustment}$
 \end{algorithmic}
-\end{algorithm}
-
-\subsection{Delay Management}
+\end{algorithm}\subsection{Delay Management}
 \label{subsec:delay_management}
 
-\textcolor{blue}{To counteract changing network latency and maintain scheduling stability, a dynamic delay management strategy is implemented. This strategy operates as a Fast-Up and Slow-Down Feedback Controller based on a Worst-Case Delay Model, periodically evaluating the observed PNF Timing Info ($\Delta t_{\mathrm{arrive}}$) reported by the PNF.}
+\textcolor{blue}{To counteract changing network latency and maintain scheduling stability, a dynamic delay management strategy is implemented. This strategy operates as a closed-loop feedback controller based on standard Small Cell Forum (SCF) PNF Timing Info reported by the PNF. By evaluating the arrival margin relative to the PNF deadline, the controller dynamically adjusts the scheduling lead time $S_{\mathrm{ahead}}$.}
 
-\subsubsection{Delay and Uncertainty Estimation}
-\textcolor{blue}{To smooth high-frequency network noise while remaining sensitive to timing drift, Delay Management maintains a running mean of the PNF Timing Info ($\mu_{\mathrm{arrive}}$) and the jitter ($dev_{\mathrm{arrive}}$). Let $\Delta t_{\mathrm{arrive}, i}$ be the observed PNF Timing Info in scheduling slot $i$. The EWMA updates for mean PNF Timing Info and jitter are defined as:}
+\subsubsection{EWMA-based Arrival-Margin Estimation}
+\textcolor{blue}{To smooth high-frequency network noise while remaining sensitive to timing drift, the controller maintains a running mean of the PNF Timing Info ($\mu_{\mathrm{arrive}}$) and the estimated jitter ($dev_{\mathrm{arrive}}$). Let $\Delta t_{\mathrm{arrive}, i}$ be the observed signed PNF Timing Info in scheduling slot $i$. The EWMA updates for mean arrival margin and jitter are defined as:}
 \begin{equation}
-\mu_{\mathrm{arrive}, i} = \mu_{\mathrm{arrive}, i-1} + \alpha \cdot (\Delta t_{\mathrm{arrive}, i} - \mu_{\mathrm{arrive}, i-1})
+\mu_{\mathrm{arrive}, i} = (1 - \alpha) \mu_{\mathrm{arrive}, i-1} + \alpha \Delta t_{\mathrm{arrive}, i}
 \end{equation}
 \begin{equation}
-dev_{\mathrm{arrive}, i} = dev_{\mathrm{arrive}, i-1} + \beta \cdot (|\Delta t_{\mathrm{arrive}, i} - \mu_{\mathrm{arrive}, i}| - dev_{\mathrm{arrive}, i-1})
+dev_{\mathrm{arrive}, i} = (1 - \beta) dev_{\mathrm{arrive}, i-1} + \beta |\Delta t_{\mathrm{arrive}, i} - \mu_{\mathrm{arrive}, i}|
 \end{equation}
 \textcolor{blue}{where the smoothing factors are chosen as $\alpha = 1/8$ to track the long-term trend, and $\beta = 1/4$ to capture fast jitter variations. These parameters are designed as negative powers of two ($\alpha = 2^{-3}$, $\beta = 2^{-2}$) to allow the controller to perform fast bitwise shift operations in real time.}
 
-\textcolor{blue}{To guide timing adjustments, the controller combines the mean PNF Timing Info and the estimated jitter to estimate the worst-case timing delay ($D_{\mathrm{worst}}$). The worst-case timing delay for slot $i$ is calculated as the sum of the worst-case boundary of the PNF Timing Info and the jitter:}
+\textcolor{blue}{The combined timing risk indicator $R_i$ is evaluated to determine whether the arrival margin crosses the deadline boundary:}
 \begin{equation}
-D_{\mathrm{worst}, i} = \max(\Delta t_{\mathrm{arrive}, i}, \mu_{\mathrm{arrive}, i}) + dev_{\mathrm{arrive}, i}
+R_i = \mu_{\mathrm{arrive}, i} + dev_{\mathrm{arrive}, i}
 \end{equation}
-\textcolor{blue}{Based on this worst-case delay estimation, the controller recursively tracks the accumulated timing delay ($D_{\mathrm{accum}}$):}
-\begin{equation}
-D_{\mathrm{accum}, i} = \max(0, D_{\mathrm{accum}, i-1} + D_{\mathrm{worst}, i})
-\end{equation}
-\textcolor{blue}{The accumulated timing delay $D_{\mathrm{accum}}$ aggregates timing violations and worst-case delays over time. The system is considered delay-free if $D_{\mathrm{accum}}$ is below the arrival jitter level ($D_{\mathrm{accum}} \le dev_{\mathrm{arrive}}$).}
+\textcolor{blue}{A positive timing risk ($R_i > 0$) implies that the estimated worst-case arrival margin crosses the deadline, indicating an anomaly condition, whereas a negative risk indicates a safe margin.}
 
-\subsubsection{Fast-Up and Slow-Down Feedback Control}
+\subsubsection{Adaptive Slots-Ahead Control}
 \label{subsubsec:delay_control}
-\textcolor{blue}{The update of the slots ahead trigger timing $S_{\mathrm{next}}$ is governed by a fast-up and slow-down control law. Under this law, the scheduler reacts immediately to timing violations or positive timing delay, while slowly decreasing the lead time only when the system has remained stable for a sustained duration:}
+\textcolor{blue}{The update of the slots ahead trigger timing $S_{\mathrm{ahead}}$ is governed by a fast-increase and conservative-decrease control law to optimize latency while preserving throughput under dynamic congestion:}
 \begin{itemize}
-    \item \textbf{Rapid Increase (Preserve Throughput):} \textcolor{blue}{If a timing violation is detected ($\Delta t_{\mathrm{arrive}} > 0$) or the worst-case timing delay is positive ($D_{\mathrm{worst}} > 0$), the controller immediately increments the slots ahead parameter to prevent scheduling timeouts:}
+    \item \textbf{Rapid Increase (Preserve Throughput):} \textcolor{blue}{If an anomaly timing risk is detected ($R_i > 0$), indicating that the scheduling message is crossing the PNF processing deadline, the controller immediately increases the slots ahead value to prevent late packet arrivals and missing-slot dropouts:}
           \begin{equation}
-          S_{\mathrm{next}} = \min\left(S_{\mathrm{curr}} + 1, \left\lfloor \frac{T_{\mathrm{window}}}{T_{\mathrm{slot}}} \right\rfloor\right)
+          S_{\mathrm{ahead}, i+1} = \min\left(S_{\mathrm{ahead}, i} + \left\lceil \frac{R_i}{T_{\mathrm{slot}}} \right\rceil, S_{\max}\right)
           \end{equation}
-          \textcolor{blue}{and resets the stable observation counter $C_{\mathrm{stable}} = 0$.}
-    \item \textbf{Gradual Decrease (Optimize Latency):} \textcolor{blue}{If the system's accumulated timing delay is below the jitter level ($D_{\mathrm{accum}} \le dev_{\mathrm{arrive}}$) and the current worst-case timing delay is safe ($D_{\mathrm{worst}} \le -dev_{\mathrm{arrive}}$), the controller decrements the slots ahead timing once the stability condition is satisfied:}
+          \textcolor{blue}{and the stable observation counter $C_{\mathrm{stable}}$ is reset to 0. Here, $S_{\max} = \lfloor T_{\mathrm{window}} / T_{\mathrm{slot}} \rfloor$ represents the maximum allowed slots ahead.}
+    \item \textbf{Gradual Decrease (Optimize Latency):} \textcolor{blue}{If the system is under stable and safe conditions ($R_i < -dev_{\mathrm{arrive}, i}$), indicating that there is a sufficient timing margin, the controller decrements the slots ahead value by one slot once the stability condition is satisfied ($C_{\mathrm{stable}} \ge C_{\mathrm{threshold}}$):}
           \begin{equation}
-          S_{\mathrm{next}} = \max(S_{\mathrm{curr}} - 1, 1)
+          S_{\mathrm{ahead}, i+1} = \max\left(S_{\mathrm{ahead}, i} - 1, S_{\min}\right)
           \end{equation}
-          \textcolor{blue}{and resets $C_{\mathrm{stable}} = 0$. To prevent premature timing reductions as the scheduling buffer grows, the required stable count threshold increases quadratically with $S_{\mathrm{curr}}$.}
-    \item \textbf{Maintain Baseline:} \textcolor{blue}{Otherwise, the controller holds the current timing, $S_{\mathrm{next}} = S_{\mathrm{curr}}$. The stable counter $C_{\mathrm{stable}}$ is incremented if the current sample is safe ($D_{\mathrm{worst}} \le 0$).}
+          \textcolor{blue}{and resets $C_{\mathrm{stable}} = 0$ to prevent premature timing reductions. Here, $S_{\min} = 1$ is the minimum slots ahead trigger offset.}
+    \item \textbf{Maintain Baseline:} \textcolor{blue}{Otherwise, the trigger timing remains unchanged:}
+          \begin{equation}
+          S_{\mathrm{ahead}, i+1} = S_{\mathrm{ahead}, i}
+          \end{equation}
+          \textcolor{blue}{and the stable counter $C_{\mathrm{stable}}$ is incremented if the current sample is safe ($R_i \le 0$).}
 \end{itemize}
 
-\textcolor{blue}{The core adjustment strategy is condensed in Algorithm~\ref{alg:delay_management}.}
+\textcolor{blue}{The core delay management strategy is condensed in Algorithm~\ref{alg:delay_management}.}
 
 \begin{algorithm}
 \caption{Delay Management}
@@ -293,23 +264,22 @@ D_{\mathrm{accum}, i} = \max(0, D_{\mathrm{accum}, i-1} + D_{\mathrm{worst}, i})
 \Statex 
 \Statex \textbf{Notation:} 
 \Statex $\mu_{\mathrm{arrive}}$ (smoothed mean PNF Timing Info), $dev_{\mathrm{arrive}}$ (smoothed arrival jitter)
-\Statex $D_{\mathrm{worst}}$ (Worst-case timing delay), $D_{\mathrm{accum}}$ (Accumulated timing delay)
-\Statex $C_{\mathrm{stable}}$ (Stable observation counter)
+\Statex $R$ (Timing risk indicator), $C_{\mathrm{stable}}$ (Stable observation counter)
+\Statex $C_{\mathrm{threshold}}$ (Stability observation threshold), $S_{\max}, S_{\min}$ (Boundary limits)
 \Statex $\alpha, \beta$ (Smoothing factors for latency and jitter)
  
 \Statex \textbf{Phase I: Latency and Jitter Estimation}
-\State $\mu_{\mathrm{arrive}} \gets \mu_{\mathrm{arrive}} + \alpha \cdot (\Delta t_{\mathrm{arrive}} - \mu_{\mathrm{arrive}})$ \Comment{Update mean PNF Timing Info}
-\State $dev_{\mathrm{arrive}} \gets dev_{\mathrm{arrive}} + \beta \cdot (|\Delta t_{\mathrm{arrive}} - \mu_{\mathrm{arrive}}| - dev_{\mathrm{arrive}})$ \Comment{Update arrival jitter}
-\State $D_{\mathrm{worst}} \gets \max(\Delta t_{\mathrm{arrive}}, \mu_{\mathrm{arrive}}) + dev_{\mathrm{arrive}}$ \Comment{Evaluate worst-case timing delay}
-\State $D_{\mathrm{accum}} \gets \max(0, D_{\mathrm{accum}} + D_{\mathrm{worst}})$ \Comment{Update accumulated delay}
+\State $\mu_{\mathrm{arrive}} \gets (1 - \alpha)\mu_{\mathrm{arrive}} + \alpha \Delta t_{\mathrm{arrive}}$ \Comment{Update mean PNF Timing Info}
+\State $dev_{\mathrm{arrive}} \gets (1 - \beta)dev_{\mathrm{arrive}} + \beta |\Delta t_{\mathrm{arrive}} - \mu_{\mathrm{arrive}}|$ \Comment{Update arrival jitter}
+\State $R \gets \mu_{\mathrm{arrive}} + dev_{\mathrm{arrive}}$ \Comment{Evaluate combined risk indicator}
 
 \Statex \textbf{Phase II: Fast-Up and Slow-Down Timing Adjustment}
-\If{$\Delta t_{\mathrm{arrive}} > 0 \lor D_{\mathrm{worst}} > 0$}
-    \State $S_{\mathrm{next}} \gets \min(S_{\mathrm{curr}} + 1, \lfloor T_{\mathrm{window}} / T_{\mathrm{slot}} \rfloor)$ \Comment{Rapid Increase}
+\If{$R > 0$}
+    \State $S_{\mathrm{next}} \gets \min(S_{\mathrm{curr}} + \lceil R / T_{\mathrm{slot}} \rceil, S_{\max})$ \Comment{Rapid Increase}
     \State $C_{\mathrm{stable}} \gets 0$
-\ElsIf{$D_{\mathrm{accum}} \le dev_{\mathrm{arrive}} \land D_{\mathrm{worst}} \le -dev_{\mathrm{arrive}}$}
-    \If{stability condition is satisfied}
-        \State $S_{\mathrm{next}} \gets \max(S_{\mathrm{curr}} - 1, 1)$ \Comment{Gradual Decrease}
+\ElsIf{$R < -dev_{\mathrm{arrive}}$}
+    \If{$C_{\mathrm{stable}} \ge C_{\mathrm{threshold}}$}
+        \State $S_{\mathrm{next}} \gets \max(S_{\mathrm{curr}} - 1, S_{\min})$ \Comment{Gradual Decrease}
         \State $C_{\mathrm{stable}} \gets 0$
     \Else
         \State $S_{\mathrm{next}} \gets S_{\mathrm{curr}}$
@@ -317,7 +287,11 @@ D_{\mathrm{accum}, i} = \max(0, D_{\mathrm{accum}, i-1} + D_{\mathrm{worst}, i})
     \EndIf
 \Else
     \State $S_{\mathrm{next}} \gets S_{\mathrm{curr}}$
-    \State $C_{\mathrm{stable}} \gets 0$
+    \If{$R \le 0$}
+        \State $C_{\mathrm{stable}} \gets C_{\mathrm{stable}} + 1$
+    \Else
+        \State $C_{\mathrm{stable}} \gets 0$
+    \EndIf
 \EndIf
 \State \Return $S_{\mathrm{next}}$
 \end{algorithmic}
@@ -326,12 +300,18 @@ D_{\mathrm{accum}, i} = \max(0, D_{\mathrm{accum}, i-1} + D_{\mathrm{worst}, i})
 \subsection{Coordination between Node sync and Delay Management}
 \label{subsec:coordination}
 
-\textcolor{blue}{To ensure stable operation under real-world conditions, Node sync and Delay Management must coordinate without inducing control loop oscillations. The microsecond-level Node sync focuses strictly on correcting clock phase offsets to align the VNF's scheduling thread with the PNF's slot transitions. Because it directly shifts the VNF's time base, any clock adjustment ($S_{adj}, \mu s_{adj}$) temporarily shifts the arrival timestamp reference. Delay Management is designed to absorb this transient shifting. By relying on the history-weighted accumulated timing delay ($D_{\mathrm{accum}}$), Delay Management avoids reacting to the temporary timing offsets caused by clock adjustments, allowing Node sync to converge. Once Node sync locks synchronization ($sync\_locked = 1$), the time base stabilizes, allowing Delay Management to achieve precise slot-level optimizations ($S_{\mathrm{ahead}}$).}
+\textcolor{blue}{To ensure stable operation under real-world conditions, Node sync and Delay Management must coordinate without inducing control loop oscillations. The microsecond-level Node sync focuses strictly on correcting clock phase offsets to align the VNF's scheduling thread with the PNF's slot transitions. Because it directly shifts the VNF's time base, any clock adjustment ($S_{adj}, \mu s_{adj}$) temporarily shifts the arrival timestamp reference. Delay Management is designed to absorb this transient shifting. By relying on history-weighted EWMA-based risk tracking ($R_i$), Delay Management avoids reacting to the temporary timing offsets caused by clock adjustments, allowing Node sync to converge. Once Node sync locks synchronization ($\mathit{sync\_locked} = 1$), the time base stabilizes, allowing Delay Management to achieve precise slot-level optimizations ($S_{\mathrm{ahead}}$).}
 
 \section{Experimental Results}
 \label{sec:experiments}
 
-\textcolor{blue}{Experiments were conducted to verify the proposed delay management method in an OpenAirInterface (OAI) nFAPI End-to-End environment. Each reported throughput value represents the average of 180 data points (3 independent trials $\times$ 60 samples per trial). We structure the evaluation into three parts: validating the EWMA mechanism (Section~\ref{subsec:scenario_1}), benchmarking peak throughput and MAC Round-Trip Time (RTT) against static baselines (Section~\ref{subsec:scenario_2}), and evaluating stability under network congestion (Section~\ref{subsec:scenario_3}).}
+\textcolor{blue}{Experiments were conducted to verify the proposed delay management method in an OpenAirInterface (OAI) nFAPI End-to-End environment. Each reported throughput value represents the average of 180 data points (3 independent trials $\times$ 60 samples per trial). The evaluation is designed to answer the following research questions:
+\begin{itemize}
+\item \textbf{RQ1:} Does the EWMA-based filtering effectively stabilize the noisy PNF Timing Info feedback under transport network jitter?
+\item \textbf{RQ2:} Can the adaptive slots-ahead controller maintain stable throughput while minimizing unnecessary MAC HARQ RTT compared with static baselines?
+\item \textbf{RQ3:} Can the proposed closed-loop delay management preserve end-to-end synchronization stability and throughput under severe network congestion and dynamic jitter?
+\end{itemize}
+The rest of this section is structured as follows: Section~\ref{subsec:experimental_scenario} outlines the hardware, software, and the automated rApp evaluation framework. Section~\ref{subsec:scenario_1} addresses RQ1 by validating the EWMA mechanism. Section~\ref{subsec:scenario_2} addresses RQ2 by benchmarking peak throughput and MAC HARQ RTT. Finally, Section~\ref{subsec:scenario_3} addresses RQ3 by evaluating stability under injected delay congestion and unpredictable jitter.}
 
 \subsection{Experimental Scenario and rApp Framework}
 \label{subsec:experimental_scenario}
@@ -407,7 +387,7 @@ Fronthaul & O-RAN F release \\
 \subsection{Scenario II: Performance Benchmark}
 \label{subsec:scenario_2}
 
-\textcolor{blue}{We benchmark the peak throughput and MAC HARQ RTT against a static baseline. Under stable fronthaul conditions, as shown in Fig.~\ref{fig:exp2}, the proposed algorithm prioritizes guaranteeing the optimal throughput under different offered loads, consistently maintaining the best throughput performance. Simultaneously, while ensuring this optimal throughput, the algorithm also maximizes the selection of the best slot ahead to optimize the MAC layer HARQ Round-Trip Time (RTT), effectively avoiding unnecessary overhead.}
+\textcolor{blue}{We benchmark the peak throughput and MAC HARQ RTT against a static baseline. Under stable fronthaul conditions, as shown in Fig.~\ref{fig:exp2}, the proposed algorithm prioritizes guaranteeing the optimal throughput under different offered loads, consistently maintaining near-peak throughput performance. Simultaneously, while ensuring this optimal throughput, the algorithm also optimizes the selection of the slots ahead trigger offset to optimize the MAC layer HARQ Round-Trip Time (RTT), effectively avoiding unnecessary overhead.}
 
 \begin{figure}[!htbp]
   \centering
@@ -435,7 +415,9 @@ Fronthaul & O-RAN F release \\
 \section{Conclusion}
 \label{sec:conclusion}
 
-\textcolor{blue}{This paper presented a dynamic timing adjustment framework for disaggregated RAN architectures, specifically focusing on the nFAPI-based Split Option 6 over non-ideal packet-switched networks. Recognizing the limitations of static slots ahead configurations under unpredictable network jitter and server processing delays, we proposed an Adaptive Slots Ahead mechanism based on Exponentially Weighted Moving Average (EWMA) to dynamically track and reduce network latency variations. Experimental validations conducted on the OpenAirInterface (OAI) platform with a commercial Pegatron O-RU demonstrated that the proposed method effectively eliminates synchronization failures and maintains stable system throughput, even under severe network congestion. Unlike existing solutions that rely on expensive hardware-level synchronization or specialized acceleration, our software-based approach offers a cost-effective and flexible alternative for deploying robust O-RAN systems on general-purpose Commercial Off-the-Shelf (COTS) servers.}
+\textcolor{blue}{This paper presented a dynamic timing adjustment framework for disaggregated RAN architectures, specifically focusing on the nFAPI-based Split Option 6 over non-ideal packet-switched networks. Recognizing the limitations of static slots ahead configurations under unpredictable network jitter and server processing delays, we proposed an Adaptive Slots Ahead mechanism based on Exponentially Weighted Moving Average (EWMA) to dynamically track and reduce network latency variations. Experimental validations conducted on the OpenAirInterface (OAI) platform with a commercial Pegatron O-RU demonstrated that the proposed method significantly reduces synchronization failures and maintains stable system throughput, even under severe network congestion. Unlike existing solutions that rely on expensive hardware-level synchronization or specialized acceleration, our software-based approach offers a cost-effective and flexible alternative for deploying robust O-RAN systems on general-purpose Commercial Off-the-Shelf (COTS) servers.}
+
+\textcolor{blue}{Although the proposed software-based timing control achieves robust performance, the current evaluation focuses primarily on downlink timing control under controlled delay and jitter injection. Future work will extend the controller to joint uplink/downlink timing optimization, multi-cell deployments, and analytical stability bounds for the feedback loop.}
 
 \bibliographystyle{IEEEtran}
 \bibliography{references}
