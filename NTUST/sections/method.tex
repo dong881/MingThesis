@@ -86,6 +86,11 @@ The negative sign in the microsecond adjustment reduces the local thread sleep t
 
 To counteract changing network latency and maintain scheduling stability, a dynamic delay management strategy is implemented. This strategy operates as a closed-loop feedback controller based on standard Small Cell Forum (SCF) PNF Timing Info reported by the PNF. By evaluating the arrival margin relative to the PNF deadline, the controller dynamically adjusts the scheduling lead time $S_{\mathrm{ahead}}$.
 
+\subsection{Timing Model}
+\label{subsec:timing_model}
+To formalize the delay-management problem, this section introduces the mathematical timing model of the nFAPI-based Split Option 6 architecture. Let $T_{\mathrm{slot}}$ denote the slot duration and $S_{\mathrm{ahead}}$ denote the number of slots by which the VNF scheduler triggers earlier than the target slot. For a scheduling message generated at VNF time $t_g$, the corresponding target PNF processing deadline is determined by the target slot boundary. The arrival margin reported by the PNF is denoted by $\Delta t_{\mathrm{arrive}}$, where $\Delta t_{\mathrm{arrive}} < 0$ indicates that the message arrives before the deadline (early arrival), and $\Delta t_{\mathrm{arrive}} > 0$ indicates a late arrival. Therefore, the delay-management objective is to select the minimum stable $S_{\mathrm{ahead}}$ such that late arrivals are avoided ($\Delta t_{\mathrm{arrive}} \le 0$) while the MAC HARQ Round-Trip Time (RTT) is not unnecessarily inflated.
+
+
 \subsection{EWMA-based Arrival-Margin Estimation}
 \label{subsubsec:ewma_estimation}
 To smooth high-frequency network noise while remaining sensitive to timing drift, the controller maintains a running mean of the PNF Timing Info ($\mu_{\mathrm{arrive}}$) and the estimated jitter ($dev_{\mathrm{arrive}}$). Let $\Delta t_{\mathrm{arrive}, i}$ be the observed signed PNF Timing Info in scheduling slot $i$. The EWMA updates for mean arrival margin and jitter are defined as:

@@ -56,10 +56,6 @@ O-DU Low manages the High PHY baseband processing. At this level, the most criti
 \item \textbf{Timing Info ($\Delta t_{arrive}$):} The PNF continuously monitors the exact timing info of control messages relative to the transmission deadline. This information is denoted as $\Delta t_{arrive}$, representing the remaining time margin within the timing window. The PNF periodically feeds this information back to the MAC layer for Delay Management. This establishes a closed-loop feedback control system to compensate for unpredictable transmission delay variations between the VNF and PNF machines.
 \end{itemize}
 
-\section{Timing Model}
-\label{subsec:timing_model}
-To formalize the delay-management problem, this section introduces the mathematical timing model of the nFAPI-based Split Option 6 architecture. Let $T_{\mathrm{slot}}$ denote the slot duration and $S_{\mathrm{ahead}}$ denote the number of slots by which the VNF scheduler triggers earlier than the target slot. For a scheduling message generated at VNF time $t_g$, the corresponding target PNF processing deadline is determined by the target slot boundary. The arrival margin reported by the PNF is denoted by $\Delta t_{\mathrm{arrive}}$, where $\Delta t_{\mathrm{arrive}} < 0$ indicates that the message arrives before the deadline (early arrival), and $\Delta t_{\mathrm{arrive}} > 0$ indicates a late arrival. Therefore, the delay-management objective is to select the minimum stable $S_{\mathrm{ahead}}$ such that late arrivals are avoided ($\Delta t_{\mathrm{arrive}} \le 0$) while the MAC HARQ Round-Trip Time (RTT) is not unnecessarily inflated.
-
 \iffalse
 \section{關鍵驗證指標}
 \fi
