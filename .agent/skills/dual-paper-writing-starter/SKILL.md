@@ -33,6 +33,11 @@ To ensure compliance with IEEE and NTUST thesis writing standards:
 - **No Double Quotes on General Technical Nouns**: Never enclose standard technical terms, names of mechanisms, or parameters (e.g., "Functional Split Options", "slots ahead", "Adaptive Slots Ahead Control Mechanism") in double quotes ("..."). This is a common error that makes them look like direct quotes or irony/sarcasm.
   - *Correct*: Use them as normal nouns/noun phrases (e.g., functional split options, slots ahead parameter, Adaptive Slots Ahead Control Mechanism) without quotes.
   - *Exceptions*: If you must define a brand new term or specifically call attention to a configuration variable, use italics (e.g., `\textit{slots ahead}`) or parentheses. Never use double quotes for general description or emphasis.
+- **Unified Terminology Rules (整篇論文用語統一規則)**:
+  - **slots ahead** (Never use `slots-ahead`, `slotsahead`, `slot ahead` or `slot-ahead` variations).
+  - **proposed method** (Never use `proposed controller`, `adaptive controller`, `slots-ahead controller`, or `trigger offset controller` as they imply strict control theory proofs which are absent).
+  - **delay management** (Never use `delay-management`, `delay management mechanism` or `delay management controller` except when specifically referring to the SCF specification standard names).
+  - **node sync** (Never use `node-sync`, `Node sync`, or `Node-sync` variations).
 
 ## ⚙️ Standard Workflow (執行流程)
 

@@ -31,3 +31,7 @@ Once the LaTeX documents compile successfully without errors or unresolved refer
   ```bash
   git push
   ```
+
+- **⚠️ HANG / PENDING WARNING (背景推送防卡機制)**:
+  - Because `git push` in the background shell may require authentication credentials (such as username, password, SSH passphrase, or MFA token), it will hang indefinitely or stay in `tasks pending` status without completing.
+  - **Action Rule**: If `git push` hangs or remains in a pending status for more than 5 seconds, the Agent **MUST** immediately terminate/kill the task using the `manage_task` tool, explain the issue to the user, and prompt them to run `git push` manually in their own local terminal. Do NOT let the task run in the background.
