@@ -20,6 +20,7 @@ This skill defines a **Terminology Consistency Table** that must be consulted an
 | **arrival margin** | arrival‑margin, arrival margin | lower‑case | none | none | `The scheduler accounts for **arrival margin** to handle network delays.` |
 | **jitter** | jitter, jitter‑value | lower‑case | none | none | `We compute **jitter** using an EWMA filter to capture timing variability.` |
 | **EWMA** | EWMA filter, exponential weighted moving average | upper‑case (acronym) | none | none | `The **EWMA** filter smooths the **Timing Info** and **jitter** measurements.` |
+| **slot.indication** | slot‑indication, slot indication, Slot Indication | lower‑case (often formatted as `\texttt{slot.indication}`) | period | none | `The VNF receives a **slot.indication** to trigger scheduling.` |
 
 ## Recommended Replacements for Resource Allocation Phrases
 
