@@ -13,9 +13,10 @@ To systematically evaluate the performance of our proposed closed-loop synchroni
 \item \textbf{RQ1:} Does the EWMA-based filtering effectively stabilize the noisy PNF Timing Info feedback under transport network jitter?
 \item \textbf{RQ2:} Can the adaptive slots-ahead controller maintain stable throughput while minimizing unnecessary MAC HARQ RTT compared with static baselines?
 \item \textbf{RQ3:} Can the proposed closed-loop delay management preserve end-to-end synchronization stability and throughput under severe network congestion and dynamic jitter?
+\item \textbf{RQ4:} Does the adaptive timing-control loop remain stable and effective when the VNF-PNF transport path traverses a realistic multi-hop deployment?
 \end{itemize}
 
-The rest of this chapter is organized as follows: Section~\ref{subsec:experimental_scenario} outlines the hardware, software, and the automated rApp evaluation framework. Section~\ref{subsec:scenario_1} addresses RQ1 by validating the EWMA mechanism for the PNF Timing Info ($\Delta t_{arrive}$). Section~\ref{subsec:scenario_2} addresses RQ2 by benchmarking the peak throughput and MAC layer Round-Trip Time (RTT) against static baselines. Finally, Section~\ref{subsec:scenario_3} addresses RQ3 by evaluating the stability of the proposed method under injected delay congestion and unpredictable jitter.
+The rest of this chapter is organized as follows: Section~\ref{subsec:experimental_scenario} outlines the hardware, software, and the automated rApp evaluation framework, defining both Experimental Scenario I and II. Section~\ref{subsec:scenario_1} addresses RQ1 under Experimental~1. Section~\ref{subsec:scenario_2} addresses RQ2 under Experimental~2. Section~\ref{subsec:scenario_3} addresses RQ3 under Experimental~3. Finally, Section~\ref{subsec:scenario_4} addresses RQ4 under Experimental~4.
 
 \iffalse
 \section{實驗情境}
@@ -23,7 +24,13 @@ The rest of this chapter is organized as follows: Section~\ref{subsec:experiment
 \section{Experimental Scenario}
 \label{subsec:experimental_scenario}
 
-The testbed environment connects a series of high-performance servers, radio units, and commercial smartphones. The detailed hardware and software configuration of the end-to-end network deployment is shown in the table below.
+To evaluate the performance of our proposed timing adjustment framework under different environments, we design two topologies:
+\begin{itemize}
+\item \textbf{Experimental Scenario I (Controlled Single-Switch environment):} A standard testbed where the VNF and PNF are connected directly via a single commercial Ethernet switch. This controlled setup is used to analyze EWMA filtering, benchmark throughput-latency trade-offs against static baselines, and evaluate robustness under Linux-TC-injected delay and jitter.
+\item \textbf{Experimental Scenario II (Multi-Switch/Router Campus Deployment):} A realistic multi-hop campus network topology where the VNF and PNF are physically disaggregated across different locations. As shown in Fig.~\ref{fig:scenario2_topology}, the connection traverses $3$ commercial switches and $3$ commercial routers, introducing realistic transport delays and route-dependent jitter.
+\end{itemize}
+
+The detailed hardware and software configuration of the end-to-end network deployment in the testbed environment is shown in the table below.
 
 \begin{table}[!htbp]
 \iffalse
@@ -77,10 +84,17 @@ To ensure consistent data quality for automated measurement and analysis, this s
   \label{fig:rapp_architecture}
 \end{figure}
 
-\subsection{Thorough System-Level Validation and Generalization}
+\begin{figure*}[!t]
+  \centering
+  \includegraphics[width=0.95\textwidth]{figures/Experimental_Scenario.png}
+  \caption{Experimental Scenario II: multi-switch/router campus deployment for evaluating the proposed adaptive timing control under realistic non-deterministic transport.}
+  \label{fig:scenario2_topology}
+\end{figure*}
+
+\subsection{Thorough System-Level Integration and Validation}
 \label{subsec:software_validation}
 
-To prove the stability, generalization capability, and compatibility of the proposed timing control and nFAPI modifications, our software implementation was submitted and successfully merged into the official upstream OpenAirInterface (OAI) repository \cite{nikaein2014openairinterface}. Beyond our localized end-to-end evaluation using the rApp framework, the proposed solution went through thorough testing in the official OAI Continuous Integration and Continuous Deployment (CI/CD) pipeline \cite{oai_gitlab_ci}. This automated pipeline executes multi-platform builds and physical layer regression suites to ensure production-grade software quality.
+To prove the stability, practical deployability, and compatibility of the proposed timing control and nFAPI modifications, our software implementation was submitted and successfully merged into the official upstream OpenAirInterface (OAI) repository \cite{nikaein2014openairinterface}. Beyond our localized end-to-end evaluation using the rApp framework, the proposed solution went through thorough testing in the official OAI Continuous Integration and Continuous Deployment (CI/CD) pipeline \cite{oai_gitlab_ci}. This automated pipeline executes multi-platform builds and physical layer regression suites to ensure production-grade software quality.
 
 In the software compilation and image deployment stage, the proposed implementation demonstrates high portability across heterogeneous hardware architectures. As compiled in Table~\ref{tab:oai_cicd_build}, the cross-platform builds successfully passed on standard x86 servers, ARM64-based edge servers, and NVIDIA Jetson edge AI platforms under both Ubuntu and enterprise-grade Red Hat Enterprise Linux (RHEL) \cite{redhat_rhel} environments. These results confirm that our proposed timing control is independent of specific hardware acceleration cards, allowing seamless deployment on general-purpose Commercial Off-The-Shelf (COTS) cloud infrastructure.
 
@@ -125,9 +139,9 @@ Following cross-platform compilation, our implementation was subjected to system
 These regression and compilation results prove that the proposed dynamic delay-aware timing control is robust, backward-compatible, and fully standardized, serving as a stable baseline for future O-RAN Option~6 deployments in the global open-source community.
 
 \iffalse
-\section{情境 I：PNF 到達偏移量 ($\Delta t_{arrive}$) 之 EWMA 驗證}
+\section{實驗一：PNF 到達偏移量 ($\Delta t_{arrive}$) 之 EWMA 驗證}
 \fi
-\section{Scenario I: EWMA Validation for PNF Timing Info ($\Delta t_{arrive}$)}
+\section{Experimental 1: EWMA Validation for PNF Timing Info ($\Delta t_{arrive}$)}
 \label{subsec:scenario_1}
 
 This scenario verifies the effectiveness of applying the Exponentially Weighted Moving Average (EWMA) to smooth the PNF Timing Info ($\Delta t_{arrive}$). Due to network jitter and processing delays, directly using the raw PNF Timing Info can lead to unstable scheduling decisions. Figure~\ref{fig:exp1a} shows the timing control directly using the raw PNF Timing Info ($\Delta t_{arrive}$), where the raw timing values change a lot. Figure~\ref{fig:exp1b} represents the cumulative count of the packets that exceed the deadline when the timing adjustment directly uses the raw PNF Timing Info ($\Delta t_{arrive}$). The EWMA mechanism filters out the high-frequency jitter, as shown in the PNF Timing Info ($\Delta t_{arrive}$) after applying EWMA in Figure~\ref{fig:exp1c}. Finally, Figure~\ref{fig:exp1d} shows the cumulative count of the packets exceeding the deadline under the EWMA-based timing control. The results show that applying EWMA allows the timing loop to adjust the slots ahead stably, which greatly reduces the number of packets that arrive after the deadline.
@@ -171,9 +185,9 @@ This scenario verifies the effectiveness of applying the Exponentially Weighted 
 \end{figure}
 
 \iffalse
-\section{情境 II：性能基準測試}
+\section{實驗二：性能基準測試}
 \fi
-\section{Scenario II: Performance Benchmarking}
+\section{Experimental 2: Performance Benchmarking}
 \label{subsec:scenario_2}
 
 In this scenario, we evaluate the benchmark performance of the proposed adaptive timing mechanism against a standard static slots ahead configuration. Figure~\ref{fig:exp2} presents the performance evaluation in terms of MAC layer latency and system throughput.
@@ -196,9 +210,9 @@ Figure~\ref{fig:exp2} displays the performance evaluation under varying Offered 
 \end{figure}
 
 \iffalse
-\section{情境 III：網路擁塞下的穩定性}
+\section{實驗三：網路擁塞下的穩定性}
 \fi
-\section{Scenario III: Stability under Network Congestion}
+\section{Experimental 3: Stability under Network Congestion}
 \label{subsec:scenario_3}
 
 To test the system's stability, we utilized Linux TC to inject artificial network congestion into the $T_2-T_1$ and $T_5-T_4$ segments, altering the One-Way Delay (OWD) and jitter. As shown in Figure~\ref{fig:exp3a}, when the delay exceeds the fixed timing window, the static configuration experiences a severe drop in throughput and frequent connection resets. In contrast, the proposed adaptive timing control dynamically expands the slots ahead ($S_{ahead}$). This expansion allows the MAC scheduler to trigger messages in advance, ensuring that messages can still arrive at the PNF within the valid timing window despite the increased transmission delay. Therefore, even at congestion levels that would previously cause complete synchronization failure, the system can maintain stable throughput.
@@ -218,6 +232,20 @@ To further evaluate the impact of unpredictable network jitter between the VNF a
   \subfloat[Throughput Performance under Unpredictable Jitter]{\includegraphics[width=0.7\textwidth]{figures/exp3b.png}\label{fig:exp3b}}
   \caption{System stability and throughput performance under network congestion and jitter.}
   \label{fig:exp3}
+\end{figure}
+
+\section{Experimental 4: Stability under Multiple Switches and Routers}
+\label{subsec:scenario_4}
+
+To evaluate whether the proposed adaptive timing-control mechanism remains effective beyond the controlled single-switch environment, we deploy the VNF and PNF across the multi-hop campus network in Experimental Scenario II. As shown in Fig.~\ref{fig:scenario2_topology}, the VNF-side components, including Open5GS, O-CU, and O-DU High, are placed at a remote computing site, while the O-DU Low, O-RU, and COTS UE remain at the radio-side site. The connection between the two sites traverses $3$ commercial switches and $3$ commercial routers, introducing realistic non-deterministic transport delay and route-dependent jitter. This scenario therefore evaluates the practical robustness of the proposed delay-management loop under a more complex deployment environment.
+
+Fig.~\ref{fig:exp4a} shows the UE downlink RX throughput under offered loads ranging from 100 Mbps to 800 Mbps. The proposed method maintains an approximately linear throughput increase as the offered load increases. The measured throughput represents the average of 180 data points (3 independent trials $\times$ 60 samples per trial) and reaches approximately 780 Mbps under an 800 Mbps offered load, indicating that the adaptive slots-ahead controller remains stable even when the VNF-PNF path traverses multiple switches and routers. These results further confirm that the proposed timing-control mechanism is not limited to the controlled single-switch testbed, but can also support practical multi-hop deployment scenarios within the evaluated network environment.
+
+\begin{figure}[!htbp]
+  \centering
+  \includegraphics[width=0.95\textwidth]{figures/exp4a.png}
+  \caption{UE RX throughput under the multi-switch/router deployment.}
+  \label{fig:exp4a}
 \end{figure}
 
 \end{document}
