@@ -37,6 +37,7 @@ Whenever you encounter or consider using a word from the "Avoid" list, **automat
 | **Fluctuates drastically** | v. + adv. | 劇烈波動、劇烈起伏 | **Changes a lot, Changes quickly, Varies a lot** | e.g., "...the arrival offset *changes a lot*..." |
 | **Underwent** | v. (past) | 經歷、接受、遭受 | **Went through, Experienced, Had** | e.g., "...*went through* thorough testing..." |
 | **Conservatively** | adv. | 保守地、謹慎地 | **Slowly, Carefully, Safely** | e.g., "The algorithm decreases the value *slowly* under stable conditions." |
+| **Inflation** | n. | 膨脹、增加 | **Increase** | e.g., "To avoid unnecessary MAC HARQ RTT *increase*." |
 
 
 ## 📝 Rules for Updating this Guide
