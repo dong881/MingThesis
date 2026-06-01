@@ -52,7 +52,7 @@ Within the O-DU High virtualized network function, the timing control is organiz
 \label{subsec:C_odu_low}
 O-DU Low manages the High PHY baseband processing. At this level, the most critical synchronization mechanism is the nFAPI PNF Timing Window:
 \begin{itemize}
-\item \textbf{Timing Window:} A predefined and strict time interval. Let $T_{\mathrm{window}}$ denote the duration of this PNF timing window, and $T_{\mathrm{slot}}$ denote the subframe slot duration. When scheduling messages (especially \texttt{DL\_TTI.request}) sent by O-DU High traverse the network, they must accurately arrive and fall exactly within this window. Otherwise, the High PHY will reject the message, resulting in the inability to process data for that slot.
+\item \textbf{Timing Window:} A predefined and strict time interval. Let $T_{\mathrm{window}}$ denote the duration of this PNF timing window, and $T_{\mathrm{slot}}$ denote the subframe slot duration. When scheduling messages sent by O-DU High traverse the network, they must accurately arrive and fall exactly within this window. Otherwise, the High PHY will reject the message, resulting in the inability to process data for that slot.
 \item \textbf{Timing Info ($\Delta t_{arrive}$):} The PNF continuously monitors the exact timing info of control messages relative to the transmission deadline. This information is denoted as $\Delta t_{arrive}$, representing the remaining time margin within the timing window. The PNF periodically feeds this information back to the MAC layer for Delay Management. This establishes a closed-loop feedback control system to compensate for unpredictable transmission delay variations between the VNF and PNF machines.
 \end{itemize}
 
