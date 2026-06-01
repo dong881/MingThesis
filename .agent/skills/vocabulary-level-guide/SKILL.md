@@ -36,7 +36,7 @@ Whenever you encounter or consider using a word from the "Avoid" list, **automat
 | **Rigorous** | adj. | 嚴謹的、嚴格的 | **Thorough, Strict, Detailed, Complete** | e.g., "...underwent *thorough* testing..." |
 | **Fluctuates drastically** | v. + adv. | 劇烈波動、劇烈起伏 | **Changes a lot, Changes quickly, Varies a lot** | e.g., "...the arrival offset *changes a lot*..." |
 | **Underwent** | v. (past) | 經歷、接受、遭受 | **Went through, Experienced, Had** | e.g., "...*went through* thorough testing..." |
-| **Conservatively** | adv. | 保守地、謹慎地 | **Slowly, Carefully, Safely** | e.g., "The algorithm decreases the value *slowly* under stable conditions." |
+| **Conservatively** | adv. | 保守地、謹慎地 | **Safely, Carefully** | e.g., "The algorithm decreases the value *safely* under stable conditions." |
 | **Inflation** | n. | 膨脹、增加 | **Increase** | e.g., "To avoid unnecessary MAC HARQ RTT *increase*." |
 
 
