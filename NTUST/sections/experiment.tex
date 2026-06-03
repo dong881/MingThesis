@@ -239,12 +239,14 @@ To further evaluate the impact of unpredictable network jitter between the VNF a
 
 To evaluate whether the proposed adaptive timing-control mechanism remains effective beyond the controlled single-switch environment, we deploy the VNF and PNF across the multi-hop campus network in Experimental Scenario II. As shown in Fig.~\ref{fig:scenario2_topology}, the VNF-side components, including Open5GS, O-CU, and O-DU High, are placed at a remote computing site, while the O-DU Low, O-RU, and COTS UE remain at the radio-side site. The connection between the two sites traverses $3$ commercial switches and $3$ commercial routers, introducing realistic non-deterministic transport delay and route-dependent jitter. This scenario therefore evaluates the practical robustness of the proposed delay-management loop under a more complex deployment environment.
 
-Fig.~\ref{fig:exp4a} shows the UE downlink RX throughput under offered loads ranging from 100 Mbps to 800 Mbps. The proposed method maintains an approximately linear throughput increase as the offered load increases. The measured throughput represents the average of 180 data points (3 independent trials $\times$ 60 samples per trial) and reaches approximately 780 Mbps under an 800 Mbps offered load, indicating that the adaptive slots ahead method remains stable even when the VNF-PNF path traverses multiple switches and routers. These results further confirm that the proposed timing-control mechanism is not limited to the controlled single-switch testbed, but can also support practical multi-hop deployment scenarios within the evaluated network environment.
+Fig.~\ref{fig:exp4a} shows the UE downlink RX throughput (the blue dashed line) and the ping latency (the purple solid line) under offered loads ranging from 100 Mbps to 800 Mbps. The proposed method maintains an approximately linear throughput increase as the offered load increases. The measured throughput represents the average of 180 data points (3 independent trials $\times$ 60 samples per trial) and reaches approximately 780 Mbps under an 800 Mbps offered load, indicating that the adaptive slots ahead method remains stable even when the VNF-PNF path traverses multiple switches and routers.
+
+Furthermore, the figure illustrates that when the network is idle between load steps, the baseline ping latency is low and stable at around 0.3 to 0.4 ms. As the throughput increases, the ping latency shows obvious changes and its peak values rise, reaching about 2.0 ms at 800 Mbps. This higher latency and jitter are mainly caused by the growing queueing delay across the multiple switches and routers. Even with this severe and dynamic jitter, the proposed method effectively adjusts the scheduling timing. This prevents late packet arrivals and maintains a stable data transmission without connection drops. These results further confirm that the proposed method is not limited to the controlled single-switch testbed, but can also support practical multi-hop deployment scenarios within the evaluated network environment.
 
 \begin{figure}[!htbp]
   \centering
   \includegraphics[width=0.95\textwidth]{figures/exp4a.png}
-  \caption{UE RX throughput under the multi-switch/router deployment.}
+  \caption{UE RX throughput and ping latency under the multi-switch/router deployment.}
   \label{fig:exp4a}
 \end{figure}
 
