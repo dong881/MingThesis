@@ -29,9 +29,13 @@ Once the LaTeX documents compile successfully without errors or unresolved refer
 ### Step 3: Push to Remote (推送至遠端)
 - Push the committed changes to the active branch on the remote repository:
   ```bash
-  git push
+  git --no-pager push
   ```
 
 - **⚠️ HANG / PENDING WARNING (背景推送防卡機制)**:
-  - Because `git push` in the background shell may require authentication credentials (such as username, password, SSH passphrase, or MFA token), it will hang indefinitely or stay in `tasks pending` status without completing.
-  - **Action Rule**: If `git push` hangs or remains in a pending status for more than 5 seconds, the Agent **MUST** immediately terminate/kill the task using the `manage_task` tool, explain the issue to the user, and prompt them to run `git push` manually in their own local terminal. Do NOT let the task run in the background.
+  - Because `git push` in the background shell may require authentication credentials (such as username, password, SSH passphrase, or MFA token), it can hang indefinitely or stay in `tasks pending` status.
+  - **Optimized Action Rule**: 
+    1. Always run `git push` with a high synchronous wait time (e.g., `WaitMsBeforeAsync: 10000` / 10 seconds) to allow it to finish synchronously if credentials are cached.
+    2. If it is sent to the background, check the task log status using the `manage_task` tool first.
+    3. If the log shows standard authentication prompts (such as `Username for 'https://github.com'`, `Password for`, or `Enter passphrase for key`), terminate/kill the task immediately using `manage_task` and ask the user to push manually.
+    4. If the log does not contain credentials prompts and is just processing the upload, allow it to complete or wait up to 15 seconds before killing.
