@@ -12,12 +12,11 @@ This skill defines a **Terminology Consistency Table** that must be consulted an
 | Term (Preferred) | Disallowed Variants | Case | Hyphenation | Connector (+) | Example Usage |
 |-------------------|----------------------|------|--------------|----------------|---------------|
 | **slots ahead** | slots-ahead, slotsahead, slot ahead, slot-ahead | lower‑case (unless at sentence start) | none | none | `The scheduler projects **slots ahead** to compensate for jitter.` |
-| **Timing Info** | timing‑info, Timing‑info, timing info | Title Case for headings, otherwise lower‑case (`timing info`) | none | none | `We compute the **Timing Info** using an EWMA filter.` |
+| **Timing Info** | timing‑info, Timing‑info, timing info, Delta T arrive, arrival margin, arrival-margin, Delta t arrive | Title Case for headings, otherwise lower‑case (`timing info`) or camelCase in math mode (`\mathit{TimingInfo}_i`) | none | none | `We compute the **Timing Info** using an EWMA filter.` |
 | **Delay management** | delay‑management, delay management mechanism, delay‑management controller | lower‑case | none | none | `Effective **delay management** is crucial for synchronization.` |
 | **Node sync** | node‑sync, Node sync, Node‑sync | lower‑case | none | none | `Periodic **node sync** aligns state across devices.` |
 | **Timing Info Delay management Node sync** | any mixed‑case or hyphenated forms, quoted variants | lower‑case for each word | none | none | `The **timing info delay management node sync** process ensures coherent scheduling.` |
 
-| **arrival margin** | arrival‑margin, arrival margin | lower‑case | none | none | `The scheduler accounts for **arrival margin** to handle network delays.` |
 | **jitter** | jitter, jitter‑value | lower‑case | none | none | `We compute **jitter** using an EWMA filter to capture timing variability.` |
 | **EWMA** | EWMA filter, exponential weighted moving average | upper‑case (acronym) | none | none | `The **EWMA** filter smooths the **Timing Info** and **jitter** measurements.` |
 | **slot.indication** | slot‑indication, slot indication, Slot Indication | lower‑case (often formatted as `\texttt{slot.indication}`) | period | none | `The VNF receives a **slot.indication** to trigger scheduling.` |

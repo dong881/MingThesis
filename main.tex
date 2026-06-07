@@ -35,7 +35,7 @@
 \maketitle
 
 \begin{abstract}
-\textcolor{blue}{nFAPI-based Split Option 6 separates the MAC scheduler and High-PHY across packet-switched transport, where scheduling messages must arrive at the PNF within a strict timing window. Because existing static slots ahead scheduling relies on a fixed lead time to trigger the scheduler, it cannot automatically adapt to varying network latency and jitter across different deployments. This paper proposes an adaptive timing control framework for nFAPI Split 6 that dynamically adjusts the scheduler trigger offset using PNF timing info feedback. The proposed method applies EWMA-based arrival margin and jitter estimation to increase the slots ahead value rapidly under timing risk and decrease it safely under stable conditions. We implement the framework in an OpenAirInterface-based end-to-end testbed with a commercial O-RU and COTS UE. Experimental results show that the proposed method maintains stable throughput under injected delay and jitter while avoiding unnecessary MAC HARQ RTT increase compared with static slots ahead baselines. Additional multi-switch/router deployment results further confirm that the proposed software-based method remains effective under realistic multi-hop transport conditions.}
+\textcolor{blue}{nFAPI-based Split Option 6 separates the MAC scheduler and High-PHY across packet-switched transport, where scheduling messages must arrive at the PNF within a strict timing window. Because existing static slots ahead scheduling relies on a fixed lead time to trigger the scheduler, it cannot automatically adapt to varying network latency and jitter across different deployments. This paper proposes an adaptive timing control framework for nFAPI Split 6 that dynamically adjusts the scheduler trigger offset using PNF Timing Info feedback. The proposed method applies EWMA-based Timing Info and jitter estimation to increase the slots ahead value rapidly under timing risk and decrease it safely under stable conditions. We implement the framework in an OpenAirInterface-based end-to-end testbed with a commercial O-RU and COTS UE. Experimental results show that the proposed method maintains stable throughput under injected delay and jitter while avoiding unnecessary MAC HARQ RTT increase compared with static slots ahead baselines. Additional multi-switch/router deployment results further confirm that the proposed software-based method remains effective under realistic multi-hop transport conditions.}
 \end{abstract}
 
 \begin{IEEEkeywords}
@@ -49,11 +49,11 @@ nFAPI, O-RAN, Functional Split, Adaptive Control.
 
 \textcolor{blue}{Existing OAI nFAPI-style implementations rely on statically configured slots ahead scheduling. Such a static configuration creates an inherent throughput-latency trade-off: a larger slots ahead value improves robustness against delay and jitter but increases MAC HARQ RTT, whereas a smaller value reduces latency but becomes vulnerable to late packet arrivals. Since HARQ retransmission timing is tightly coupled with MAC scheduling and resource availability, excessive scheduling lead time may inflate MAC-layer feedback latency and reduce the efficiency of HARQ process reuse \cite{Elfiky2024}. When functional split interfaces are carried over non-ideal packet-switched fronthaul or midhaul networks, variable queueing delay and transport jitter may violate the strict timing constraints imposed by lower-layer processing \cite{Diez2021}, \cite{Huang2017}, \cite{PerezRomero2023}.}
 
-\textcolor{blue}{However, existing open-source implementations such as OAI have historically relied on simplified \texttt{slot.indication} forwarding and static slots ahead configuration, leaving the SCF-defined timing info based delay management process incomplete. The SCF nFAPI specification defines software-level node sync and timing info procedures to support delay management between VNF and PNF entities, enabling timing compensation without relying solely on PNF-triggered \texttt{slot.indication} messages \cite{SCF225}, \cite{SCF222}.}
+\textcolor{blue}{However, existing open-source implementations such as OAI have historically relied on simplified \texttt{slot.indication} forwarding and static slots ahead configuration, leaving the SCF-defined Timing Info based delay management process incomplete. The SCF nFAPI specification defines software-level node sync and timing info procedures to support delay management between VNF and PNF entities, enabling timing compensation without relying solely on PNF-triggered \texttt{slot.indication} messages \cite{SCF225}, \cite{SCF222}.}
 
-\textcolor{blue}{To resolve this trade-off, this paper proposes an adaptive timing control framework for nFAPI Split 6. Our approach dynamically adjusts the scheduler trigger offset based on closed-loop feedback using PNF timing info reported by the PNF. By applying an Exponentially Weighted Moving Average (EWMA) model, the proposed method estimates the real-time arrival margin and transport jitter. The proposed method then applies a fast-increase and conservative-decrease policy to dynamically update the slots ahead, securing system stability under congestion while optimizing latency under stable network conditions.}
+\textcolor{blue}{To resolve this trade-off, this paper proposes an adaptive timing control framework for nFAPI Split 6. Our approach dynamically adjusts the scheduler trigger offset based on closed-loop feedback using PNF Timing Info reported by the PNF. By applying an Exponentially Weighted Moving Average (EWMA) model, the proposed method estimates the real-time Timing Info and transport jitter. The proposed method then applies a fast-increase and conservative-decrease policy to dynamically update the slots ahead, securing system stability under congestion while optimizing latency under stable network conditions.}
 
-\textcolor{blue}{This paper addresses the following problem: how to maintain nFAPI Split 6 scheduling stability over non-deterministic packet-switched transport without relying on hardware-level synchronization or statically configured worst-case lead times. The key challenge is that the scheduler must choose a slots ahead value before observing the future network delay. A conservative value improves robustness but increases MAC HARQ RTT, while an aggressive value reduces latency but risks late packet arrivals and slot loss. To resolve this trade-off, we propose a closed-loop delay management method that uses PNF timing info to estimate the arrival margin and adapt the slots ahead value online.}
+\textcolor{blue}{This paper addresses the following problem: how to maintain nFAPI Split 6 scheduling stability over non-deterministic packet-switched transport without relying on hardware-level synchronization or statically configured worst-case lead times. The key challenge is that the scheduler must choose a slots ahead value before observing the future network delay. A conservative value improves robustness but increases MAC HARQ RTT, while an aggressive value reduces latency but risks late packet arrivals and slot loss. To resolve this trade-off, we propose a closed-loop delay management method that uses PNF Timing Info to estimate the Timing Info and adapt the slots ahead value online.}
 
 \subsection{Related Works}
 
@@ -75,7 +75,7 @@ nFAPI, O-RAN, Functional Split, Adaptive Control.
 
 \begin{itemize}
 \item \textcolor{blue}{\textbf{SCF-compliant nFAPI timing framework for OAI Split 6:} We redesign the OAI nFAPI timing path to support Node Sync, PNF Timing Info, and Delay Management, enabling closed-loop timing control instead of simplified static slot forwarding.}
-\item \textcolor{blue}{\textbf{EWMA-based adaptive slots ahead adjustment:} We propose a lightweight closed-loop delay-management method that estimates the arrival margin and jitter from PNF Timing Info and dynamically adjusts the scheduler trigger offset to balance throughput stability and MAC HARQ RTT.}
+\item \textcolor{blue}{\textbf{EWMA-based adaptive slots ahead adjustment:} We propose a lightweight closed-loop delay-management method that estimates the mean Timing Info and jitter from PNF Timing Info and dynamically adjusts the scheduler trigger offset to balance throughput stability and MAC HARQ RTT.}
 \item \textcolor{blue}{\textbf{End-to-end validation under controlled and multi-hop transport:} We implement the proposed method on an OpenAirInterface-based E2E physical testbed with a commercial Pegatron O-RU and COTS UE. We evaluate throughput, MAC HARQ RTT, missing-slot behavior, and stability under both Linux-TC-injected delay/jitter (under Experimental Scenario I) and a realistic 3-switch/3-router campus network deployment (under Experimental Scenario II). The implementation has been successfully merged into the official upstream OAI codebase to support reproducibility and future research.}
 \end{itemize}
 
@@ -109,7 +109,7 @@ nFAPI, O-RAN, Functional Split, Adaptive Control.
 \begin{itemize}
 \item \textbf{Scheduler:} Critical for allocating the available radio resources (such as time-frequency resource blocks) and determining the exact priority and timing of downlink/uplink data transmissions.
 \item \textbf{Node sync:} Responsible for software-level clock synchronization. This procedure periodically exchanges synchronization timestamps ($t_1 \sim t_4$) with the PNF via standard \textit{DL/UL\_node\_sync} messages. It calculates the instantaneous clock offset and applies slot-level ($S_{adj}$) and microsecond-level ($\mu s_{adj}$) adjustments to align the VNF's local clock to the PNF baseline, eliminating long-term hardware clock drift.
-\item \textbf{Delay Management:} Operates on top of the stabilized clock phase established by Node sync. This mechanism utilizes the PNF Timing Info ($\Delta t_{arrive}$) feedback from the PNF to dynamically estimate transport network jitter. It then actively adjusts the slots ahead ($S_{\mathrm{ahead}}$) trigger offset of the scheduler. Here, \textit{slots ahead} (or \textit{VNF slots ahead}) refers to the number of slots by which the VNF triggers the scheduler in advance relative to the reference timing info. This control compensates for the non-deterministic packet transport delays and VNF processing delays without inducing synchronization loss.
+\item \textbf{Delay Management:} Operates on top of the stabilized clock phase established by Node sync. This mechanism utilizes the PNF Timing Info ($\mathit{TimingInfo}_i$) feedback from the PNF to dynamically estimate transport network jitter. It then actively adjusts the slots ahead ($S_{\mathrm{ahead}}$) trigger offset of the scheduler. Here, \textit{slots ahead} (or \textit{VNF slots ahead}) refers to the number of slots by which the VNF triggers the scheduler in advance relative to the reference timing info. This control compensates for the non-deterministic packet transport delays and VNF processing delays without inducing synchronization loss.
 \end{itemize}}
 
 \subsection{O-DU Low: High PHY and Timing Window}
@@ -117,7 +117,7 @@ nFAPI, O-RAN, Functional Split, Adaptive Control.
 \textcolor{blue}{The O-DU Low manages the higher-level baseband processing of the physical layer (High PHY). At this level, the most critical synchronization mechanism is the nFAPI PNF Timing Window:
 \begin{itemize}
 \item \textbf{Timing Window:} A predefined, strict time duration. Let $T_{\mathrm{window}}$ denote the duration of this PNF timing window, and $T_{\mathrm{slot}}$ denote the subframe slot duration. When the scheduling message sent by the O-DU High propagates across the network, it must accurately arrive and fall exactly within this Window. Otherwise, the High PHY will reject the message and fail to process the slot data.
-\item \textbf{Timing Info ($\Delta t_{arrive}$):} The PNF continuously monitors the exact timing info of control messages relative to the transmission deadline. This information, denoted as $\Delta t_{arrive}$, represents the remaining time margin within the timing window. The PNF periodically sends this information back to the MAC layer for Delay Management. This establishes a closed-loop feedback control system, compensating for the unpredictable transmission latency variations between the VNF and PNF machines.
+\item \textbf{Timing Info ($\mathit{TimingInfo}_i$):} The PNF continuously monitors the exact timing info of control messages relative to the transmission deadline. This information, denoted as $\mathit{TimingInfo}_i$, represents the remaining time margin within the timing window. The PNF periodically sends this information back to the MAC layer for Delay Management. This establishes a closed-loop feedback control system, compensating for the unpredictable transmission latency variations between the VNF and PNF machines.
 \end{itemize}}
 
 
@@ -212,26 +212,26 @@ S_{\mathrm{adj}} = \mathit{offset} / T_{\mathrm{slot}}
 \subsection{Delay Management}
 \label{subsec:delay_management}
 
-\textcolor{blue}{To counteract changing network latency and maintain scheduling stability, a dynamic delay-management strategy is implemented. This strategy operates as a closed-loop feedback mechanism based on standard Small Cell Forum (SCF) PNF Timing Info reported by the PNF. By evaluating the arrival margin relative to the PNF deadline, the proposed method dynamically adjusts the scheduling lead time $S_{\mathrm{ahead}}$.}
+\textcolor{blue}{To counteract changing network latency and maintain scheduling stability, a dynamic delay-management strategy is implemented. This strategy operates as a closed-loop feedback mechanism based on standard Small Cell Forum (SCF) PNF Timing Info reported by the PNF. By evaluating the Timing Info relative to the PNF deadline, the proposed method dynamically adjusts the scheduling lead time $S_{\mathrm{ahead}}$.}
 
 \subsubsection{Timing Model}
-\textcolor{blue}{Let $T_{\mathrm{slot}}$ denote the slot duration and $S_{\mathrm{ahead}}$ denote the number of slots by which the VNF scheduler triggers earlier than the target slot. For a scheduling message generated at VNF time $t_g$, the corresponding target PNF processing deadline is determined by the target slot boundary. The arrival margin reported by the PNF is denoted by $\Delta t_{\mathrm{arrive}}$, where $\Delta t_{\mathrm{arrive}} < 0$ indicates that the message arrives before the deadline, and $\Delta t_{\mathrm{arrive}} > 0$ indicates a late arrival. Therefore, the delay-management objective is to select the minimum stable $S_{\mathrm{ahead}}$ such that late arrivals are avoided ($\Delta t_{\mathrm{arrive}} \le 0$) while MAC HARQ RTT is not unnecessarily inflated.}
+\textcolor{blue}{Let $T_{\mathrm{slot}}$ denote the slot duration and $S_{\mathrm{ahead}}$ denote the number of slots by which the VNF scheduler triggers earlier than the target slot. For a scheduling message generated at VNF time $t_g$, the corresponding target PNF processing deadline is determined by the target slot boundary. The Timing Info reported by the PNF is denoted by $\mathit{TimingInfo}_i$, where $\mathit{TimingInfo}_i < 0$ indicates that the message arrives before the deadline, and $\mathit{TimingInfo}_i > 0$ indicates a late arrival. Therefore, the delay-management objective is to select the minimum stable $S_{\mathrm{ahead}}$ such that late arrivals are avoided ($\mathit{TimingInfo}_i \le 0$) while MAC HARQ RTT is not unnecessarily inflated.}
 
-\subsubsection{EWMA-based Arrival-Margin Estimation}
-\textcolor{blue}{To smooth high-frequency network noise while remaining sensitive to timing drift, the proposed method maintains a running mean of the PNF Timing Info ($\mu_{\mathrm{arrive}}$) and the estimated jitter ($dev_{\mathrm{arrive}}$). The EWMA structure is inspired by the classical TCP round-trip time estimation method, where a smoothed estimate and a deviation estimate are jointly maintained to tolerate delay variation while remaining responsive to congestion-induced timing changes \cite{Jacobson1988}, \cite{Paxson2011}. Let $\Delta t_{\mathrm{arrive}, i}$ be the observed signed PNF Timing Info in scheduling slot $i$. The EWMA updates for mean arrival margin and jitter are defined as:}
+\subsubsection{EWMA-based Timing-Info Estimation}
+\textcolor{blue}{To smooth high-frequency network noise while remaining sensitive to timing drift, the proposed method maintains a running mean of the PNF Timing Info ($\mu_{\mathrm{arrive}}$) and the estimated jitter ($dev_{\mathrm{arrive}}$). The EWMA structure is inspired by the classical TCP round-trip time estimation method, where a smoothed estimate and a deviation estimate are jointly maintained to tolerate delay variation while remaining responsive to congestion-induced timing changes \cite{Jacobson1988}, \cite{Paxson2011}. Let $\mathit{TimingInfo}_i$ be the observed signed PNF Timing Info in scheduling slot $i$. The EWMA updates for mean Timing Info and jitter are defined as:}
 \begin{equation}
-\mu_{\mathrm{arrive}, i} = (1 - \alpha) \mu_{\mathrm{arrive}, i-1} + \alpha \Delta t_{\mathrm{arrive}, i}
+\mu_{\mathrm{arrive}, i} = (1 - \alpha) \mu_{\mathrm{arrive}, i-1} + \alpha \mathit{TimingInfo}_i
 \end{equation}
 \begin{equation}
-dev_{\mathrm{arrive}, i} = (1 - \beta) dev_{\mathrm{arrive}, i-1} + \beta |\Delta t_{\mathrm{arrive}, i} - \mu_{\mathrm{arrive}, i}|
+dev_{\mathrm{arrive}, i} = (1 - \beta) dev_{\mathrm{arrive}, i-1} + \beta |\mathit{TimingInfo}_i - \mu_{\mathrm{arrive}, i}|
 \end{equation}
-\textcolor{blue}{Following this dual-gain estimation principle, the smoothing factors are set to $\alpha = 1/8$ for long-term arrival-margin tracking and $\beta = 1/4$ for fast jitter-variation estimation. Both parameters are negative powers of two ($\alpha = 2^{-3}$, $\beta = 2^{-2}$), which allows efficient fixed-point implementation using bitwise shift operations in the timing-critical MAC path.}
+\textcolor{blue}{Following this dual-gain estimation principle, the smoothing factors are set to $\alpha = 1/8$ for long-term Timing-Info tracking and $\beta = 1/4$ for fast jitter-variation estimation. Both parameters are negative powers of two ($\alpha = 2^{-3}$, $\beta = 2^{-2}$), which allows efficient fixed-point implementation using bitwise shift operations in the timing-critical MAC path.}
 
-\textcolor{blue}{The combined timing risk indicator $R_i$ is evaluated to determine whether the arrival margin crosses the deadline boundary:}
+\textcolor{blue}{The combined timing risk indicator $R_i$ is evaluated to determine whether the Timing Info crosses the deadline boundary:}
 \begin{equation}
 R_i = \mu_{\mathrm{arrive}, i} + dev_{\mathrm{arrive}, i}
 \end{equation}
-\textcolor{blue}{A positive timing risk ($R_i > 0$) implies that the estimated worst-case arrival margin crosses the deadline, indicating an anomaly condition, whereas a negative risk indicates a safe margin.}
+\textcolor{blue}{A positive timing risk ($R_i > 0$) implies that the estimated worst-case Timing Info crosses the deadline, indicating an anomaly condition, whereas a negative risk indicates a safe margin.}
 
 \subsubsection{Adaptive Slots Ahead Control}
 \label{subsubsec:delay_control}
@@ -262,7 +262,7 @@ R_i = \mu_{\mathrm{arrive}, i} + dev_{\mathrm{arrive}, i}
 \begin{algorithmic}[1]
 \algrenewcommand\algorithmicrequire{\textbf{Input:}}
 \algrenewcommand\algorithmicensure{\textbf{Output:}}
-\Require $\Delta t_{\mathrm{arrive}}$ (Observed PNF Timing Info), $S_{\mathrm{curr}}$ (Current trigger timing), $T_{\mathrm{window}}$ (Timing window), $T_{\mathrm{slot}}$ (Slot duration)
+\Require $\mathit{TimingInfo}_i$ (Observed PNF Timing Info), $S_{\mathrm{curr}}$ (Current trigger timing), $T_{\mathrm{window}}$ (Timing window), $T_{\mathrm{slot}}$ (Slot duration)
 \Ensure $S_{\mathrm{next}}$ (Trigger timing for the next MAC schedule)
 \Statex 
 \Statex \textbf{Notation:} 
@@ -272,8 +272,8 @@ R_i = \mu_{\mathrm{arrive}, i} + dev_{\mathrm{arrive}, i}
 \Statex $\alpha, \beta$ (Smoothing factors for latency and jitter)
  
 \Statex \textbf{Phase I: Latency and Jitter Estimation}
-\State $\mu_{\mathrm{arrive}} \gets (1 - \alpha)\mu_{\mathrm{arrive}} + \alpha \Delta t_{\mathrm{arrive}}$ \Comment{Update mean PNF Timing Info}
-\State $dev_{\mathrm{arrive}} \gets (1 - \beta)dev_{\mathrm{arrive}} + \beta |\Delta t_{\mathrm{arrive}} - \mu_{\mathrm{arrive}}|$ \Comment{Update arrival jitter}
+\State $\mu_{\mathrm{arrive}} \gets (1 - \alpha)\mu_{\mathrm{arrive}} + \alpha \mathit{TimingInfo}_i$ \Comment{Update mean PNF Timing Info}
+\State $dev_{\mathrm{arrive}} \gets (1 - \beta)dev_{\mathrm{arrive}} + \beta |\mathit{TimingInfo}_i - \mu_{\mathrm{arrive}}|$ \Comment{Update arrival jitter}
 \State $R \gets \mu_{\mathrm{arrive}} + dev_{\mathrm{arrive}}$ \Comment{Evaluate combined risk indicator}
  
 \Statex \textbf{Phase II: Fast-Up and Slow-Down Timing Adjustment}
@@ -381,15 +381,15 @@ Fronthaul & O-RAN F release \\
 \subsection{Experimental 1: Validation of EWMA for PNF Timing Info}
 \label{subsec:scenario_1}
 
-\textcolor{blue}{This scenario validates the application of an Exponentially Weighted Moving Average (EWMA) to smooth the PNF Timing Info ($\Delta t_{arrive}$). Fig.~\ref{fig:exp1}(a) shows the timing control directly using the raw PNF Timing Info ($\Delta t_{arrive}$), where the raw timing values change a lot due to network jitter. Fig.~\ref{fig:exp1}(b) is the cumulative count of the packets exceeding the deadline when the timing adjustment directly uses the raw PNF Timing Info ($\Delta t_{arrive}$). The EWMA mechanism filters out the high-frequency jitter, as shown in the PNF Timing Info ($\Delta t_{arrive}$) after applying EWMA in Fig.~\ref{fig:exp1}(c). Finally, Fig.~\ref{fig:exp1}(d) shows the cumulative count of the packets exceeding the deadline under the EWMA-based timing control. The results show that applying EWMA allows the timing loop to adjust the slots ahead stably, which significantly reduces the number of packets that arrive after the deadline.}
+\textcolor{blue}{This scenario validates the application of an Exponentially Weighted Moving Average (EWMA) to smooth the PNF Timing Info ($\mathit{TimingInfo}_i$). Fig.~\ref{fig:exp1}(a) shows the timing control directly using the raw PNF Timing Info ($\mathit{TimingInfo}_i$), where the raw timing values change a lot due to network jitter. Fig.~\ref{fig:exp1}(b) is the cumulative count of the packets exceeding the deadline when the timing adjustment directly uses the raw PNF Timing Info ($\mathit{TimingInfo}_i$). The EWMA mechanism filters out the high-frequency jitter, as shown in the PNF Timing Info ($\mathit{TimingInfo}_i$) after applying EWMA in Fig.~\ref{fig:exp1}(c). Finally, Fig.~\ref{fig:exp1}(d) shows the cumulative count of the packets exceeding the deadline under the EWMA-based timing control. The results show that applying EWMA allows the timing loop to adjust the slots ahead stably, which significantly reduces the number of packets that arrive after the deadline.}
 
 \begin{figure}[!htbp]
   \centering
-  \subfloat[Direct Use of \(\Delta t_{arrive}\)]{\includegraphics[width=0.48\columnwidth]{figures/exp1a.png}\label{fig:exp1a}}
+  \subfloat[Direct Use of \(\mathit{TimingInfo}_i\)]{\includegraphics[width=0.48\columnwidth]{figures/exp1a.png}\label{fig:exp1a}}
   \hfill
   \subfloat[Cumulative Count of Packets Exceeding Deadline under Direct Use]{\includegraphics[width=0.48\columnwidth]{figures/exp1b.png}\label{fig:exp1b}}
   
-  \subfloat[EWMA Application on \(\Delta t_{arrive}\)]{\includegraphics[width=0.48\columnwidth]{figures/exp1c.png}\label{fig:exp1c}}
+  \subfloat[EWMA Application on \(\mathit{TimingInfo}_i\)]{\includegraphics[width=0.48\columnwidth]{figures/exp1c.png}\label{fig:exp1c}}
   \hfill
   \subfloat[Cumulative Count of Packets Exceeding Deadline under EWMA]{\includegraphics[width=0.48\columnwidth]{figures/exp1d.png}\label{fig:exp1d}}
   \caption{Validation of EWMA processing on PNF Timing Info.}

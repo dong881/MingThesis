@@ -140,28 +140,28 @@ Following cross-platform compilation, our implementation was subjected to system
 These regression and compilation results prove that the proposed dynamic delay-aware timing control is robust, backward-compatible, and fully standardized, serving as a stable baseline for future O-RAN Option~6 deployments in the global open-source community.
 
 \iffalse
-\section{實驗一：PNF 到達偏移量 ($\Delta t_{arrive}$) 之 EWMA 驗證}
+\section{實驗一：PNF Timing Info ($\mathit{TimingInfo}_i$) 之 EWMA 驗證}
 \fi
-\section{Experimental 1: EWMA Validation for PNF Timing Info ($\Delta t_{arrive}$)}
+\section{Experimental 1: EWMA Validation for PNF Timing Info ($\mathit{TimingInfo}_i$)}
 \label{subsec:scenario_1}
 
-This scenario verifies the effectiveness of applying the Exponentially Weighted Moving Average (EWMA) to smooth the PNF Timing Info ($\Delta t_{arrive}$). Due to network jitter and processing delays, directly using the raw PNF Timing Info can lead to unstable scheduling decisions. Figure~\ref{fig:exp1a} shows the timing control directly using the raw PNF Timing Info ($\Delta t_{arrive}$), where the raw timing values change a lot. Figure~\ref{fig:exp1b} represents the cumulative count of the packets that exceed the deadline when the timing adjustment directly uses the raw PNF Timing Info ($\Delta t_{arrive}$). The EWMA mechanism filters out the high-frequency jitter, as shown in the PNF Timing Info ($\Delta t_{arrive}$) after applying EWMA in Figure~\ref{fig:exp1c}. Finally, Figure~\ref{fig:exp1d} shows the cumulative count of the packets exceeding the deadline under the EWMA-based timing control. The results show that applying EWMA allows the timing loop to adjust the slots ahead stably, which greatly reduces the number of packets that arrive after the deadline.
+This scenario verifies the effectiveness of applying the Exponentially Weighted Moving Average (EWMA) to smooth the PNF Timing Info ($\mathit{TimingInfo}_i$). Due to network jitter and processing delays, directly using the raw PNF Timing Info can lead to unstable scheduling decisions. Figure~\ref{fig:exp1a} shows the timing control directly using the raw PNF Timing Info ($\mathit{TimingInfo}_i$), where the raw timing values change a lot. Figure~\ref{fig:exp1b} represents the cumulative count of the packets that exceed the deadline when the timing adjustment directly uses the raw PNF Timing Info ($\mathit{TimingInfo}_i$). The EWMA mechanism filters out the high-frequency jitter, as shown in the PNF Timing Info ($\mathit{TimingInfo}_i$) after applying EWMA in Figure~\ref{fig:exp1c}. Finally, Figure~\ref{fig:exp1d} shows the cumulative count of the packets exceeding the deadline under the EWMA-based timing control. The results show that applying EWMA allows the timing loop to adjust the slots ahead stably, which greatly reduces the number of packets that arrive after the deadline.
 
 \begin{figure}[!htbp]
   \centering
 \iffalse
-  \subfloat[直接使用 \(\Delta t_{arrive}\)]{\includegraphics[width=0.65\textwidth]{figures/exp1a.png}\label{fig:exp1a}} \\
+  \subfloat[直接使用 \(\mathit{TimingInfo}_i\)]{\includegraphics[width=0.65\textwidth]{figures/exp1a.png}\label{fig:exp1a}} \\
 \fi
-  \subfloat[Direct Use of \(\Delta t_{arrive}\)]{\includegraphics[width=0.65\textwidth]{figures/exp1a.png}\label{fig:exp1a}} \\
+  \subfloat[Direct Use of \(\mathit{TimingInfo}_i\)]{\includegraphics[width=0.65\textwidth]{figures/exp1a.png}\label{fig:exp1a}} \\
   \vspace{0.15cm}
 \iffalse
-  \subfloat[直接使用 \(\Delta t_{arrive}\) 調整下超過 Deadline 封包之累計數量]{\includegraphics[width=0.65\textwidth]{figures/exp1b.png}\label{fig:exp1b}}
+  \subfloat[直接使用 \(\mathit{TimingInfo}_i\) 調整下超過 Deadline 封包之累計數量]{\includegraphics[width=0.65\textwidth]{figures/exp1b.png}\label{fig:exp1b}}
 \fi
   \subfloat[Cumulative Count of Packets Exceeding Deadline under Direct Use]{\includegraphics[width=0.65\textwidth]{figures/exp1b.png}\label{fig:exp1b}}
 \iffalse
-  \caption{PNF 到達偏移量 ($\Delta t_{arrive}$) 之 EWMA 處理驗證。}
+  \caption{PNF Timing Info ($\mathit{TimingInfo}_i$) 之 EWMA 處理驗證。}
 \fi
-  \caption{EWMA processing validation for PNF Timing Info ($\Delta t_{arrive}$).}
+  \caption{EWMA processing validation for PNF Timing Info ($\mathit{TimingInfo}_i$).}
   \label{fig:exp1}
 \end{figure}
 
@@ -171,18 +171,18 @@ This scenario verifies the effectiveness of applying the Exponentially Weighted 
   \ContinuedFloat
   \centering
 \iffalse
-  \subfloat[套用 EWMA 之 \(\Delta t_{arrive}\)]{\includegraphics[width=0.65\textwidth]{figures/exp1c.png}\label{fig:exp1c}} \\
+  \subfloat[套用 EWMA 之 \(\mathit{TimingInfo}_i\)]{\includegraphics[width=0.65\textwidth]{figures/exp1c.png}\label{fig:exp1c}} \\
 \fi
-  \subfloat[EWMA Application on \(\Delta t_{arrive}\)]{\includegraphics[width=0.65\textwidth]{figures/exp1c.png}\label{fig:exp1c}} \\
+  \subfloat[EWMA Application on \(\mathit{TimingInfo}_i\)]{\includegraphics[width=0.65\textwidth]{figures/exp1c.png}\label{fig:exp1c}} \\
   \vspace{0.15cm}
 \iffalse
   \subfloat[套用 EWMA 調整下超過 Deadline 封包之累計數量]{\includegraphics[width=0.65\textwidth]{figures/exp1d.png}\label{fig:exp1d}}
 \fi
   \subfloat[Cumulative Count of Packets Exceeding Deadline under EWMA]{\includegraphics[width=0.65\textwidth]{figures/exp1d.png}\label{fig:exp1d}}
 \iffalse
-  \caption{PNF 到達偏移量 ($\Delta t_{arrive}$) 之 EWMA 處理驗證（續）。}
+  \caption{PNF Timing Info ($\mathit{TimingInfo}_i$) 之 EWMA 處理驗證（續）。}
 \fi
-  \caption{EWMA processing validation for PNF Timing Info ($\Delta t_{arrive}$) (cont.).}
+  \caption{EWMA processing validation for PNF Timing Info ($\mathit{TimingInfo}_i$) (cont.).}
 \end{figure}
 
 \iffalse
