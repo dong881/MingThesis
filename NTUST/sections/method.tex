@@ -88,17 +88,17 @@ To counteract changing network latency and maintain scheduling stability, a dyna
 
 \subsection{Timing Model}
 \label{subsec:timing_model}
-To formalize the delay management problem, this section introduces the mathematical timing model of the nFAPI-based Split Option 6 architecture. Let $T_{\mathrm{slot}}$ denote the slot duration and $S_{\mathrm{ahead}}$ denote the number of slots by which the VNF scheduler triggers earlier than the target slot. For a scheduling message generated at VNF time $t_g$, the corresponding target PNF processing deadline is determined by the target slot boundary. The Timing Info reported by the PNF is denoted by $\mathit{TimingInfo}_i$, where $\mathit{TimingInfo}_i < 0$ indicates that the message arrives before the deadline (early arrival), and $\mathit{TimingInfo}_i > 0$ indicates a late arrival. Therefore, the delay management objective is to select the minimum stable $S_{\mathrm{ahead}}$ such that late arrivals are avoided ($\mathit{TimingInfo}_i \le 0$) while the MAC HARQ Round-Trip Time (RTT) is not unnecessarily inflated.
+To formalize the delay management problem, this section introduces the mathematical timing model of the nFAPI-based Split Option 6 architecture. Let $T_{\mathrm{slot}}$ denote the slot duration and $S_{\mathrm{ahead}}$ denote the number of slots by which the VNF scheduler triggers earlier than the target slot. For a scheduling message generated at VNF time $t_g$, the corresponding target PNF processing deadline is determined by the target slot boundary. The Timing Info reported by the PNF is denoted by $\mathit{TimingInfo}[i]$, where $\mathit{TimingInfo}[i] < 0$ indicates that the message arrives before the deadline (early arrival), and $\mathit{TimingInfo}[i] > 0$ indicates a late arrival. Therefore, the delay management objective is to select the minimum stable $S_{\mathrm{ahead}}$ such that late arrivals are avoided ($\mathit{TimingInfo}[i] \le 0$) while the MAC HARQ Round-Trip Time (RTT) is not unnecessarily inflated.
 
 
 \subsection{EWMA-based Timing Info Estimation}
 \label{subsubsec:ewma_estimation}
-To smooth high-frequency network noise while remaining sensitive to timing drift, the algorithm maintains a running mean of the PNF Timing Info ($\mu_{\mathrm{arrive}}$) and the estimated jitter ($dev_{\mathrm{arrive}}$). Let $\mathit{TimingInfo}_i$ be the observed signed PNF Timing Info in scheduling slot $i$. The EWMA updates for mean Timing Info and jitter are defined as:
+To smooth high-frequency network noise while remaining sensitive to timing drift, the algorithm maintains a running mean of the PNF Timing Info ($\mu_{\mathrm{arrive}}$) and the estimated jitter ($dev_{\mathrm{arrive}}$). Let $\mathit{TimingInfo}[i]$ be the observed signed PNF Timing Info in scheduling slot $i$. The EWMA updates for mean Timing Info and jitter are defined as:
 \begin{equation}
-\mu_{\mathrm{arrive}}[i] = (1 - \alpha) \mu_{\mathrm{arrive}}[i-1] + \alpha \mathit{TimingInfo}_i
+\mu_{\mathrm{arrive}}[i] = (1 - \alpha) \mu_{\mathrm{arrive}}[i-1] + \alpha \mathit{TimingInfo}[i]
 \end{equation}
 \begin{equation}
-dev_{\mathrm{arrive}}[i] = (1 - \beta) dev_{\mathrm{arrive}}[i-1] + \beta |\mathit{TimingInfo}_i - \mu_{\mathrm{arrive}}[i]|
+dev_{\mathrm{arrive}}[i] = (1 - \beta) dev_{\mathrm{arrive}}[i-1] + \beta |\mathit{TimingInfo}[i] - \mu_{\mathrm{arrive}}[i]|
 \end{equation}
 where the smoothing factors are chosen as $\alpha = 1/8$ to track the long-term trend, and $\beta = 1/4$ to capture fast jitter variations. These parameters are designed as negative powers of two ($\alpha = 2^{-3}$, $\beta = 2^{-2}$) to allow the algorithm to perform fast bitwise shift operations in real time.
 
@@ -138,7 +138,7 @@ The core delay management strategy is condensed in Algorithm~\ref{alg:delay_mana
 \begin{algorithmic}[1]
 \algrenewcommand\algorithmicrequire{\textbf{Input:}}
 \algrenewcommand\algorithmicensure{\textbf{Output:}}
-\Require $\mathit{TimingInfo}_i$ (Observed PNF Timing Info), $S_{\mathrm{curr}}$ (Current trigger timing), $T_{\mathrm{window}}$ (Timing window), $T_{\mathrm{slot}}$ (Slot duration)
+\Require $\mathit{TimingInfo}[i]$ (Observed PNF Timing Info), $S_{\mathrm{curr}}$ (Current trigger timing), $T_{\mathrm{window}}$ (Timing window), $T_{\mathrm{slot}}$ (Slot duration)
 \Ensure $S_{\mathrm{next}}$ (Trigger timing for the next MAC schedule)
 \Statex 
 \Statex \textbf{Notation:} 
@@ -148,8 +148,8 @@ The core delay management strategy is condensed in Algorithm~\ref{alg:delay_mana
 \Statex $\alpha, \beta$ (Smoothing factors for latency and jitter)
  
 \Statex \textbf{Phase I: Latency and Jitter Estimation}
-\State $\mu_{\mathrm{arrive}} \gets (1 - \alpha)\mu_{\mathrm{arrive}} + \alpha \mathit{TimingInfo}_i$ \Comment{Update mean PNF Timing Info}
-\State $dev_{\mathrm{arrive}} \gets (1 - \beta)dev_{\mathrm{arrive}} + \beta |\mathit{TimingInfo}_i - \mu_{\mathrm{arrive}}|$ \Comment{Update arrival jitter}
+\State $\mu_{\mathrm{arrive}} \gets (1 - \alpha)\mu_{\mathrm{arrive}} + \alpha \mathit{TimingInfo}[i]$ \Comment{Update mean PNF Timing Info}
+\State $dev_{\mathrm{arrive}} \gets (1 - \beta)dev_{\mathrm{arrive}} + \beta |\mathit{TimingInfo}[i] - \mu_{\mathrm{arrive}}|$ \Comment{Update arrival jitter}
 \State $R \gets \mu_{\mathrm{arrive}} + dev_{\mathrm{arrive}}$ \Comment{Evaluate combined risk indicator}
 
 \Statex \textbf{Phase II: Fast-Up and Slow-Down Timing Adjustment}
