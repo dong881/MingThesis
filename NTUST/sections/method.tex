@@ -93,18 +93,18 @@ To formalize the delay management problem, this section introduces the mathemati
 
 \subsection{EWMA-based Timing Info Estimation}
 \label{subsubsec:ewma_estimation}
-To smooth high-frequency network noise while remaining sensitive to timing drift, the algorithm maintains a running mean of the PNF Timing Info ($\mu_{\mathrm{arrive}}$) and the estimated jitter ($dev_{\mathrm{arrive}}$). Let $\mathit{TimingInfo}[i]$ be the observed signed PNF Timing Info in scheduling slot $i$. The EWMA updates for mean Timing Info and jitter are defined as:
+To smooth high-frequency network noise while remaining sensitive to timing drift, EWMA is used to smooth the $\mathit{TimingInfo}[i]$ and to compute $\mathit{TimingInfoDev}[i]$ and $\mathit{TimingInfoEWMA}[i]$. Let $\mathit{TimingInfo}[i]$ be the observed signed PNF Timing Info in scheduling slot $i$. The EWMA updates for mean Timing Info and jitter are defined as:
 \begin{equation}
-\mu_{\mathrm{arrive}}[i] = (1 - \alpha) \mu_{\mathrm{arrive}}[i-1] + \alpha \mathit{TimingInfo}[i]
+\mathit{TimingInfoEWMA}[i] = (1 - \alpha) \mathit{TimingInfoEWMA}[i-1] + \alpha \mathit{TimingInfo}[i]
 \end{equation}
 \begin{equation}
-dev_{\mathrm{arrive}}[i] = (1 - \beta) dev_{\mathrm{arrive}}[i-1] + \beta |\mathit{TimingInfo}[i] - \mu_{\mathrm{arrive}}[i]|
+\mathit{TimingInfoDev}[i] = (1 - \beta) \mathit{TimingInfoDev}[i-1] + \beta |\mathit{TimingInfo}[i] - \mathit{TimingInfoEWMA}[i]|
 \end{equation}
 where the smoothing factors are chosen as $\alpha = 1/8$ to track the long-term trend, and $\beta = 1/4$ to capture fast jitter variations. These parameters are designed as negative powers of two ($\alpha = 2^{-3}$, $\beta = 2^{-2}$) to allow the algorithm to perform fast bitwise shift operations in real time.
 
 The combined timing risk indicator $R_i$ is evaluated to determine whether the Timing Info crosses the deadline boundary:
 \begin{equation}
-R_i = \mu_{\mathrm{arrive}}[i] + dev_{\mathrm{arrive}}[i]
+R_i = \mathit{TimingInfoEWMA}[i] + \mathit{TimingInfoDev}[i]
 \end{equation}
 A positive timing risk ($R_i > 0$) implies that the estimated worst-case Timing Info crosses the deadline, indicating an anomaly condition, whereas a negative risk indicates a safe margin.
 
@@ -117,7 +117,7 @@ The update of the slots ahead trigger timing $S_{\mathrm{ahead}}$ is governed by
           S_{\mathrm{ahead}, i+1} = \min\left(S_{\mathrm{ahead}, i} + \left\lceil \frac{R_i}{T_{\mathrm{slot}}} \right\rceil, S_{\max}\right)
           \end{equation}
           and the stable observation counter $C_{\mathrm{stable}}$ is reset to 0. Here, $S_{\max} = \lfloor T_{\mathrm{window}} / T_{\mathrm{slot}} \rfloor$ represents the maximum allowed slots ahead.
-    \item \textbf{Gradual Decrease (Optimize Latency):} If the system is under stable and safe conditions ($R_i < -dev_{\mathrm{arrive}}[i]$), indicating that there is a sufficient timing margin, the algorithm decrements the slots ahead value by one slot once the stability condition is satisfied ($C_{\mathrm{stable}} \ge C_{\mathrm{threshold}}$):
+    \item \textbf{Gradual Decrease (Optimize Latency):} If the system is under stable and safe conditions ($R_i < -\mathit{TimingInfoDev}[i]$), indicating that there is a sufficient timing margin, the algorithm decrements the slots ahead value by one slot once the stability condition is satisfied ($C_{\mathrm{stable}} \ge C_{\mathrm{threshold}}$):
           \begin{equation}
           S_{\mathrm{ahead}, i+1} = \max\left(S_{\mathrm{ahead}, i} - 1, S_{\min}\right)
           \end{equation}
@@ -142,21 +142,21 @@ The core delay management strategy is condensed in Algorithm~\ref{alg:delay_mana
 \Ensure $S_{\mathrm{next}}$ (Trigger timing for the next MAC schedule)
 \Statex 
 \Statex \textbf{Notation:} 
-\Statex $\mu_{\mathrm{arrive}}$ (smoothed mean PNF Timing Info), $dev_{\mathrm{arrive}}$ (smoothed arrival jitter)
+\Statex $\mathit{TimingInfoEWMA}$ (smoothed mean PNF Timing Info), $\mathit{TimingInfoDev}$ (smoothed arrival jitter)
 \Statex $R$ (Timing risk indicator), $C_{\mathrm{stable}}$ (Stable observation counter)
 \Statex $C_{\mathrm{threshold}}$ (Stability observation threshold), $S_{\max}, S_{\min}$ (Boundary limits)
 \Statex $\alpha, \beta$ (Smoothing factors for latency and jitter)
  
 \Statex \textbf{Phase I: Latency and Jitter Estimation}
-\State $\mu_{\mathrm{arrive}} \gets (1 - \alpha)\mu_{\mathrm{arrive}} + \alpha \mathit{TimingInfo}[i]$ \Comment{Update mean PNF Timing Info}
-\State $dev_{\mathrm{arrive}} \gets (1 - \beta)dev_{\mathrm{arrive}} + \beta |\mathit{TimingInfo}[i] - \mu_{\mathrm{arrive}}|$ \Comment{Update arrival jitter}
-\State $R \gets \mu_{\mathrm{arrive}} + dev_{\mathrm{arrive}}$ \Comment{Evaluate combined risk indicator}
+\State $\mathit{TimingInfoEWMA} \gets (1 - \alpha)\mathit{TimingInfoEWMA} + \alpha \mathit{TimingInfo}[i]$ \Comment{Update mean PNF Timing Info}
+\State $\mathit{TimingInfoDev} \gets (1 - \beta)\mathit{TimingInfoDev} + \beta |\mathit{TimingInfo}[i] - \mathit{TimingInfoEWMA}|$ \Comment{Update arrival jitter}
+\State $R \gets \mathit{TimingInfoEWMA} + \mathit{TimingInfoDev}$ \Comment{Evaluate combined risk indicator}
 
 \Statex \textbf{Phase II: Fast-Up and Slow-Down Timing Adjustment}
 \If{$R > 0$}
     \State $S_{\mathrm{next}} \gets \min(S_{\mathrm{curr}} + \lceil R / T_{\mathrm{slot}} \rceil, S_{\max})$ \Comment{Rapid Increase}
     \State $C_{\mathrm{stable}} \gets 0$
-\ElsIf{$R < -dev_{\mathrm{arrive}}$}
+\ElsIf{$R < -\mathit{TimingInfoDev}$}
     \If{$C_{\mathrm{stable}} \ge C_{\mathrm{threshold}}$}
         \State $S_{\mathrm{next}} \gets \max(S_{\mathrm{curr}} - 1, S_{\min})$ \Comment{Gradual Decrease}
         \State $C_{\mathrm{stable}} \gets 0$
