@@ -95,16 +95,16 @@ To formalize the delay management problem, this section introduces the mathemati
 \label{subsubsec:ewma_estimation}
 To smooth high-frequency network noise while remaining sensitive to timing drift, the algorithm maintains a running mean of the PNF Timing Info ($\mu_{\mathrm{arrive}}$) and the estimated jitter ($dev_{\mathrm{arrive}}$). Let $\mathit{TimingInfo}_i$ be the observed signed PNF Timing Info in scheduling slot $i$. The EWMA updates for mean Timing Info and jitter are defined as:
 \begin{equation}
-\mu_{\mathrm{arrive}, i} = (1 - \alpha) \mu_{\mathrm{arrive}, i-1} + \alpha \mathit{TimingInfo}_i
+\mu_{\mathrm{arrive}}[i] = (1 - \alpha) \mu_{\mathrm{arrive}}[i-1] + \alpha \mathit{TimingInfo}_i
 \end{equation}
 \begin{equation}
-dev_{\mathrm{arrive}, i} = (1 - \beta) dev_{\mathrm{arrive}, i-1} + \beta |\mathit{TimingInfo}_i - \mu_{\mathrm{arrive}, i}|
+dev_{\mathrm{arrive}}[i] = (1 - \beta) dev_{\mathrm{arrive}}[i-1] + \beta |\mathit{TimingInfo}_i - \mu_{\mathrm{arrive}}[i]|
 \end{equation}
 where the smoothing factors are chosen as $\alpha = 1/8$ to track the long-term trend, and $\beta = 1/4$ to capture fast jitter variations. These parameters are designed as negative powers of two ($\alpha = 2^{-3}$, $\beta = 2^{-2}$) to allow the algorithm to perform fast bitwise shift operations in real time.
 
 The combined timing risk indicator $R_i$ is evaluated to determine whether the Timing Info crosses the deadline boundary:
 \begin{equation}
-R_i = \mu_{\mathrm{arrive}, i} + dev_{\mathrm{arrive}, i}
+R_i = \mu_{\mathrm{arrive}}[i] + dev_{\mathrm{arrive}}[i]
 \end{equation}
 A positive timing risk ($R_i > 0$) implies that the estimated worst-case Timing Info crosses the deadline, indicating an anomaly condition, whereas a negative risk indicates a safe margin.
 
@@ -117,7 +117,7 @@ The update of the slots ahead trigger timing $S_{\mathrm{ahead}}$ is governed by
           S_{\mathrm{ahead}, i+1} = \min\left(S_{\mathrm{ahead}, i} + \left\lceil \frac{R_i}{T_{\mathrm{slot}}} \right\rceil, S_{\max}\right)
           \end{equation}
           and the stable observation counter $C_{\mathrm{stable}}$ is reset to 0. Here, $S_{\max} = \lfloor T_{\mathrm{window}} / T_{\mathrm{slot}} \rfloor$ represents the maximum allowed slots ahead.
-    \item \textbf{Gradual Decrease (Optimize Latency):} If the system is under stable and safe conditions ($R_i < -dev_{\mathrm{arrive}, i}$), indicating that there is a sufficient timing margin, the algorithm decrements the slots ahead value by one slot once the stability condition is satisfied ($C_{\mathrm{stable}} \ge C_{\mathrm{threshold}}$):
+    \item \textbf{Gradual Decrease (Optimize Latency):} If the system is under stable and safe conditions ($R_i < -dev_{\mathrm{arrive}}[i]$), indicating that there is a sufficient timing margin, the algorithm decrements the slots ahead value by one slot once the stability condition is satisfied ($C_{\mathrm{stable}} \ge C_{\mathrm{threshold}}$):
           \begin{equation}
           S_{\mathrm{ahead}, i+1} = \max\left(S_{\mathrm{ahead}, i} - 1, S_{\min}\right)
           \end{equation}
