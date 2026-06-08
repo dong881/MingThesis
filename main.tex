@@ -318,17 +318,18 @@ R_i = \mathit{TimingInfoEWMA}[i] + \mathit{TimingInfoDev}[i]
 \section{Experimental Results}
 \label{sec:experiments}
 
-\textcolor{blue}{Experiments were conducted to validate the proposed method in an OpenAirInterface (OAI) nFAPI end-to-end environment. OpenAirInterface has been widely used as an open-source platform for 5G NR end-to-end experimentation and system-level validation \cite{Ryu2022}, \cite{Wang2022}. Each reported throughput value represents the average of 180 data points, collected from three independent trials with 60 samples per trial. The evaluation focuses on five aspects of the proposed method. First, we examine whether EWMA-based filtering can stabilize noisy PNF timing info feedback under transport network jitter. Second, we compare the proposed adaptive slots ahead adjustment with static baselines to evaluate its ability to maintain throughput while avoiding unnecessary MAC HARQ RTT increase. Third, we evaluate the closed-loop delay management method under severe congestion and dynamic jitter to verify end-to-end synchronization stability. Fourth, we evaluate the synchronization offset of the node sync algorithm under a multi-hop transport path. Finally, we analyze the end-to-end throughput under varying offered loads in a realistic campus network deployment.}
+\textcolor{blue}{Experiments were conducted to validate the proposed method in an OpenAirInterface (OAI) nFAPI end-to-end environment. OpenAirInterface has been widely used as an open-source platform for 5G NR end-to-end experimentation and system-level validation \cite{Ryu2022}, \cite{Wang2022}. Each reported throughput value represents the average of 180 data points, collected from three independent trials with 60 samples per trial. The evaluation focuses on six aspects of the proposed method. First, we examine whether EWMA-based filtering can stabilize noisy PNF timing info feedback under transport network jitter. Second, we compare the proposed adaptive slots ahead adjustment with static baselines to evaluate its ability to maintain throughput while avoiding unnecessary MAC HARQ RTT increase. Third, we evaluate the closed-loop delay management method under severe congestion and dynamic jitter to verify end-to-end synchronization stability. Fourth, we evaluate the synchronization offset of the node sync algorithm under a multi-hop transport path. Fifth, we analyze the stability under real network congestion in a realistic campus network deployment. Finally, we evaluate the impact of different timing info reporting modes and periods under varying deployment distances.}
 
-\textcolor{blue}{The rest of this section is organized as follows. Section~\ref{subsec:experimental_scenario} describes the hardware, software, and automated rApp evaluation framework, including both Experimental Scenario I and Experimental Scenario II. Section~\ref{subsec:software_validation} details the system-level integration and software validation. Section~\ref{subsec:scenario_1} (Experimental 1) validates EWMA-based PNF timing info stabilization. Section~\ref{subsec:scenario_2} (Experimental 2) compares throughput and MAC HARQ RTT against static slots ahead baselines. Section~\ref{subsec:scenario_3} (Experimental 3) evaluates robustness under injected delay and jitter. Section~\ref{subsec:scenario_4} (Experimental 4) evaluates the synchronization offset under the multi-hop deployment. Finally, Section~\ref{subsec:scenario_5} (Experimental 5) presents the throughput stability results under varying offered loads in the campus network.}
+\textcolor{blue}{The rest of this section is organized as follows. Section~\ref{subsec:experimental_scenario} describes the hardware, software, and automated rApp evaluation framework, including Experimental Scenario I, Experimental Scenario II, and Experimental Scenario III. Section~\ref{subsec:software_validation} details the system-level integration and software validation. Section~\ref{subsec:scenario_1} (Experimental 1) validates EWMA-based PNF timing info stabilization. Section~\ref{subsec:scenario_2} (Experimental 2) compares throughput and MAC HARQ RTT against static slots ahead baselines. Section~\ref{subsec:scenario_3} (Experimental 3) evaluates robustness under injected delay and jitter. Section~\ref{subsec:scenario_4} (Experimental 4) evaluates the synchronization offset under the multi-hop deployment. Section~\ref{subsec:scenario_5} (Experimental 5) presents the stability under real network congestion in the campus network. Finally, Section~\ref{subsec:scenario_6} (Experimental 6) evaluates the performance under different timing info reporting modes and periods.}
 
 \subsection{Experimental Scenario and rApp Framework}
 \label{subsec:experimental_scenario}
 
-\textcolor{blue}{To evaluate the performance of our proposed timing adjustment framework under different environments, we design two topologies:
+\textcolor{blue}{To evaluate the performance of our proposed timing adjustment framework under different environments, we design three topologies:
 \begin{itemize}
 \item \textbf{Experimental Scenario I (Controlled Single-Switch environment):} A standard testbed where the VNF and PNF are connected directly via a single commercial Ethernet switch. This controlled setup is used to analyze EWMA filtering, benchmark throughput-latency trade-offs against static baselines, and evaluate robustness under Linux-TC-injected delay and jitter.
 \item \textbf{Experimental Scenario II (Multi-Switch/Router Campus Deployment):} A realistic multi-hop campus network topology where the VNF and PNF are physically disaggregated across different locations. As shown in Fig.~\ref{fig:scenario2_topology}, the connection traverses $3$ commercial switches and $3$ commercial routers, introducing realistic transport delays and route-dependent jitter.
+\item \textbf{Experimental Scenario III (Long-Distance WAN Simulation):} A simulated long-distance wide area network (WAN) environment where the transport distance and base latency are systematically varied to evaluate the performance of different timing info reporting configurations.
 \end{itemize}}
 
 \textcolor{blue}{The detailed software and hardware configurations for the end-to-end network deployment in the testbed environment are outlined below.}
@@ -406,7 +407,7 @@ Fronthaul & O-RAN F release \\
   \label{fig:exp1}
 \end{figure}
 
-\subsection{Experimental 2: Performance Benchmark}
+\subsection{Experimental 2: Performance: Throughput \& MAC HARQ RTT}
 \label{subsec:scenario_2}
 
 \textcolor{blue}{We benchmark the peak throughput and MAC HARQ RTT against a static baseline. Under stable fronthaul conditions, as shown in Fig.~\ref{fig:exp2}, the proposed algorithm prioritizes guaranteeing the optimal throughput under different offered loads, consistently maintaining near-peak throughput performance. Simultaneously, while ensuring this optimal throughput, the algorithm also optimizes the selection of the slots ahead trigger offset to optimize the MAC layer HARQ Round-Trip Time (RTT), effectively avoiding unnecessary overhead.}
@@ -420,7 +421,7 @@ Fronthaul & O-RAN F release \\
   \label{fig:exp2}
 \end{figure}
 
-\subsection{Experimental 3: Stability under Network Congestion}
+\subsection{Experimental 3: Stability under Traffic Control Network Congestion}
 \label{subsec:scenario_3}
 
 \textcolor{blue}{To evaluate stability, we inject delay and jitter between the VNF and PNF using Linux TC. As shown in Fig.~\ref{fig:exp3a}, static slots ahead configurations suffer from synchronization failures and throughput drops when delay exceeds the timing window, whereas our proposed adaptive mechanism dynamically increases the slots ahead to maintain stable throughput. Additionally, we evaluate the UE DL RX throughput under a saturated 1 Gbps UDP offered load with unpredictable link jitter. As shown in Fig.~\ref{fig:exp3b}, while fixed slot ahead configurations experience severe throughput degradation due to late packets, the proposed adaptive method dynamically tracks jitter and secures stable, high throughput at the UE.}
@@ -437,25 +438,41 @@ Fronthaul & O-RAN F release \\
 \subsection{Experimental 4: Synchronization Offset}
 \label{subsec:scenario_4}
 
-\textcolor{blue}{To evaluate the synchronization accuracy of the proposed node sync algorithm under a multi-hop transport network, we deploy the VNF and PNF across the campus network in Experimental Scenario II. As shown in Fig.~\ref{fig:scenario2_topology}, the VNF-side components are placed at a remote computing site, while the radio-side components and UE remain at the local radio site. Fig.~\ref{fig:exp4a} shows the measured VNF-PNF synchronization offset in microseconds over elapsed slots. Due to the packet-switched multi-hop path traversing three switches and three routers, transport delay variation causes the synchronization offset to drift. Initially, the synchronization offset starts around 200~$\mu$s and climbs up to approximately 600~$\mu$s. At around slot 670, once the node sync algorithm locks the synchronization status, it actively adjusts the time base to align the VNF's scheduling thread. As a result, the synchronization offset is successfully corrected and stabilized between 0 and 100~$\mu$s, confirming that the proposed method can dynamically maintain high synchronization accuracy in non-deterministic environments.}
+\textcolor{blue}{To evaluate the synchronization accuracy of the proposed node sync algorithm under a multi-hop transport network, we deploy the VNF and PNF across the campus network in Experimental Scenario II. As shown in Fig.~\ref{fig:scenario2_topology}, the VNF-side components are placed at a remote computing site, while the radio-side components and UE remain at the local radio site. Fig.~\ref{fig:exp4} shows the measured VNF-PNF synchronization offset in microseconds over elapsed slots. When the VNF and PNF establish their connection, they start calculating slot 0 independently. Program start-up timing differences cause an initial program execution timing offset. Additionally, their clock phase drifts during operation. When the accumulated offset exceeds one slot (500~$\mu$s for subcarrier spacing of 30~kHz and slot duration of 500~$\mu$s), the system triggers the node sync algorithm to adjust the VNF's scheduling time base. This aligns the VNF's slot boundaries with the PNF, correcting the time-base offset and stabilizing the synchronization offset between 0 and 100~$\mu$s.}
 
 \begin{figure}[!htbp]
   \centering
-  \includegraphics[width=0.95\columnwidth]{figures/exp4a.png}
+  \includegraphics[width=0.95\columnwidth]{figures/exp4.png}
   \caption{VNF-PNF synchronization offset over elapsed slots under the multi-switch/router deployment.}
-  \label{fig:exp4a}
+  \label{fig:exp4}
 \end{figure}
 
-\subsection{Experimental 5: Throughput Under Varying Offered Load}
+\subsection{Experimental 5: Stability under Real Network Congestion}
 \label{subsec:scenario_5}
 
-\textcolor{blue}{To evaluate the system-level throughput stability of the proposed timing-control mechanism under realistic multi-hop conditions, we execute end-to-end data transmission in Experimental Scenario II. Fig.~\ref{fig:exp5a} shows the UE downlink RX throughput (dashed line) and VNF-PNF ping latency (solid line) over a continuous timeline during which different levels of offered load are injected. The proposed method successfully completes the entire transmission process under varying offered loads. Furthermore, as the injected load increases, the ping latency fluctuates and rises up to 2.0 ms due to growing queueing delay across the multi-hop path. Despite this severe and dynamic jitter, the proposed method dynamically adapts the slots ahead to prevent late packet arrivals, thereby keeping data transmission stable. These results confirm the feasibility of deploying the proposed method across the campus-wide, multi-hop network environment.}
+\textcolor{blue}{To evaluate the system-level throughput stability of the proposed timing-control mechanism under realistic multi-hop conditions, we execute end-to-end data transmission in Experimental Scenario II. We use ping to measure the network interface latency between the VNF and PNF to evaluate the actual deployment environment. As shown in Fig.~\ref{fig:exp5}(a), when the deployment spans the campus network, it experiences higher base latency and jitter compared with a single-switch environment. Under real network traffic, the ping latency varies and rises up to 2.0~ms due to queueing delay. Despite this severe and dynamic transport jitter, the proposed method dynamically adapts the slots ahead parameter to prevent late packet arrivals, keeping data transmission stable. As shown in Fig.~\ref{fig:exp5}(b), even under real network congestion, the proposed method keeps slot packet arrivals within the timing window of the physical layer, avoiding connection drops and maintaining stable system throughput.}
 
 \begin{figure}[!htbp]
   \centering
-  \includegraphics[width=0.95\columnwidth]{figures/exp5a.png}
-  \caption{UE RX throughput and ping latency under the multi-switch/router deployment.}
-  \label{fig:exp5a}
+  \subfloat[UE RX throughput and ping latency]{\includegraphics[width=0.48\columnwidth]{figures/exp5a.png}\label{fig:exp5a}}
+  \hfill
+  \subfloat[Throughput and late packet drops]{\includegraphics[width=0.48\columnwidth]{figures/exp5b.png}\label{fig:exp5b}}
+  \caption{System performance and latency under real network congestion.}
+  \label{fig:exp5}
+\end{figure}
+
+\subsection{Experimental 6: Timing Info Mode}
+\label{subsec:scenario_6}
+
+\textcolor{blue}{We evaluate the impact of different timing info reporting modes and periods under varying transport distances in Experimental Scenario III. The nFAPI protocol supports periodic and aperiodic timing info feedback modes. Fig.~\ref{fig:exp6}(a) shows that the deployment distance affects the aperiodic packet loss rate. A longer deployment distance increases transport delay and jitter, leading to a higher base packet loss rate. Fig.~\ref{fig:exp6}(b) shows that increasing the timing period in periodic mode leads to a higher packet loss rate. This is because a longer period reduces feedback frequency. As a result, the VNF timing loop cannot adjust the slots ahead parameter fast enough to adapt to network variations, causing more slot packets to arrive late and be discarded by the PNF.}
+
+\begin{figure}[!htbp]
+  \centering
+  \subfloat[Aperiodic packet loss rate vs. distance]{\includegraphics[width=0.48\columnwidth]{figures/exp6a.png}\label{fig:exp6a}}
+  \hfill
+  \subfloat[Packet loss rate vs. timing period]{\includegraphics[width=0.48\columnwidth]{figures/exp6b.png}\label{fig:exp6b}}
+  \caption{Evaluation of packet loss rate under different timing info modes and periods.}
+  \label{fig:exp6}
 \end{figure}
 
 \section{Conclusion}
