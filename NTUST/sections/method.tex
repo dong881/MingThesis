@@ -6,7 +6,7 @@
 \chapter{Proposed Method}
 \label{sec:method}
 
-This chapter details the proposed dynamic timing adjustment framework. To address the unstable transmission latency during packet transmission between the PNF and VNF, we propose two core timing control algorithms: Node sync for software-level clock synchronization and Delay Management for slot-level adaptive delay management. The timing control of this system is organized as a closed-loop system, ensuring that the VNF-side scheduling can dynamically track and compensate for both microsecond-level clock drift and slot-level transport latency variation. The two core algorithms cooperate as follows:
+This chapter details the proposed dynamic timing adjustment framework. To address the unstable transmission latency during packet transmission between the PNF and VNF, we propose two core timing control algorithms: node sync for software-level clock synchronization and delay management for slot-level adaptive delay management. The timing control of this system is organized as a closed-loop system, ensuring that the VNF-side scheduling can dynamically track and compensate for both microsecond-level clock drift and slot-level transport latency variation. The two core algorithms cooperate as follows:
 
 \begin{enumerate}
     \item \textbf{Node sync:} Maintains phase and slot boundary alignment between the VNF and PNF. It periodically exchanges timestamps to calculate the absolute phase offset, correcting for hardware clock drift (Clock Drift).
@@ -176,9 +176,9 @@ The core delay management strategy is condensed in Algorithm~\ref{alg:delay_mana
 \end{algorithmic}
 \end{algorithm}
 
-\subsection{Coordination between Node sync and Delay Management}
+\subsection{Coordination between Node Sync and Delay Management}
 \label{subsec:coordination}
 
-To ensure stable operation under real-world conditions, Node sync and Delay Management must coordinate without inducing control loop oscillations. The microsecond-level Node sync focuses strictly on correcting clock phase offsets to align the VNF's scheduling thread with the PNF's slot transitions. Because it directly shifts the VNF's time base, any clock adjustment ($S_{adj}, \mu s_{adj}$) temporarily shifts the arrival timestamp reference. Delay Management is designed to absorb this transient shifting. By relying on history-weighted EWMA-based risk tracking ($R_i$), Delay Management avoids reacting to the temporary timing offsets caused by clock adjustments, allowing Node sync to converge. Once Node sync locks synchronization ($\mathit{sync\_locked} = 1$), the time base stabilizes, allowing Delay Management to achieve precise slot-level optimizations ($S_{\mathrm{ahead}}$).
+To ensure stable operation under real-world conditions, node sync and delay management must coordinate without inducing control loop oscillations. The microsecond-level node sync focuses strictly on correcting clock phase offsets to align the VNF's scheduling thread with the PNF's slot transitions. Because it directly shifts the VNF's time base, any clock adjustment ($S_{adj}, \mu s_{adj}$) temporarily shifts the arrival timestamp reference. Delay management is designed to absorb this transient shifting. By relying on history-weighted EWMA-based risk tracking ($R_i$), delay management avoids reacting to the temporary timing offsets caused by clock adjustments, allowing node sync to converge. Once node sync locks synchronization ($\mathit{sync\_locked} = 1$), the time base stabilizes, allowing delay management to achieve precise slot-level optimizations ($S_{\mathrm{ahead}}$).
 
 \end{document}
