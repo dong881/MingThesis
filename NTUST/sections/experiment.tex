@@ -251,39 +251,32 @@ When the connection between the VNF and PNF is established, they start calculati
   \label{fig:exp4}
 \end{figure}
 
+
 \section{Experimental 5: Stability under Real Network Congestion}
 \label{subsec:scenario_5}
 
-To evaluate the system-level throughput stability of the proposed timing-control mechanism under realistic multi-hop conditions, we execute end-to-end data transmission in Experimental Scenario II. We use ping to measure the network interface latency between the VNF and PNF to evaluate the actual deployment environment. When the system is deployed across the campus network (multi-hop network), it experiences higher base latency and jitter compared with a single-switch environment.
-
-Fig.~\ref{fig:exp5a} shows the UE downlink RX throughput (the blue dashed line) and the VNF-PNF ping latency (the grey solid line) over a continuous timeline during which different levels of offered load are injected. The proposed method successfully completes the entire transmission process under varying offered loads. When the network is idle between load steps, the baseline ping latency is low and stable at around 0.3 to 0.4~ms. As the injected load increases, the ping latency varies and rises up to approximately 2.0~ms due to growing queueing delay across the multi-hop path. Despite this severe and dynamic transport jitter, the proposed method dynamically adapts the slots ahead parameter to prevent late packet arrivals, thereby maintaining stable data transmission without connection drops. These results confirm the feasibility of deploying the proposed method across the campus-wide, multi-hop network environment.
-
-Fig.~\ref{fig:exp5b} shows the system stability in terms of slot packet arrival times and late arrival packet drops under the campus network environment. Even under real network congestion with high latency and jitter, the proposed adaptive timing control ensures that MAC scheduling commands consistently arrive within the timing window of the physical layer. This significantly reduces packet drops and maintains high system throughput.
+To evaluate the system-level throughput stability of the proposed timing-control mechanism under realistic multi-hop conditions, we execute end-to-end data transmission in Experimental Scenario II. We use ping to measure the network interface latency between the VNF and PNF. Under Scenario II (Remote deployment, Fig.~\ref{fig:exp5}(a)), the connection spans the campus network and traverses multiple switches and routers, resulting in higher base latency and queueing delay variations (ping latency up to 2.0~ms). Despite this severe transport jitter, the proposed method dynamically adapts the slots ahead parameter to prevent late packet arrivals, maintaining stable data transmission. Under Scenario III (Near-site deployment, Fig.~\ref{fig:exp5}(b)), the base latency is lower and more stable (around 0.3 to 0.5~ms). In this environment, the proposed method also maintains stable near-peak throughput. Because the transport delay is lower, the required slots ahead parameter is smaller, which optimizes the MAC HARQ RTT.
 
 \begin{figure}[!htbp]
   \centering
-  \subfloat[UE RX throughput and ping latency over a continuous timeline]{\includegraphics[width=0.95\textwidth]{figures/exp5a.png}\label{fig:exp5a}} \\
+  \subfloat[Scenario II: Remote deployment]{\includegraphics[width=0.95\textwidth]{figures/exp5a.png}\label{fig:exp5a}} \\
   \vspace{0.3cm}
-  \subfloat[System throughput and late packet drops under real network congestion]{\includegraphics[width=0.95\textwidth]{figures/exp5b.png}\label{fig:exp5b}}
-  \caption{UE RX throughput, ping latency, and system stability under the multi-switch/router deployment.}
+  \subfloat[Scenario III: Near-site deployment]{\includegraphics[width=0.95\textwidth]{figures/exp5b.png}\label{fig:exp5b}}
+  \caption{UE RX throughput and ping latency under different real network deployment scenarios.}
   \label{fig:exp5}
 \end{figure}
 
 \section{Experimental 6: Timing Info Mode}
 \label{subsec:scenario_6}
 
-In this experiment, we evaluate the impact of different timing info reporting modes and periods under varying transport network distances. The nFAPI protocol supports both periodic and aperiodic timing info feedback modes. In periodic mode, the PNF sends timing info messages at a fixed interval (configured by the timing period parameter). In aperiodic mode, the PNF sends timing info only when a slot packet fails to arrive within the timing window.
-
-We evaluate the system performance under Experimental Scenario III, where we simulate different deployment distances (varying base latencies). The deployment distance affects the aperiodic packet loss rate. Fig.~\ref{fig:exp6a} shows the aperiodic packet loss rate under different deployment distances. When the deployment distance increases, the transport delay and jitter also increase, leading to a higher base packet loss rate.
-
-Furthermore, we evaluate how the timing period configuration impacts the packet loss rate under a fixed long-distance deployment. Fig.~\ref{fig:exp6b} shows the packet loss rate under different periodic timing info reporting periods. Increasing the timing period leads to a higher packet loss rate. This is because a longer timing period reduces the feedback frequency. When feedback is less frequent, the VNF timing loop cannot adjust the slots ahead parameter fast enough to adapt to network variations. Therefore, more slot packets arrive late and are discarded by the PNF, causing a higher packet loss rate. The results show that a smaller reporting period enables more active feedback, allowing the proposed method to maintain low packet loss.
+We evaluate the impact of different timing info reporting modes and periods under Scenario II (Remote deployment, Fig.~\ref{fig:exp6}(a)) and Scenario III (Near-site deployment, Fig.~\ref{fig:exp6}(b)). The nFAPI protocol supports periodic and aperiodic timing info feedback modes. Fig.~\ref{fig:exp6}(a) and Fig.~\ref{fig:exp6}(b) present the packet loss rate under different reporting configurations for both deployment scenarios. In both cases, increasing the timing period in periodic mode leads to a higher packet loss rate. This is because a longer period reduces feedback frequency. As a result, the VNF timing loop cannot adjust the slots ahead parameter fast enough to adapt to network variations, causing more slot packets to arrive late and be discarded by the PNF. Under Scenario II (Remote deployment), the longer distance and higher transport jitter result in a higher base packet loss rate, making the system more sensitive to feedback delay. Under Scenario III (Near-site deployment), the lower base latency and jitter allow the system to maintain a lower packet loss rate even with a slightly longer timing period.
 
 \begin{figure}[!htbp]
   \centering
-  \subfloat[Aperiodic packet loss rate under different deployment distances]{\includegraphics[width=0.95\textwidth]{figures/exp6a.png}\label{fig:exp6a}} \\
+  \subfloat[Scenario II: Remote deployment]{\includegraphics[width=0.95\textwidth]{figures/exp6a.png}\label{fig:exp6a}} \\
   \vspace{0.3cm}
-  \subfloat[Packet loss rate under different timing info reporting periods]{\includegraphics[width=0.95\textwidth]{figures/exp6b.png}\label{fig:exp6b}}
-  \caption{Evaluation of packet loss rate under different timing info modes and periods.}
+  \subfloat[Scenario III: Near-site deployment]{\includegraphics[width=0.95\textwidth]{figures/exp6b.png}\label{fig:exp6b}}
+  \caption{Evaluation of packet loss rate under different deployment scenarios.}
   \label{fig:exp6}
 \end{figure}
 
