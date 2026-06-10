@@ -20,9 +20,9 @@ The rest of this chapter is organized as follows: Section~\ref{subsec:experiment
 
 To evaluate the performance of our proposed timing adjustment framework under different environments, we design three topologies:
 \begin{itemize}
-\item \textbf{Experimental Scenario I (Controlled Single-Switch environment):} A standard testbed where the VNF and PNF are connected directly via a single commercial Ethernet switch. This controlled setup is used to analyze EWMA filtering, benchmark throughput-latency trade-offs against static baselines, and evaluate robustness under Linux-TC-injected delay and jitter.
-\item \textbf{Experimental Scenario II (Near-Site Single-Hop Deployment):} A near-site campus deployment where the VNF and PNF are co-located in the same campus area and connected via a single commercial Ethernet switch, introducing minimal base transport latency (around 0.3--0.5~ms). This scenario evaluates the proposed timing control under stable, low-latency fronthaul conditions.
-\item \textbf{Experimental Scenario III (Multi-Switch/Router Campus Deployment):} A realistic multi-hop campus network topology where the VNF and PNF are physically disaggregated across different campus buildings. As shown in Fig.~\ref{fig:scenario2_topology}, the connection traverses $3$ commercial switches and $3$ commercial routers, introducing realistic transport delays and route-dependent jitter (ping latency up to 2.0~ms).
+\item \textbf{Experimental Scenario I (Controlled Single-Switch environment):} A standard testbed where the VNF and PNF are connected directly via a single commercial Ethernet switch, as shown in the rApp automated evaluation framework (Figure~\ref{fig:rapp_architecture}). This controlled setup is used to analyze EWMA filtering, benchmark throughput-latency trade-offs against static baselines, and evaluate robustness under delay and jitter. Specifically, Linux Traffic Control (TC) is applied between the nodes to inject artificial latency and jitter: on the downlink fronthaul link ($T_2-T_1$) and on the uplink MAC feedback link ($T_5-T_4$ / $T_4-T_5$).
+\item \textbf{Experimental Scenario II (Near-Site Single-Hop Deployment):} A near-site campus deployment where the VNF and PNF are co-located in the same campus area and connected via a single commercial Ethernet switch, introducing minimal base transport latency (around 0.3--0.5~ms). This scenario, together with Scenario III, is deployed in the campus network topology illustrated in Figure~\ref{fig:scenario2_topology}. It evaluates the proposed timing control under stable, low-latency fronthaul conditions.
+\item \textbf{Experimental Scenario III (Multi-Switch/Router Campus Deployment):} A realistic multi-hop campus network topology where the VNF and PNF are physically disaggregated across different campus buildings. As shown in Figure~\ref{fig:scenario2_topology}, the connection traverses $3$ commercial switches and $3$ commercial routers, introducing realistic transport delays and route-dependent jitter (ping latency up to 2.0~ms).
 \end{itemize}
 
 The detailed hardware and software configuration of the end-to-end network deployment in the testbed environment is shown in the table below.
@@ -67,7 +67,7 @@ Fronthaul Interface & O-RAN F release \\
 \end{tabular}
 \end{table}
 
-To ensure consistent data quality for automated measurement and analysis, this study developed an automated evaluation rApp running on the Non-Real-Time RAN Intelligent Controller (Non-RT RIC) within the O-RAN Service Management and Orchestration (SMO) framework \cite{O-RAN.arch, O-RAN.rapp}, as shown in Figure~\ref{fig:rapp_architecture}. This rApp automatically starts the VNF and PNF. Once the gNB is successfully established, the rApp automatically connects to the control PC via SSH, toggles the UE's airplane mode using the Android Debug Bridge (ADB) \cite{ADB}, and then launches an iPerf \cite{iperf3} server on the Core Network server via SSH. Subsequently, it automatically executes a series of predefined iPerf test cases. After that, the rApp collects all log files via O1 SFTP and uses Python scripts to automatically plot charts for subsequent data analysis. During the experiments, we also used tcpdump \cite{tcpdump} for packet sniffing, and utilized Linux PTP \cite{LinuxPTP311} and TSN time synchronization mechanisms \cite{tsn-timesync} to ensure baseline timing among network nodes, while underlying data transmission relied on DPDK \cite{DPDK20119} for packet acceleration. A key capability of this framework is the ability to automate network delay simulations on the MAC feedback link ($T_5-T_4$) and fronthaul link ($T_2-T_1$) using Linux Traffic Control (TC), which is crucial for verifying the stability of the disaggregated architecture under non-deterministic latency.
+To ensure consistent data quality for automated measurement and analysis, this study developed an automated evaluation rApp running on the Non-Real-Time RAN Intelligent Controller (Non-RT RIC) within the O-RAN Service Management and Orchestration (SMO) framework \cite{O-RAN.arch, O-RAN.rapp}, as shown in Figure~\ref{fig:rapp_architecture}. This setup serves as the testbed architecture for Experimental Scenario I. This rApp automatically starts the VNF and PNF. Once the gNB is successfully established, the rApp automatically connects to the control PC via SSH, toggles the UE's airplane mode using the Android Debug Bridge (ADB) \cite{ADB}, and then launches an iPerf \cite{iperf3} server on the Core Network server via SSH. Subsequently, it automatically executes a series of predefined iPerf test cases. After that, the rApp collects all log files via O1 SFTP and uses Python scripts to automatically plot charts for subsequent data analysis. During the experiments, we also used tcpdump \cite{tcpdump} for packet sniffing, and utilized Linux PTP \cite{LinuxPTP311} and TSN time synchronization mechanisms \cite{tsn-timesync} to ensure baseline timing among network nodes, while underlying data transmission relied on DPDK \cite{DPDK20119} for packet acceleration. A key capability of this framework is the ability to automate network delay simulations by running Linux Traffic Control (TC) on the intermediate link. Specifically, Linux TC is applied to inject latency and jitter on the fronthaul link ($T_2-T_1$) and on the MAC feedback link ($T_5-T_4$ / $T_4-T_5$), which is crucial for verifying the stability of the disaggregated architecture under non-deterministic latency.
 
 \begin{figure}[!htbp]
   \centering
@@ -75,14 +75,14 @@ To ensure consistent data quality for automated measurement and analysis, this s
 \iffalse
   \caption{rApp 自動化評估框架架構。}
 \fi
-  \caption{Architecture of the rApp automated evaluation framework.}
+  \caption{Architecture of the rApp automated evaluation framework for Experimental Scenario I (Controlled Single-Switch setup with Linux TC delay injection).}
   \label{fig:rapp_architecture}
 \end{figure}
 
 \begin{figure*}[!t]
   \centering
   \includegraphics[width=0.95\textwidth]{figures/Experimental_Scenario.png}
-  \caption{Experimental Scenario III: multi-switch/router campus deployment for evaluating the proposed adaptive timing control under realistic non-deterministic transport.}
+  \caption{Experimental Scenario II and III: campus network deployments (near-site single-hop and multi-switch/router multi-hop) for evaluating the proposed adaptive timing control under realistic transport.}
   \label{fig:scenario2_topology}
 \end{figure*}
 

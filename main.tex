@@ -327,8 +327,8 @@ R_i = \mathit{TimingInfoEWMA}[i] + \mathit{TimingInfoDev}[i]
 
 \textcolor{blue}{To evaluate the performance of our proposed timing adjustment framework under different environments, we design three topologies:
 \begin{itemize}
-\item \textbf{Experimental Scenario I (Controlled Single-Switch environment):} A standard testbed where the VNF and PNF are connected directly via a single commercial Ethernet switch. This controlled setup is used to analyze EWMA filtering, benchmark throughput-latency trade-offs against static baselines, and evaluate robustness under Linux-TC-injected delay and jitter.
-\item \textbf{Experimental Scenario II (Near-Site Single-Hop Deployment):} A near-site campus deployment where the VNF and PNF are co-located in the same campus area and connected via a single commercial Ethernet switch, introducing minimal base transport latency (around 0.3--0.5~ms). This scenario evaluates the proposed timing control under stable, low-latency fronthaul conditions.
+\item \textbf{Experimental Scenario I (Controlled Single-Switch environment):} A standard testbed where the VNF and PNF are connected directly via a single commercial Ethernet switch, as shown in the rApp automated evaluation framework (Fig.~\ref{fig:rapp_architecture}). This controlled setup is used to analyze EWMA filtering, benchmark throughput-latency trade-offs against static baselines, and evaluate robustness under delay and jitter. Specifically, Linux Traffic Control (TC) is applied between the nodes to inject artificial latency and jitter: on the downlink fronthaul link ($T_2-T_1$) and on the uplink MAC feedback link ($T_5-T_4$ / $T_4-T_5$).
+\item \textbf{Experimental Scenario II (Near-Site Single-Hop Deployment):} A near-site campus deployment where the VNF and PNF are co-located in the same campus area and connected via a single commercial Ethernet switch, introducing minimal base transport latency (around 0.3--0.5~ms). This scenario, together with Scenario III, is deployed in the campus network topology illustrated in Fig.~\ref{fig:scenario2_topology}. It evaluates the proposed timing control under stable, low-latency fronthaul conditions.
 \item \textbf{Experimental Scenario III (Multi-Switch/Router Campus Deployment):} A realistic multi-hop campus network topology where the VNF and PNF are physically disaggregated across different campus buildings. As shown in Fig.~\ref{fig:scenario2_topology}, the connection traverses $3$ commercial switches and $3$ commercial routers, introducing realistic transport delays and route-dependent jitter (ping latency up to 2.0~ms).
 \end{itemize}}
 
@@ -368,19 +368,19 @@ Fronthaul & O-RAN F release \\
 \end{tabular}
 \end{table}
 
-\textcolor{blue}{To ensure automated measurement and analysis with consistent data quality, an automated evaluation rApp was developed to operate on the Non-Real-Time RAN Intelligent Controller (Non-RT RIC) within the O-RAN Service Management and Orchestration (SMO) framework \cite{ORAN_Architecture2024}. As shown in Fig.~\ref{fig:rapp_architecture}, this rApp automates the start-up of the VNF and PNF. Once the gNB is established, it automatically connects to the control PC via SSH to toggle the UE's airplane mode using Android Debug Bridge (ADB), and subsequently uses SSH to launch the iPerf server on the Core Network (CN) server. It then executes a series of pre-scheduled iPerf tests automatically. Finally, the rApp collects all log files via O1 SFTP and utilizes Python scripts to plot the following data analysis charts. Crucially, it manages the network latency simulation at $T_5-T_4$ and $T_2-T_1$ via Linux Traffic Control (TC) to systematically validate the split-architecture stability.}
+\textcolor{blue}{To ensure automated measurement and analysis with consistent data quality, an automated evaluation rApp was developed to operate on the Non-Real-Time RAN Intelligent Controller (Non-RT RIC) within the O-RAN Service Management and Orchestration (SMO) framework \cite{ORAN_Architecture2024}. As shown in Fig.~\ref{fig:rapp_architecture}, this setup serves as the testbed architecture for Experimental Scenario I. This rApp automates the start-up of the VNF and PNF. Once the gNB is established, it automatically connects to the control PC via SSH to toggle the UE's airplane mode using Android Debug Bridge (ADB), and subsequently uses SSH to launch the iPerf server on the Core Network (CN) server. It then executes a series of pre-scheduled iPerf tests automatically. Finally, the rApp collects all log files via O1 SFTP and utilizes Python scripts to plot the following data analysis charts. Crucially, it manages the network latency simulation by running Linux Traffic Control (TC) on the intermediate link. Specifically, Linux TC is applied to inject latency and jitter on the downlink fronthaul link ($T_2-T_1$) and on the uplink MAC feedback link ($T_5-T_4$ / $T_4-T_5$) to systematically validate the split-architecture stability.}
 
 \begin{figure}[!htbp]
   \centering
   \includegraphics[width=0.9\columnwidth]{figures/rapp.png}
-  \caption{Architecture of the rApp automated evaluation framework.}
+  \caption{Architecture of the rApp automated evaluation framework for Experimental Scenario I (Controlled Single-Switch setup with Linux TC delay injection).}
   \label{fig:rapp_architecture}
 \end{figure}
 
 \begin{figure*}[!t]
   \centering
   \includegraphics[width=0.95\textwidth]{figures/Experimental_Scenario.png}
-  \caption{Experimental Scenario III: multi-switch/router campus deployment for evaluating the proposed adaptive timing control under realistic non-deterministic transport.}
+  \caption{Experimental Scenario II and III: campus network deployments (near-site single-hop and multi-switch/router multi-hop) for evaluating the proposed adaptive timing control under realistic transport.}
   \label{fig:scenario2_topology}
 \end{figure*}
 
