@@ -218,51 +218,65 @@ S_{\mathrm{adj}} = \mathit{offset} / T_{\mathrm{slot}}
 \textcolor{blue}{Let $T_{\mathrm{slot}}$ denote the slot duration and $S_{\mathrm{ahead}}$ denote the number of slots by which the VNF scheduler triggers earlier than the target slot. For a scheduling message generated at VNF time $t_g$, the corresponding target PNF processing deadline is determined by the target slot boundary. The Timing Info reported by the PNF is denoted by $\mathit{TimingInfo}[i]$, where $\mathit{TimingInfo}[i] < 0$ indicates that the message arrives before the deadline, and $\mathit{TimingInfo}[i] > 0$ indicates a late arrival. Therefore, the delay-management objective is to select the minimum stable $S_{\mathrm{ahead}}$ such that late arrivals are avoided ($\mathit{TimingInfo}[i] \le 0$) while MAC HARQ RTT is not unnecessarily inflated.}
 
 \subsubsection{EWMA-based Timing-Info Estimation}
-\textcolor{blue}{To smooth high-frequency network noise while remaining sensitive to timing drift, EWMA is used to smooth the $\mathit{TimingInfo}[i]$ and to compute $\mathit{TimingInfoDev}[i]$ and $\mathit{TimingInfoEWMA}[i]$. The EWMA structure is inspired by the classical TCP round-trip time estimation method, where a smoothed estimate and a deviation estimate are jointly maintained to tolerate delay variation while remaining responsive to congestion-induced timing changes \cite{Jacobson1988}, \cite{Paxson2011}. The EWMA updates for mean Timing Info and jitter are defined as:}
+\textcolor{blue}{To smooth high-frequency network noise while remaining sensitive to timing drift, an Exponentially Weighted Moving Average (EWMA) filter is used to estimate the mean late arrival $\mathit{TimingInfoEWMA}[i]$ and the arrival jitter deviation $\mathit{TimingInfoDev}[i]$ based on the observed PNF Timing Info $\mathit{TimingInfo}[i]$ at slot $i$. The mean estimation is updated as:}
 \begin{small}
 \begin{equation}
 \begin{split}
-\mathit{TimingInfoEWMA}[i] & \\
-& = (1 - \alpha) \mathit{TimingInfoEWMA}[i-1] \\
+\mathit{TimingInfoEWMA}[i] & = (1 - \alpha) \mathit{TimingInfoEWMA}[i-1] \\
 & \quad + \alpha \mathit{TimingInfo}[i]
 \end{split}
 \end{equation}
+\end{small}
+\textcolor{blue}{where the smoothing factor is chosen as $\alpha = 1/8$ to track the long-term latency trend.}
+
+\textcolor{blue}{To handle dynamic network conditions, the jitter deviation $\mathit{TimingInfoDev}[i]$ is updated using an asymmetric filtering scheme. When a latency spike occurs, the filter tracks the deviation rapidly to avoid deadline violations (attack phase); when the network stabilizes, it decays the deviation slowly to maintain a conservative safety margin (release phase). The asymmetric update is defined as:}
+\begin{small}
+\begin{equation}
+\mathit{TimingInfoDev}[i] = \begin{cases} 
+\mathit{Dev}_{\mathrm{attack}}, & \text{if } D_i > \mathit{TimingInfoDev}[i-1] \\
+\mathit{Dev}_{\mathrm{release}}, & \text{otherwise}
+\end{cases}
+\end{equation}
+\end{small}
+\textcolor{blue}{where the attack and release updates are:}
+\begin{small}
 \begin{equation}
 \begin{split}
-\mathit{TimingInfoDev}[i] & \\
-& = (1 - \beta) \mathit{TimingInfoDev}[i-1] \\
-& \quad + \beta |\mathit{TimingInfo}[i] - \mathit{TimingInfoEWMA}[i]|
+\mathit{Dev}_{\mathrm{attack}} & = (1 - \beta_{\mathrm{attack}}) \mathit{TimingInfoDev}[i-1] \\
+& \quad + \beta_{\mathrm{attack}} D_i \\
+\mathit{Dev}_{\mathrm{release}} & = (1 - \beta_{\mathrm{release}}) \mathit{TimingInfoDev}[i-1] \\
+& \quad + \beta_{\mathrm{release}} D_i
 \end{split}
 \end{equation}
 \end{small}
-\textcolor{blue}{Following this dual-gain estimation principle, the smoothing factors are set to $\alpha = 1/8$ for long-term Timing-Info tracking and $\beta = 1/4$ for fast jitter-variation estimation. Both parameters are negative powers of two ($\alpha = 2^{-3}$, $\beta = 2^{-2}$), which allows efficient fixed-point implementation using bitwise shift operations in the timing-critical MAC path.}
-
-\textcolor{blue}{The combined timing risk indicator $R_i$ is evaluated to determine whether the Timing Info crosses the deadline boundary:}
-\begin{equation}
-R_i = \mathit{TimingInfoEWMA}[i] + \mathit{TimingInfoDev}[i]
-\end{equation}
-\textcolor{blue}{A positive timing risk ($R_i > 0$) implies that the estimated worst-case Timing Info crosses the deadline, indicating an anomaly condition, whereas a negative risk indicates a safe margin.}
+\textcolor{blue}{where $D_i = |\mathit{TimingInfo}[i] - \mathit{TimingInfoEWMA}[i]|$ represents the instantaneous deviation, $\beta_{\mathrm{attack}} = 1/4$ is the attack gain, and $\beta_{\mathrm{release}} = 1/128$ is the release gain. These factors allow efficient fixed-point implementation using bitwise shift operations in the timing-critical MAC path.}
 
 \subsubsection{Adaptive Slots Ahead Control}
 \label{subsubsec:delay_control}
-\textcolor{blue}{The update of the slots ahead trigger timing $S_{\mathrm{ahead}}$ is governed by a fast-increase and conservative-decrease control law to optimize latency while preserving throughput under dynamic congestion:}
+\textcolor{blue}{The slots ahead trigger timing $S_{\mathrm{ahead}}$ is dynamically updated using a fast-increase and conservative-decrease control law. Adjustments are gated by a pacing check to ensure decisions are only made when new reports are available. Let $E_i$ be the elapsed slots since the last adjustment, and $P_{\mathrm{slots}} = \max(1, \mathit{Period}_{\mathrm{subframes}} \times 2^\mu)$ be the reporting period in slots. The adjustment logic is executed only if $E_i \ge P_{\mathrm{slots}}$.}
+
+\textcolor{blue}{The decision rules are defined as follows:}
 \begin{itemize}
-    \item \textbf{Rapid Increase (Preserve Throughput):} \textcolor{blue}{If an anomaly timing risk is detected ($R_i > 0$), indicating that the scheduling message is crossing the PNF processing deadline, the proposed method immediately increases the slots ahead value to prevent late packet arrivals and missing-slot dropouts:}
+    \item \textbf{Rapid Increase (Preserve Throughput):} \textcolor{blue}{If the latest sample is late ($\mathit{TimingInfo}[i] > 0$) or the smoothed worst-case arrival estimate crosses the deadline ($\mathit{TimingInfoEWMA}[i] + \mathit{TimingInfoDev}[i] > 0$), the slots ahead value is immediately increased to prevent late packet arrivals and slot dropouts:}
           \begin{equation}
-          S_{\mathrm{ahead}, i+1} = \min\left(S_{\mathrm{ahead}, i} + \left\lceil \frac{R_i}{T_{\mathrm{slot}}} \right\rceil, S_{\max}\right)
+          S_{\mathrm{target}, i+1} = S_{\mathrm{ahead}, i} + \left\lceil \frac{\mathit{TimingInfoEWMA}[i] + \mathit{TimingInfoDev}[i]}{T_{\mathrm{slot}}} \right\rceil
           \end{equation}
-          \textcolor{blue}{and the stable observation counter $C_{\mathrm{stable}}$ is reset to 0. Here, $S_{\max} = \lfloor T_{\mathrm{window}} / T_{\mathrm{slot}} \rfloor$ represents the maximum allowed slots ahead.}
-    \item \textbf{Gradual Decrease (Optimize Latency):} \textcolor{blue}{If the system is under stable and safe conditions ($R_i < -\mathit{TimingInfoDev}[i]$), indicating that there is a sufficient timing margin, the proposed method decrements the slots ahead value by one slot once the stability condition is satisfied ($C_{\mathrm{stable}} \ge C_{\mathrm{threshold}}$):}
+    \item \textbf{Gradual Decrease (Optimize Latency):} \textcolor{blue}{If the estimated latency shows a safe margin such that the mean arrival time is early enough to absorb both the slot shift and a safety margin of four times the jitter deviation, i.e., $\mathit{TimingInfoEWMA}[i] < -(T_{\mathrm{slot}} + 4 \times \mathit{TimingInfoDev}[i])$, the trigger timing is decremented by one slot to optimize latency:}
           \begin{equation}
-          S_{\mathrm{ahead}, i+1} = \max\left(S_{\mathrm{ahead}, i} - 1, S_{\min}\right)
+          S_{\mathrm{target}, i+1} = S_{\mathrm{ahead}, i} - 1
           \end{equation}
-          \textcolor{blue}{and resets $C_{\mathrm{stable}} = 0$ to prevent premature timing reductions. Here, $S_{\min} = 1$ is the minimum slots ahead trigger offset.}
-    \item \textbf{Maintain Baseline:} \textcolor{blue}{Otherwise, the trigger timing remains unchanged:}
-          \begin{equation}
-          S_{\mathrm{ahead}, i+1} = S_{\mathrm{ahead}, i}
-          \end{equation}
-          \textcolor{blue}{and the stable counter $C_{\mathrm{stable}}$ is incremented if the current sample is safe ($R_i \le 0$).}
+    \item \textbf{Maintain Baseline:} \textcolor{blue}{Otherwise, the target remains unchanged ($S_{\mathrm{target}, i+1} = S_{\mathrm{ahead}, i}$).}
 \end{itemize}
+\textcolor{blue}{The target slots ahead value is then clamped to the range $[S_{\min}, S_{\max}]$:}
+\begin{equation}
+S_{\mathrm{ahead}, i+1} = \max\left(S_{\min}, \min\left(S_{\mathrm{target}, i+1}, S_{\max}\right)\right)
+\end{equation}
+\textcolor{blue}{where $S_{\min} = 3$ and $S_{\max} = \min(8, \lfloor T_{\mathrm{window}} / T_{\mathrm{slot}} \rfloor - 1)$.}
+
+\textcolor{blue}{Finally, when the reference frame shifts due to a slots ahead adjustment ($\delta = S_{\mathrm{ahead}, i+1} - S_{\mathrm{ahead}, i} \neq 0$), the Timing Info history is compensated to align the EWMA state with the new scheduling baseline and prevent transient control loop oscillations:}
+\begin{equation}
+\mathit{TimingInfoEWMA}[i] \gets \mathit{TimingInfoEWMA}[i] - \delta \times T_{\mathrm{slot}}
+\end{equation}
 
 \textcolor{blue}{The core delay management strategy is condensed in Algorithm~\ref{alg:delay_management}.}
 
@@ -277,34 +291,37 @@ R_i = \mathit{TimingInfoEWMA}[i] + \mathit{TimingInfoDev}[i]
 \Statex 
 \Statex \textbf{Notation:} 
 \Statex $\mathit{TimingInfoEWMA}$ (smoothed mean PNF Timing Info), $\mathit{TimingInfoDev}$ (smoothed arrival jitter)
-\Statex $R$ (Timing risk indicator), $C_{\mathrm{stable}}$ (Stable observation counter)
-\Statex $C_{\mathrm{threshold}}$ (Stability observation threshold), $S_{\max}, S_{\min}$ (Boundary limits)
-\Statex $\alpha, \beta$ (Smoothing factors for latency and jitter)
+\Statex $S_{\max}, S_{\min}$ (Boundary limits)
+\Statex $\alpha, \beta_{\mathrm{attack}}, \beta_{\mathrm{release}}$ (Smoothing factors for latency and jitter)
+\Statex $E$ (Elapsed slots since last adjustment), $P_{\mathrm{slots}}$ (Pacing period in slots)
  
 \Statex \textbf{Phase I: Latency and Jitter Estimation}
 \State $\mathit{TimingInfoEWMA} \gets (1 - \alpha)\mathit{TimingInfoEWMA} + \alpha \mathit{TimingInfo}[i]$ \Comment{Update mean PNF Timing Info}
-\State $\mathit{TimingInfoDev} \gets (1 - \beta)\mathit{TimingInfoDev} + \beta |\mathit{TimingInfo}[i] - \mathit{TimingInfoEWMA}|$ \Comment{Update arrival jitter}
-\State $R \gets \mathit{TimingInfoEWMA} + \mathit{TimingInfoDev}$ \Comment{Evaluate combined risk indicator}
- 
-\Statex \textbf{Phase II: Fast-Up and Slow-Down Timing Adjustment}
-\If{$R > 0$}
-    \State $S_{\mathrm{next}} \gets \min(S_{\mathrm{curr}} + \lceil R / T_{\mathrm{slot}} \rceil, S_{\max})$ \Comment{Rapid Increase}
-    \State $C_{\mathrm{stable}} \gets 0$
-\ElsIf{$R < -\mathit{TimingInfoDev}$}
-    \If{$C_{\mathrm{stable}} \ge C_{\mathrm{threshold}}$}
-        \State $S_{\mathrm{next}} \gets \max(S_{\mathrm{curr}} - 1, S_{\min})$ \Comment{Gradual Decrease}
-        \State $C_{\mathrm{stable}} \gets 0$
-    \Else
-        \State $S_{\mathrm{next}} \gets S_{\mathrm{curr}}$
-        \State $C_{\mathrm{stable}} \gets C_{\mathrm{stable}} + 1$
-    \EndIf
+\State $D_i \gets |\mathit{TimingInfo}[i] - \mathit{TimingInfoEWMA}|$
+\If{$D_i > \mathit{TimingInfoDev}$}
+    \State $\mathit{TimingInfoDev} \gets (1 - \beta_{\mathrm{attack}})\mathit{TimingInfoDev} + \beta_{\mathrm{attack}} D_i$ \Comment{Fast jitter tracking (attack)}
 \Else
-    \State $S_{\mathrm{next}} \gets S_{\mathrm{curr}}$
-    \If{$R \le 0$}
-        \State $C_{\mathrm{stable}} \gets C_{\mathrm{stable}} + 1$
-    \Else
-        \State $C_{\mathrm{stable}} \gets 0$
+    \State $\mathit{TimingInfoDev} \gets (1 - \beta_{\mathrm{release}})\mathit{TimingInfoDev} + \beta_{\mathrm{release}} D_i$ \Comment{Slow jitter decay (release)}
+\EndIf
+
+\Statex \textbf{Phase II: Pacing Gate and Adjustment Decision}
+\If{$E < P_{\mathrm{slots}}$}
+    \State \Return $S_{\mathrm{curr}}$ \Comment{Gated: defer decision}
+\EndIf
+\State $S_{\mathrm{target}} \gets S_{\mathrm{curr}}$
+\If{$\mathit{TimingInfo}[i] > 0$ \textbf{or} $(\mathit{TimingInfoEWMA} + \mathit{TimingInfoDev}) > 0$}
+    \State $\Delta \gets \left\lceil (\mathit{TimingInfoEWMA} + \mathit{TimingInfoDev}) / T_{\mathrm{slot}} \right\rceil$
+    \If{$\Delta > 0$}
+        \State $S_{\mathrm{target}} \gets S_{\mathrm{curr}} + \Delta$ \Comment{Rapid Increase}
     \EndIf
+\ElsIf{$\mathit{TimingInfoEWMA} < -(T_{\mathrm{slot}} + 4 \times \mathit{TimingInfoDev})$}
+    \State $S_{\mathrm{target}} \gets S_{\mathrm{curr}} - 1$ \Comment{Gradual Decrease}
+\EndIf
+\State $S_{\mathrm{next}} \gets \max(S_{\min}, \min(S_{\mathrm{target}}, S_{\max}))$ \Comment{Clamp to $[3, S_{\max}]$}
+\If{$S_{\mathrm{next}} \neq S_{\mathrm{curr}}$}
+    \State $\delta \gets S_{\mathrm{next}} - S_{\mathrm{curr}}$
+    \State $\mathit{TimingInfoEWMA} \gets \mathit{TimingInfoEWMA} - \delta \times T_{\mathrm{slot}}$ \Comment{Compensate reference frame shift}
+    \State Update last adjustment time reference
 \EndIf
 \State \Return $S_{\mathrm{next}}$
 \end{algorithmic}
@@ -410,7 +427,7 @@ Fronthaul & O-RAN F release \\
 \subsection{Experimental 2: Performance: Throughput \& MAC HARQ RTT}
 \label{subsec:scenario_2}
 
-\textcolor{blue}{We benchmark the peak throughput and MAC HARQ RTT against a static baseline. Under stable fronthaul conditions, as shown in Fig.~\ref{fig:exp2}, the proposed algorithm prioritizes guaranteeing the optimal throughput under different offered loads, consistently maintaining near-peak throughput performance. Simultaneously, while ensuring this optimal throughput, the algorithm also optimizes the selection of the slots ahead trigger offset to optimize the MAC layer HARQ Round-Trip Time (RTT), effectively avoiding unnecessary overhead. Specifically, at 1000~Mbps offered load, the proposed method achieves approximately 940~Mbps throughput with a MAC HARQ RTT of about 8~ms—comparable to the 4-slot-ahead RTT—while the static 10-slot-ahead configuration incurs approximately 10~ms RTT with no throughput advantage. The 2-slot-ahead configuration collapses to near-zero throughput beyond 200~Mbps offered load.}
+\textcolor{blue}{We benchmark the peak throughput and MAC HARQ RTT against a static baseline. Under stable fronthaul conditions, as shown in Fig.~\ref{fig:exp2}, the proposed algorithm prioritizes guaranteeing the optimal throughput under different offered loads, consistently maintaining near-peak throughput performance. Simultaneously, while ensuring this optimal throughput, the algorithm also optimizes the selection of the slots ahead trigger offset to optimize the MAC layer HARQ Round-Trip Time (RTT), effectively avoiding unnecessary overhead. Specifically, at 1000~Mbps offered load, the proposed method achieves approximately 940~Mbps throughput with a MAC HARQ RTT of about 8~ms—comparable to the RTT with 4 slots ahead—while the static 10 slots ahead configuration incurs approximately 10~ms RTT with no throughput advantage. The 2 slots ahead configuration collapses to near-zero throughput beyond 200~Mbps offered load.}
 
 \begin{figure}[!htbp]
   \centering
@@ -424,7 +441,7 @@ Fronthaul & O-RAN F release \\
 \subsection{Experimental 3: Stability under Traffic Control Network Congestion}
 \label{subsec:scenario_3}
 
-\textcolor{blue}{To evaluate stability, we inject delay and jitter between the VNF and PNF using Linux TC. As shown in Fig.~\ref{fig:exp3a}, static slots ahead configurations suffer from synchronization failures and throughput drops when delay exceeds the timing window, whereas our proposed adaptive mechanism dynamically increases the slots ahead to maintain stable throughput. Specifically, the proposed method maintains approximately 930~Mbps across all tested VNF-PNF latency values up to 3.0~ms, while the best-performing static configuration (10 slots ahead) degrades to near-zero throughput at approximately 2.5~ms injected latency. Additionally, we evaluate the UE DL RX throughput under a saturated 1 Gbps UDP offered load with unpredictable link jitter. As shown in Fig.~\ref{fig:exp3b}, while fixed slots ahead configurations experience severe throughput degradation due to late packets, the proposed adaptive method dynamically tracks jitter and secures stable, high throughput at the UE. The proposed method exhibits graceful throughput degradation, maintaining approximately 930~Mbps at 0--600~$\mu$s jitter and approximately 750~Mbps even at 1000~$\mu$s jitter. In contrast, the best-performing static configuration (6 slots ahead) drops below 300~Mbps at 800~$\mu$s and near zero at 1000~$\mu$s, while 4-, 8-, and 10-slot-ahead configurations all fail below 600~$\mu$s.}
+\textcolor{blue}{To evaluate stability, we inject delay and jitter between the VNF and PNF using Linux TC. As shown in Fig.~\ref{fig:exp3a}, static slots ahead configurations suffer from synchronization failures and throughput drops when delay exceeds the timing window, whereas our proposed adaptive mechanism dynamically increases the slots ahead to maintain stable throughput. Specifically, the proposed method maintains approximately 930~Mbps across all tested VNF-PNF latency values up to 3.0~ms, while the best-performing static configuration (10 slots ahead) degrades to near-zero throughput at approximately 2.5~ms injected latency. Additionally, we evaluate the UE DL RX throughput under a saturated 1 Gbps UDP offered load with unpredictable link jitter. As shown in Fig.~\ref{fig:exp3b}, while fixed slots ahead configurations experience severe throughput degradation due to late packets, the proposed adaptive method dynamically tracks jitter and secures stable, high throughput at the UE. The proposed method exhibits graceful throughput degradation, maintaining approximately 930~Mbps at 0--600~$\mu$s jitter and approximately 750~Mbps even at 1000~$\mu$s jitter. In contrast, the best-performing static configuration (6 slots ahead) drops below 300~Mbps at 800~$\mu$s and near zero at 1000~$\mu$s, while configurations with 4, 8, and 10 slots ahead all fail below 600~$\mu$s.}
 
 \begin{figure}[!htbp]
   \centering

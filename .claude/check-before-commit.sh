@@ -88,7 +88,7 @@ echo -e "${YELLOW}[3/4] Checking Figure References...${NC}"
 
 # 查找所有 \includegraphics 引用
 FIGURES=$(grep -rh "\\\\includegraphics" NTUST/sections/*.tex | \
-    sed 's/.*includegraphics\[.*\]{\(.*\)}/\1/g' | \
+    sed 's/.*includegraphics\(\[.*\]\)\?{\([^}]*\)}.*/\2/g' | \
     sort | uniq)
 
 MISSING_FIGURES=0
