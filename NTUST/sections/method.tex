@@ -147,32 +147,32 @@ The core delay management strategy is condensed in Algorithm~\ref{alg:delay_mana
 \Ensure $S_{\mathrm{next}}$ (Trigger timing for the next MAC schedule)
 \Statex 
 \Statex \textbf{Notation:} 
-\Statex $\mathit{TimingInfoEWMA}$ (smoothed mean PNF Timing Info), $\mathit{TimingInfoDev}$ (smoothed arrival jitter)
+\Statex $\mathit{TimingInfoEWMA}[i]$ (smoothed mean PNF Timing Info), $\mathit{TimingInfoDev}[i]$ (smoothed arrival jitter)
 \Statex $S_{\max}, S_{\min}$ (Boundary limits)
 \Statex $\alpha, \beta$ (Smoothing factors for latency and jitter)
 \Statex $E$ (Elapsed slots since last adjustment), $P_{\mathrm{slots}}$ (Pacing period in slots)
  
 \Statex \textbf{Phase I: Latency and Jitter Estimation}
-\State $\mathit{TimingInfoEWMA} \gets (1 - \alpha)\mathit{TimingInfoEWMA} + \alpha \mathit{TimingInfo}[i]$ \Comment{Update mean PNF Timing Info}
-\State $\mathit{TimingInfoDev} \gets (1 - \beta)\mathit{TimingInfoDev} + \beta |\mathit{TimingInfo}[i] - \mathit{TimingInfoEWMA}|$ \Comment{Update arrival jitter}
+\State $\mathit{TimingInfoEWMA}[i] \gets (1 - \alpha)\mathit{TimingInfoEWMA}[i-1] + \alpha \mathit{TimingInfo}[i]$ \Comment{Update mean PNF Timing Info}
+\State $\mathit{TimingInfoDev}[i] \gets (1 - \beta)\mathit{TimingInfoDev}[i-1] + \beta |\mathit{TimingInfo}[i] - \mathit{TimingInfoEWMA}[i]|$ \Comment{Update arrival jitter}
 
 \Statex \textbf{Phase II: Pacing Gate and Adjustment Decision}
 \If{$E < P_{\mathrm{slots}}$}
     \State \Return $S_{\mathrm{curr}}$ \Comment{Gated: defer decision}
 \EndIf
 \State $S_{\mathrm{target}} \gets S_{\mathrm{curr}}$
-\If{$\mathit{TimingInfo}[i] > 0$ \textbf{or} $(\mathit{TimingInfoEWMA} + \mathit{TimingInfoDev}) > 0$}
-    \State $\Delta \gets \left\lceil (\mathit{TimingInfoEWMA} + \mathit{TimingInfoDev}) / T_{\mathrm{slot}} \right\rceil$
+\If{$\mathit{TimingInfo}[i] > 0$ \textbf{or} $(\mathit{TimingInfoEWMA}[i] + \mathit{TimingInfoDev}[i]) > 0$}
+    \State $\Delta \gets \left\lceil (\mathit{TimingInfoEWMA}[i] + \mathit{TimingInfoDev}[i]) / T_{\mathrm{slot}} \right\rceil$
     \If{$\Delta > 0$}
         \State $S_{\mathrm{target}} \gets S_{\mathrm{curr}} + \Delta$ \Comment{Rapid Increase}
     \EndIf
-\ElsIf{$\mathit{TimingInfoEWMA} < -(T_{\mathrm{slot}} + 4 \times \mathit{TimingInfoDev})$}
+\ElsIf{$\mathit{TimingInfoEWMA}[i] < -(T_{\mathrm{slot}} + 4 \times \mathit{TimingInfoDev}[i])$}
     \State $S_{\mathrm{target}} \gets S_{\mathrm{curr}} - 1$ \Comment{Gradual Decrease}
 \EndIf
 \State $S_{\mathrm{next}} \gets \max(S_{\min}, \min(S_{\mathrm{target}}, S_{\max}))$ \Comment{Clamp to $[3, S_{\max}]$}
 \If{$S_{\mathrm{next}} \neq S_{\mathrm{curr}}$}
     \State $\delta \gets S_{\mathrm{next}} - S_{\mathrm{curr}}$
-    \State $\mathit{TimingInfoEWMA} \gets \mathit{TimingInfoEWMA} - \delta \times T_{\mathrm{slot}}$ \Comment{Compensate reference frame shift}
+    \State $\mathit{TimingInfoEWMA}[i] \gets \mathit{TimingInfoEWMA}[i] - \delta \times T_{\mathrm{slot}}$ \Comment{Compensate reference frame shift}
     \State Update last adjustment time reference
 \EndIf
 \State \Return $S_{\mathrm{next}}$
