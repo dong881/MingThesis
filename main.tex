@@ -227,29 +227,18 @@ S_{\mathrm{adj}} = \mathit{offset} / T_{\mathrm{slot}}
 \end{split}
 \end{equation}
 \end{small}
-\textcolor{blue}{where the smoothing factor is chosen as $\alpha = 1/8$ to track the long-term latency trend.}
+\textcolor{blue}{where the smoothing factor is chosen as $\alpha = 1/8$ to track the long-term latency trend, and its initial value is set to the first observed Timing Info value.}
 
-\textcolor{blue}{To handle dynamic network conditions, the jitter deviation $\mathit{TimingInfoDev}[i]$ is updated using an asymmetric filtering scheme. When a latency spike occurs, the filter tracks the deviation rapidly to avoid deadline violations (attack phase); when the network stabilizes, it decays the deviation slowly to maintain a conservative safety margin (release phase). The asymmetric update is defined as:}
-\begin{small}
-\begin{equation}
-\mathit{TimingInfoDev}[i] = \begin{cases} 
-\mathit{Dev}_{\mathrm{attack}}, & \text{if } D_i > \mathit{TimingInfoDev}[i-1] \\
-\mathit{Dev}_{\mathrm{release}}, & \text{otherwise}
-\end{cases}
-\end{equation}
-\end{small}
-\textcolor{blue}{where the attack and release updates are:}
+\textcolor{blue}{The jitter deviation $\mathit{TimingInfoDev}[i]$ is updated to capture timing variation as:}
 \begin{small}
 \begin{equation}
 \begin{split}
-\mathit{Dev}_{\mathrm{attack}} & = (1 - \beta_{\mathrm{attack}}) \mathit{TimingInfoDev}[i-1] \\
-& \quad + \beta_{\mathrm{attack}} D_i \\
-\mathit{Dev}_{\mathrm{release}} & = (1 - \beta_{\mathrm{release}}) \mathit{TimingInfoDev}[i-1] \\
-& \quad + \beta_{\mathrm{release}} D_i
+\mathit{TimingInfoDev}[i] & = (1 - \beta) \mathit{TimingInfoDev}[i-1] \\
+& \quad + \beta |\mathit{TimingInfo}[i] - \mathit{TimingInfoEWMA}[i]|
 \end{split}
 \end{equation}
 \end{small}
-\textcolor{blue}{where $D_i = |\mathit{TimingInfo}[i] - \mathit{TimingInfoEWMA}[i]|$ represents the instantaneous deviation, $\beta_{\mathrm{attack}} = 1/4$ is the attack gain, and $\beta_{\mathrm{release}} = 1/128$ is the release gain. These factors allow efficient fixed-point implementation using bitwise shift operations in the timing-critical MAC path.}
+\textcolor{blue}{where $\beta = 1/4$ is the deviation smoothing factor, and its initial value is set to half of the absolute first observed Timing Info value. Both parameters are chosen as negative powers of two ($\alpha = 2^{-3}$, $\beta = 2^{-2}$), which allows efficient fixed-point implementation using bitwise shift operations in the timing-critical MAC path.}
 
 \subsubsection{Adaptive Slots Ahead Control}
 \label{subsubsec:delay_control}
@@ -292,17 +281,12 @@ S_{\mathrm{ahead}, i+1} = \max\left(S_{\min}, \min\left(S_{\mathrm{target}, i+1}
 \Statex \textbf{Notation:} 
 \Statex $\mathit{TimingInfoEWMA}$ (smoothed mean PNF Timing Info), $\mathit{TimingInfoDev}$ (smoothed arrival jitter)
 \Statex $S_{\max}, S_{\min}$ (Boundary limits)
-\Statex $\alpha, \beta_{\mathrm{attack}}, \beta_{\mathrm{release}}$ (Smoothing factors for latency and jitter)
+\Statex $\alpha, \beta$ (Smoothing factors for latency and jitter)
 \Statex $E$ (Elapsed slots since last adjustment), $P_{\mathrm{slots}}$ (Pacing period in slots)
  
 \Statex \textbf{Phase I: Latency and Jitter Estimation}
 \State $\mathit{TimingInfoEWMA} \gets (1 - \alpha)\mathit{TimingInfoEWMA} + \alpha \mathit{TimingInfo}[i]$ \Comment{Update mean PNF Timing Info}
-\State $D_i \gets |\mathit{TimingInfo}[i] - \mathit{TimingInfoEWMA}|$
-\If{$D_i > \mathit{TimingInfoDev}$}
-    \State $\mathit{TimingInfoDev} \gets (1 - \beta_{\mathrm{attack}})\mathit{TimingInfoDev} + \beta_{\mathrm{attack}} D_i$ \Comment{Fast jitter tracking (attack)}
-\Else
-    \State $\mathit{TimingInfoDev} \gets (1 - \beta_{\mathrm{release}})\mathit{TimingInfoDev} + \beta_{\mathrm{release}} D_i$ \Comment{Slow jitter decay (release)}
-\EndIf
+\State $\mathit{TimingInfoDev} \gets (1 - \beta)\mathit{TimingInfoDev} + \beta |\mathit{TimingInfo}[i] - \mathit{TimingInfoEWMA}|$ \Comment{Update arrival jitter}
 
 \Statex \textbf{Phase II: Pacing Gate and Adjustment Decision}
 \If{$E < P_{\mathrm{slots}}$}
