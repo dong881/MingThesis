@@ -242,7 +242,7 @@ S_{\mathrm{adj}} = \mathit{offset} / T_{\mathrm{slot}}
 
 \subsubsection{Adaptive Slots Ahead Control}
 \label{subsubsec:delay_control}
-\textcolor{blue}{The slots ahead trigger timing $S_{\mathrm{ahead}}$ is dynamically updated using a fast-increase and conservative-decrease control law. Adjustments are gated by a pacing check to ensure decisions are only made when new reports are available. Let $E_i$ be the elapsed slots since the last adjustment, and $P_{\mathrm{slots}} = \max(1, \mathit{Period}_{\mathrm{subframes}} \times 2^\mu)$ be the reporting period in slots. The adjustment logic is executed only if $E_i \ge P_{\mathrm{slots}}$.}
+\textcolor{blue}{The slots ahead trigger timing $S_{\mathrm{ahead}}$ is dynamically updated using a fast-increase and conservative-decrease control law. The adjustment logic is executed upon receiving each Timing Info report.}
 
 \textcolor{blue}{The decision rules are defined as follows:}
 \begin{itemize}
@@ -277,17 +277,14 @@ S_{\mathrm{next}} = \max\left(S_{\min}, \min\left(S_{\mathrm{target}}, S_{\max}\
 \Statex \textbf{Notation:} 
 \Statex $\mathit{TimingInfoEWMA}[i]$, $\mathit{TimingInfoDev}[i]$: smoothed mean and arrival jitter
 \Statex $R_i$: timing risk estimate; $S_{\max}, S_{\min}$: boundary limits
-\Statex $\alpha, \beta$: smoothing factors; $E$: elapsed slots; $P_{\mathrm{slots}}$: pacing period
+\Statex $\alpha, \beta$: smoothing factors
  
 \Statex \textbf{Phase I: Latency and Jitter Estimation}
 \State $\mathit{TimingInfoEWMA}[i] \gets (1 - \alpha)\mathit{TimingInfoEWMA}[i-1] + \alpha \mathit{TimingInfo}[i]$ \Comment{Update mean PNF Timing Info}
 \State $\mathit{TimingInfoDev}[i] \gets (1 - \beta)\mathit{TimingInfoDev}[i-1] + \beta |\mathit{TimingInfo}[i] - \mathit{TimingInfoEWMA}[i]|$ \Comment{Update arrival jitter}
 \State $R_i \gets \mathit{TimingInfoEWMA}[i] + \mathit{TimingInfoDev}[i]$ \Comment{Compute timing risk}
 
-\Statex \textbf{Phase II: Pacing Gate and Adjustment Decision}
-\If{$E < P_{\mathrm{slots}}$}
-    \State \Return $S_{\mathrm{curr}}$ \Comment{Gated: defer decision}
-\EndIf
+\Statex \textbf{Phase II: Adjustment Decision}
 \State $S_{\mathrm{target}} \gets S_{\mathrm{curr}}$
 \If{$\mathit{TimingInfo}[i] > 0$ \textbf{or} $R_i > 0$}
     \State $\Delta \gets \left\lceil R_i / T_{\mathrm{slot}} \right\rceil$
