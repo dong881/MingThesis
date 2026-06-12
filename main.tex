@@ -248,7 +248,7 @@ S_{\mathrm{adj}} = \mathit{offset} / T_{\mathrm{slot}}
           \begin{equation}
           S_{\mathrm{next}} = S_{\mathrm{curr}} + \left\lceil \frac{\mathit{TimingInfoEWMA}[i] + \mathit{TimingInfoDev}[i]}{T_{\mathrm{slot}}} \right\rceil
           \end{equation}
-    \item \textbf{Gradual Decrease (Optimize Latency):} \textcolor{blue}{If the estimated latency shows a safe margin such that the worst-case arrival time is early enough, i.e., $\mathit{TimingInfoEWMA}[i] + 4 \times \mathit{TimingInfoDev}[i] < -T_{\mathrm{slot}}$, the trigger timing is decremented by one slot to optimize latency:}
+    \item \textbf{Gradual Decrease (Optimize Latency):} \textcolor{blue}{If the estimated latency shows a safe margin such that the worst-case arrival time is early enough, i.e., $\mathit{TimingInfoEWMA}[i] + 4 \times \mathit{TimingInfoDev}[i] < 0$, the trigger timing is decremented by one slot to optimize latency:}
           \begin{equation}
           S_{\mathrm{next}} = S_{\mathrm{curr}} - 1
           \end{equation}
@@ -289,7 +289,7 @@ S_{\mathrm{next}} \gets \max\left(1, \min\left(S_{\mathrm{next}}, \left\lfloor \
 \If{$\mathit{TimingInfoEWMA}[i] + \mathit{TimingInfoDev}[i] > 0$}
     \State $S_{\mathrm{next}} \gets S_{\mathrm{curr}} + {}$
     \Statex \hskip 2.5em $\left\lceil \frac{\mathit{TimingInfoEWMA}[i] + \mathit{TimingInfoDev}[i]}{T_{\mathrm{slot}}} \right\rceil$ \Comment{Rapid Increase}
-\ElsIf{$\mathit{TimingInfoEWMA}[i] + 4 \times \mathit{TimingInfoDev}[i] < -T_{\mathrm{slot}}$}
+\ElsIf{$\mathit{TimingInfoEWMA}[i] + 4 \times \mathit{TimingInfoDev}[i] < 0$}
     \State $S_{\mathrm{next}} \gets S_{\mathrm{curr}} - 1$ \Comment{Gradual Decrease}
 \Else
     \State $S_{\mathrm{next}} \gets S_{\mathrm{curr}}$ \Comment{Maintain Baseline}
