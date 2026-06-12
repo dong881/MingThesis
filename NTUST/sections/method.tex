@@ -113,11 +113,11 @@ The slots ahead trigger timing $S_{\mathrm{ahead}}$ is dynamically updated using
 
 The decision rules are defined as follows:
 \begin{itemize}
-    \item \textbf{Rapid Increase (Preserve Throughput):} If the latest sample is late ($\mathit{TimingInfo}[i] > 0$) or the smoothed worst-case arrival estimate (representing timing risk $R_i = \mathit{TimingInfoEWMA}[i] + \mathit{TimingInfoDev}[i]$) crosses the deadline ($R_i > 0$), the slots ahead value is immediately increased to prevent late packet arrivals and slot dropouts:
+    \item \textbf{Rapid Increase (Preserve Throughput):} If the latest sample is late ($\mathit{TimingInfo}[i] > 0$) or the smoothed worst-case arrival estimate (representing timing risk $\mathit{TimingInfoEWMA}[i] + \mathit{TimingInfoDev}[i]$) crosses the deadline ($\mathit{TimingInfoEWMA}[i] + \mathit{TimingInfoDev}[i] > 0$), the slots ahead value is immediately increased to prevent late packet arrivals and slot dropouts:
           \begin{equation}
-          S_{\mathrm{target}} = S_{\mathrm{curr}} + \left\lceil \frac{R_i}{T_{\mathrm{slot}}} \right\rceil
+          S_{\mathrm{target}} = S_{\mathrm{curr}} + \left\lceil \frac{\mathit{TimingInfoEWMA}[i] + \mathit{TimingInfoDev}[i]}{T_{\mathrm{slot}}} \right\rceil
           \end{equation}
-    \item \textbf{Gradual Decrease (Optimize Latency):} If the estimated latency shows a safe margin such that the mean arrival time is early enough to absorb both the slot shift and a safety margin of four times the jitter deviation, i.e., $\mathit{TimingInfoEWMA}[i] < -(T_{\mathrm{slot}} + 4 \times \mathit{TimingInfoDev}[i])$, the trigger timing is decremented by one slot to optimize latency:
+    \item \textbf{Gradual Decrease (Optimize Latency):} If the estimated latency shows a safe margin such that the worst-case arrival time is early enough, i.e., $\mathit{TimingInfoEWMA}[i] + 4 \times \mathit{TimingInfoDev}[i] < -T_{\mathrm{slot}}$, the trigger timing is decremented by one slot to optimize latency:
           \begin{equation}
           S_{\mathrm{target}} = S_{\mathrm{curr}} - 1
           \end{equation}
@@ -143,22 +143,18 @@ The core delay management strategy is condensed in Algorithm~\ref{alg:delay_mana
 \Statex 
 \Statex \textbf{Notation:} 
 \Statex $\mathit{TimingInfoEWMA}[i]$, $\mathit{TimingInfoDev}[i]$: smoothed mean and arrival jitter
-\Statex $R_i$: timing risk estimate; $S_{\max}, S_{\min}$: boundary limits
+\Statex $S_{\max}, S_{\min}$: boundary limits
 \Statex $\alpha, \beta$: smoothing factors
  
 \Statex \textbf{Phase I: Latency and Jitter Estimation}
 \State $\mathit{TimingInfoEWMA}[i] \gets (1 - \alpha)\mathit{TimingInfoEWMA}[i-1] + \alpha \mathit{TimingInfo}[i]$ \Comment{Update mean PNF Timing Info}
 \State $\mathit{TimingInfoDev}[i] \gets (1 - \beta)\mathit{TimingInfoDev}[i-1] + \beta |\mathit{TimingInfo}[i] - \mathit{TimingInfoEWMA}[i]|$ \Comment{Update arrival jitter}
-\State $R_i \gets \mathit{TimingInfoEWMA}[i] + \mathit{TimingInfoDev}[i]$ \Comment{Compute timing risk}
 
 \Statex \textbf{Phase II: Adjustment Decision}
 \State $S_{\mathrm{target}} \gets S_{\mathrm{curr}}$
-\If{$\mathit{TimingInfo}[i] > 0$ \textbf{or} $R_i > 0$}
-    \State $\Delta \gets \left\lceil R_i / T_{\mathrm{slot}} \right\rceil$
-    \If{$\Delta > 0$}
-        \State $S_{\mathrm{target}} \gets S_{\mathrm{curr}} + \Delta$ \Comment{Rapid Increase}
-    \EndIf
-\ElsIf{$\mathit{TimingInfoEWMA}[i] < -(T_{\mathrm{slot}} + 4 \times \mathit{TimingInfoDev}[i])$}
+\If{$\mathit{TimingInfo}[i] > 0$ \textbf{or} $\mathit{TimingInfoEWMA}[i] + \mathit{TimingInfoDev}[i] > 0$}
+    \State $S_{\mathrm{target}} \gets S_{\mathrm{curr}} + \left\lceil (\mathit{TimingInfoEWMA}[i] + \mathit{TimingInfoDev}[i]) / T_{\mathrm{slot}} \right\rceil$ \Comment{Rapid Increase}
+\ElsIf{$\mathit{TimingInfoEWMA}[i] + 4 \times \mathit{TimingInfoDev}[i] < -T_{\mathrm{slot}}$}
     \State $S_{\mathrm{target}} \gets S_{\mathrm{curr}} - 1$ \Comment{Gradual Decrease}
 \EndIf
 \State $S_{\mathrm{next}} \gets \max(S_{\min}, \min(S_{\mathrm{target}}, S_{\max}))$ \Comment{Clamp to $[1, S_{\max}]$}
@@ -170,6 +166,6 @@ The core delay management strategy is condensed in Algorithm~\ref{alg:delay_mana
 \subsection{Coordination between Node Sync and Delay Management}
 \label{subsec:coordination}
 
-To ensure stable operation under real-world conditions, node sync and delay management must coordinate without inducing control loop oscillations. The microsecond-level node sync focuses strictly on correcting clock phase offsets to align the VNF's scheduling thread with the PNF's slot transitions. Because it directly shifts the VNF's time base, any clock adjustment ($S_{adj}, \mu s_{adj}$) temporarily shifts the arrival timestamp reference. Delay management is designed to absorb this transient shifting. By relying on history-weighted EWMA-based risk tracking ($R_i$), delay management avoids reacting to the temporary timing offsets caused by clock adjustments, allowing node sync to converge. Once node sync locks synchronization ($\mathit{sync\_locked} = 1$), the time base stabilizes, allowing delay management to achieve precise slot-level optimizations ($S_{\mathrm{ahead}}$).
+To ensure stable operation under real-world conditions, node sync and delay management must coordinate without inducing control loop oscillations. The microsecond-level node sync focuses strictly on correcting clock phase offsets to align the VNF's scheduling thread with the PNF's slot transitions. Because it directly shifts the VNF's time base, any clock adjustment ($S_{adj}, \mu s_{adj}$) temporarily shifts the arrival timestamp reference. Delay management is designed to absorb this transient shifting. By relying on history-weighted EWMA-based risk tracking ($\mathit{TimingInfoEWMA}[i] + \mathit{TimingInfoDev}[i]$), delay management avoids reacting to the temporary timing offsets caused by clock adjustments, allowing node sync to converge. Once node sync locks synchronization ($\mathit{sync\_locked} = 1$), the time base stabilizes, allowing delay management to achieve precise slot-level optimizations ($S_{\mathrm{ahead}}$).
 
 \end{document}
