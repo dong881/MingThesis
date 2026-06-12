@@ -299,9 +299,6 @@ S_{\mathrm{next}} = \max\left(S_{\min}, \min\left(S_{\mathrm{target}}, S_{\max}\
     \State $S_{\mathrm{target}} \gets S_{\mathrm{curr}} - 1$ \Comment{Gradual Decrease}
 \EndIf
 \State $S_{\mathrm{next}} \gets \max(S_{\min}, \min(S_{\mathrm{target}}, S_{\max}))$ \Comment{Clamp to $[1, S_{\max}]$}
-\If{$S_{\mathrm{next}} \neq S_{\mathrm{curr}}$}
-    \State Update last adjustment time reference
-\EndIf
 \State \Return $S_{\mathrm{next}}$
 \end{algorithmic}
 \end{algorithm}
