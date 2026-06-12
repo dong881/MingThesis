@@ -246,9 +246,9 @@ S_{\mathrm{adj}} = \mathit{offset} / T_{\mathrm{slot}}
 
 \textcolor{blue}{The decision rules are defined as follows:}
 \begin{itemize}
-    \item \textbf{Rapid Increase (Preserve Throughput):} \textcolor{blue}{If the latest sample is late ($\mathit{TimingInfo}[i] > 0$) or the smoothed worst-case arrival estimate crosses the deadline ($\mathit{TimingInfoEWMA}[i] + \mathit{TimingInfoDev}[i] > 0$), the slots ahead value is immediately increased to prevent late packet arrivals and slot dropouts:}
+    \item \textbf{Rapid Increase (Preserve Throughput):} \textcolor{blue}{If the latest sample is late ($\mathit{TimingInfo}[i] > 0$) or the smoothed worst-case arrival estimate (representing timing risk $R_i = \mathit{TimingInfoEWMA}[i] + \mathit{TimingInfoDev}[i]$) crosses the deadline ($R_i > 0$), the slots ahead value is immediately increased to prevent late packet arrivals and slot dropouts:}
           \begin{equation}
-          S_{\mathrm{target}, i+1} = S_{\mathrm{ahead}, i} + \left\lceil \frac{\mathit{TimingInfoEWMA}[i] + \mathit{TimingInfoDev}[i]}{T_{\mathrm{slot}}} \right\rceil
+          S_{\mathrm{target}, i+1} = S_{\mathrm{ahead}, i} + \left\lceil \frac{R_i}{T_{\mathrm{slot}}} \right\rceil
           \end{equation}
     \item \textbf{Gradual Decrease (Optimize Latency):} \textcolor{blue}{If the estimated latency shows a safe margin such that the mean arrival time is early enough to absorb both the slot shift and a safety margin of four times the jitter deviation, i.e., $\mathit{TimingInfoEWMA}[i] < -(T_{\mathrm{slot}} + 4 \times \mathit{TimingInfoDev}[i])$, the trigger timing is decremented by one slot to optimize latency:}
           \begin{equation}
@@ -280,6 +280,7 @@ S_{\mathrm{ahead}, i+1} = \max\left(S_{\min}, \min\left(S_{\mathrm{target}, i+1}
 \Statex 
 \Statex \textbf{Notation:} 
 \Statex $\mathit{TimingInfoEWMA}[i]$ (smoothed mean PNF Timing Info), $\mathit{TimingInfoDev}[i]$ (smoothed arrival jitter)
+\Statex $R_i$ (timing risk estimate)
 \Statex $S_{\max}, S_{\min}$ (Boundary limits)
 \Statex $\alpha, \beta$ (Smoothing factors for latency and jitter)
 \Statex $E$ (Elapsed slots since last adjustment), $P_{\mathrm{slots}}$ (Pacing period in slots)
@@ -287,14 +288,15 @@ S_{\mathrm{ahead}, i+1} = \max\left(S_{\min}, \min\left(S_{\mathrm{target}, i+1}
 \Statex \textbf{Phase I: Latency and Jitter Estimation}
 \State $\mathit{TimingInfoEWMA}[i] \gets (1 - \alpha)\mathit{TimingInfoEWMA}[i-1] + \alpha \mathit{TimingInfo}[i]$ \Comment{Update mean PNF Timing Info}
 \State $\mathit{TimingInfoDev}[i] \gets (1 - \beta)\mathit{TimingInfoDev}[i-1] + \beta |\mathit{TimingInfo}[i] - \mathit{TimingInfoEWMA}[i]|$ \Comment{Update arrival jitter}
+\State $R_i \gets \mathit{TimingInfoEWMA}[i] + \mathit{TimingInfoDev}[i]$ \Comment{Compute timing risk}
 
 \Statex \textbf{Phase II: Pacing Gate and Adjustment Decision}
 \If{$E < P_{\mathrm{slots}}$}
     \State \Return $S_{\mathrm{curr}}$ \Comment{Gated: defer decision}
 \EndIf
 \State $S_{\mathrm{target}} \gets S_{\mathrm{curr}}$
-\If{$\mathit{TimingInfo}[i] > 0$ \textbf{or} $(\mathit{TimingInfoEWMA}[i] + \mathit{TimingInfoDev}[i]) > 0$}
-    \State $\Delta \gets \left\lceil (\mathit{TimingInfoEWMA}[i] + \mathit{TimingInfoDev}[i]) / T_{\mathrm{slot}} \right\rceil$
+\If{$\mathit{TimingInfo}[i] > 0$ \textbf{or} $R_i > 0$}
+    \State $\Delta \gets \left\lceil R_i / T_{\mathrm{slot}} \right\rceil$
     \If{$\Delta > 0$}
         \State $S_{\mathrm{target}} \gets S_{\mathrm{curr}} + \Delta$ \Comment{Rapid Increase}
     \EndIf
