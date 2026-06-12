@@ -248,24 +248,19 @@ S_{\mathrm{adj}} = \mathit{offset} / T_{\mathrm{slot}}
 \begin{itemize}
     \item \textbf{Rapid Increase (Preserve Throughput):} \textcolor{blue}{If the latest sample is late ($\mathit{TimingInfo}[i] > 0$) or the smoothed worst-case arrival estimate (representing timing risk $R_i = \mathit{TimingInfoEWMA}[i] + \mathit{TimingInfoDev}[i]$) crosses the deadline ($R_i > 0$), the slots ahead value is immediately increased to prevent late packet arrivals and slot dropouts:}
           \begin{equation}
-          S_{\mathrm{target}, i+1} = S_{\mathrm{ahead}, i} + \left\lceil \frac{R_i}{T_{\mathrm{slot}}} \right\rceil
+          S_{\mathrm{target}} = S_{\mathrm{curr}} + \left\lceil \frac{R_i}{T_{\mathrm{slot}}} \right\rceil
           \end{equation}
     \item \textbf{Gradual Decrease (Optimize Latency):} \textcolor{blue}{If the estimated latency shows a safe margin such that the mean arrival time is early enough to absorb both the slot shift and a safety margin of four times the jitter deviation, i.e., $\mathit{TimingInfoEWMA}[i] < -(T_{\mathrm{slot}} + 4 \times \mathit{TimingInfoDev}[i])$, the trigger timing is decremented by one slot to optimize latency:}
           \begin{equation}
-          S_{\mathrm{target}, i+1} = S_{\mathrm{ahead}, i} - 1
+          S_{\mathrm{target}} = S_{\mathrm{curr}} - 1
           \end{equation}
-    \item \textbf{Maintain Baseline:} \textcolor{blue}{Otherwise, the target remains unchanged ($S_{\mathrm{target}, i+1} = S_{\mathrm{ahead}, i}$).}
+    \item \textbf{Maintain Baseline:} \textcolor{blue}{Otherwise, the target remains unchanged ($S_{\mathrm{target}} = S_{\mathrm{curr}}$).}
 \end{itemize}
 \textcolor{blue}{The target slots ahead value is then clamped to the range $[S_{\min}, S_{\max}]$:}
 \begin{equation}
-S_{\mathrm{ahead}, i+1} = \max\left(S_{\min}, \min\left(S_{\mathrm{target}, i+1}, S_{\max}\right)\right)
+S_{\mathrm{next}} = \max\left(S_{\min}, \min\left(S_{\mathrm{target}}, S_{\max}\right)\right)
 \end{equation}
-\textcolor{blue}{where $S_{\min} = 3$ and $S_{\max} = \min(8, \lfloor T_{\mathrm{window}} / T_{\mathrm{slot}} \rfloor - 1)$.}
-
-\textcolor{blue}{Finally, when the reference frame shifts due to a slots ahead adjustment ($\delta = S_{\mathrm{ahead}, i+1} - S_{\mathrm{ahead}, i} \neq 0$), the Timing Info history is compensated to align the EWMA state with the new scheduling baseline and prevent transient control loop oscillations:}
-\begin{equation}
-\mathit{TimingInfoEWMA}[i] \gets \mathit{TimingInfoEWMA}[i] - \delta \times T_{\mathrm{slot}}
-\end{equation}
+\textcolor{blue}{where $S_{\min} = 1$ and $S_{\max} = \lfloor T_{\mathrm{window}} / T_{\mathrm{slot}} \rfloor$.}
 
 \textcolor{blue}{The core delay management strategy is condensed in Algorithm~\ref{alg:delay_management}.}
 
@@ -303,10 +298,8 @@ S_{\mathrm{ahead}, i+1} = \max\left(S_{\min}, \min\left(S_{\mathrm{target}, i+1}
 \ElsIf{$\mathit{TimingInfoEWMA}[i] < -(T_{\mathrm{slot}} + 4 \times \mathit{TimingInfoDev}[i])$}
     \State $S_{\mathrm{target}} \gets S_{\mathrm{curr}} - 1$ \Comment{Gradual Decrease}
 \EndIf
-\State $S_{\mathrm{next}} \gets \max(S_{\min}, \min(S_{\mathrm{target}}, S_{\max}))$ \Comment{Clamp to $[3, S_{\max}]$}
+\State $S_{\mathrm{next}} \gets \max(S_{\min}, \min(S_{\mathrm{target}}, S_{\max}))$ \Comment{Clamp to $[1, S_{\max}]$}
 \If{$S_{\mathrm{next}} \neq S_{\mathrm{curr}}$}
-    \State $\delta \gets S_{\mathrm{next}} - S_{\mathrm{curr}}$
-    \State $\mathit{TimingInfoEWMA}[i] \gets \mathit{TimingInfoEWMA}[i] - \delta \times T_{\mathrm{slot}}$ \Comment{Compensate reference frame shift}
     \State Update last adjustment time reference
 \EndIf
 \State \Return $S_{\mathrm{next}}$
