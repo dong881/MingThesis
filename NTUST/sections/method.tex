@@ -142,11 +142,9 @@ The core delay management strategy is condensed in Algorithm~\ref{alg:delay_mana
 \Ensure $S_{\mathrm{next}}$ (Trigger timing for the next MAC schedule)
 \Statex 
 \Statex \textbf{Notation:} 
-\Statex $\mathit{TimingInfoEWMA}[i]$ (smoothed mean PNF Timing Info), $\mathit{TimingInfoDev}[i]$ (smoothed arrival jitter)
-\Statex $R_i$ (timing risk estimate)
-\Statex $S_{\max}, S_{\min}$ (Boundary limits)
-\Statex $\alpha, \beta$ (Smoothing factors for latency and jitter)
-\Statex $E$ (Elapsed slots since last adjustment), $P_{\mathrm{slots}}$ (Pacing period in slots)
+\Statex $\mathit{TimingInfoEWMA}[i]$, $\mathit{TimingInfoDev}[i]$: smoothed mean and arrival jitter
+\Statex $R_i$: timing risk estimate; $S_{\max}, S_{\min}$: boundary limits
+\Statex $\alpha, \beta$: smoothing factors; $E$: elapsed slots; $P_{\mathrm{slots}}$: pacing period
  
 \Statex \textbf{Phase I: Latency and Jitter Estimation}
 \State $\mathit{TimingInfoEWMA}[i] \gets (1 - \alpha)\mathit{TimingInfoEWMA}[i-1] + \alpha \mathit{TimingInfo}[i]$ \Comment{Update mean PNF Timing Info}
