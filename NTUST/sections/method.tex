@@ -115,49 +115,59 @@ The decision rules are defined as follows:
 \begin{itemize}
     \item \textbf{Rapid Increase (Preserve Throughput):} If the latest sample is late ($\mathit{TimingInfo}[i] > 0$) or the smoothed worst-case arrival estimate (representing timing risk $\mathit{TimingInfoEWMA}[i] + \mathit{TimingInfoDev}[i]$) crosses the deadline ($\mathit{TimingInfoEWMA}[i] + \mathit{TimingInfoDev}[i] > 0$), the slots ahead value is immediately increased to prevent late packet arrivals and slot dropouts:
           \begin{equation}
-          S_{\mathrm{target}} = S_{\mathrm{curr}} + \left\lceil \frac{\mathit{TimingInfoEWMA}[i] + \mathit{TimingInfoDev}[i]}{T_{\mathrm{slot}}} \right\rceil
+          S_{\mathrm{next}} = S_{\mathrm{curr}} + \left\lceil \frac{\mathit{TimingInfoEWMA}[i] + \mathit{TimingInfoDev}[i]}{T_{\mathrm{slot}}} \right\rceil
           \end{equation}
     \item \textbf{Gradual Decrease (Optimize Latency):} If the estimated latency shows a safe margin such that the worst-case arrival time is early enough, i.e., $\mathit{TimingInfoEWMA}[i] + 4 \times \mathit{TimingInfoDev}[i] < -T_{\mathrm{slot}}$, the trigger timing is decremented by one slot to optimize latency:
           \begin{equation}
-          S_{\mathrm{target}} = S_{\mathrm{curr}} - 1
+          S_{\mathrm{next}} = S_{\mathrm{curr}} - 1
           \end{equation}
-    \item \textbf{Maintain Baseline:} Otherwise, the target remains unchanged ($S_{\mathrm{target}} = S_{\mathrm{curr}}$).
+    \item \textbf{Maintain Baseline:} Otherwise, the trigger timing remains unchanged:
+          \begin{equation}
+          S_{\mathrm{next}} = S_{\mathrm{curr}}
+          \end{equation}
 \end{itemize}
-The target slots ahead value is then clamped to the range $[S_{\min}, S_{\max}]$:
+To ensure the trigger timing remains within valid operational boundaries, the adjusted value is clamped to the range $[1, \lfloor T_{\mathrm{window}} / T_{\mathrm{slot}} \rfloor]$:
 \begin{equation}
-S_{\mathrm{next}} = \max\left(S_{\min}, \min\left(S_{\mathrm{target}}, S_{\max}\right)\right)
+S_{\mathrm{next}} \gets \max\left(1, \min\left(S_{\mathrm{next}}, \left\lfloor \frac{T_{\mathrm{window}}}{T_{\mathrm{slot}}} \right\rfloor \right)\right)
 \end{equation}
-where $S_{\min} = 1$ and $S_{\max} = \lfloor T_{\mathrm{window}} / T_{\mathrm{slot}} \rfloor$.
+where the trigger timing is bounded by 1 and the maximum number of slots in the timing window $\lfloor T_{\mathrm{window}} / T_{\mathrm{slot}} \rfloor$.
 
 The core delay management strategy is condensed in Algorithm~\ref{alg:delay_management}.
 
 \begin{algorithm}[!htbp]
 \caption{Delay Management}
 \label{alg:delay_management}
-\footnotesize
+\small
 \begin{algorithmic}[1]
 \algrenewcommand\algorithmicrequire{\textbf{Input:}}
 \algrenewcommand\algorithmicensure{\textbf{Output:}}
-\Require $\mathit{TimingInfo}[i]$ (Observed PNF Timing Info), $S_{\mathrm{curr}}$ (Current trigger timing), $T_{\mathrm{window}}$ (Timing window), $T_{\mathrm{slot}}$ (Slot duration)
+\Require $\mathit{TimingInfo}[i]$ (Observed PNF Timing Info), 
+\Statex \hskip\algorithmicindent $S_{\mathrm{curr}}$ (Current trigger timing), 
+\Statex \hskip\algorithmicindent $T_{\mathrm{window}}$ (Timing window), $T_{\mathrm{slot}}$ (Slot duration)
 \Ensure $S_{\mathrm{next}}$ (Trigger timing for the next MAC schedule)
 \Statex 
 \Statex \textbf{Notation:} 
-\Statex $\mathit{TimingInfoEWMA}[i]$, $\mathit{TimingInfoDev}[i]$: smoothed mean and arrival jitter
-\Statex $S_{\max}, S_{\min}$: boundary limits
+\Statex $\mathit{TimingInfoEWMA}[i]$, $\mathit{TimingInfoDev}[i]$: 
+\Statex \hskip\algorithmicindent smoothed mean and arrival jitter
 \Statex $\alpha, \beta$: smoothing factors
  
 \Statex \textbf{Phase I: Latency and Jitter Estimation}
-\State $\mathit{TimingInfoEWMA}[i] \gets (1 - \alpha)\mathit{TimingInfoEWMA}[i-1] + \alpha \mathit{TimingInfo}[i]$ \Comment{Update mean PNF Timing Info}
-\State $\mathit{TimingInfoDev}[i] \gets (1 - \beta)\mathit{TimingInfoDev}[i-1] + \beta |\mathit{TimingInfo}[i] - \mathit{TimingInfoEWMA}[i]|$ \Comment{Update arrival jitter}
+\State $\mathit{TimingInfoEWMA}[i] \gets (1 - \alpha)\mathit{TimingInfoEWMA}[i-1]$ 
+\Statex \hskip\algorithmicindent $+ \alpha \mathit{TimingInfo}[i]$
+\State $\mathit{TimingInfoDev}[i] \gets (1 - \beta)\mathit{TimingInfoDev}[i-1] + {}$
+\Statex \hskip\algorithmicindent $\beta |\mathit{TimingInfo}[i] - \mathit{TimingInfoEWMA}[i]|$
 
 \Statex \textbf{Phase II: Adjustment Decision}
-\State $S_{\mathrm{target}} \gets S_{\mathrm{curr}}$
-\If{$\mathit{TimingInfo}[i] > 0$ \textbf{or} $\mathit{TimingInfoEWMA}[i] + \mathit{TimingInfoDev}[i] > 0$}
-    \State $S_{\mathrm{target}} \gets S_{\mathrm{curr}} + \left\lceil (\mathit{TimingInfoEWMA}[i] + \mathit{TimingInfoDev}[i]) / T_{\mathrm{slot}} \right\rceil$ \Comment{Rapid Increase}
+\If{$\mathit{TimingInfo}[i] > 0$ \textbf{or}}
+    \Statex \hskip\algorithmicindent $\mathit{TimingInfoEWMA}[i] + \mathit{TimingInfoDev}[i] > 0$
+    \State $S_{\mathrm{next}} \gets S_{\mathrm{curr}} + {}$
+    \Statex \hskip 2.5em $\left\lceil \frac{\mathit{TimingInfoEWMA}[i] + \mathit{TimingInfoDev}[i]}{T_{\mathrm{slot}}} \right\rceil$ \Comment{Rapid Increase}
 \ElsIf{$\mathit{TimingInfoEWMA}[i] + 4 \times \mathit{TimingInfoDev}[i] < -T_{\mathrm{slot}}$}
-    \State $S_{\mathrm{target}} \gets S_{\mathrm{curr}} - 1$ \Comment{Gradual Decrease}
+    \State $S_{\mathrm{next}} \gets S_{\mathrm{curr}} - 1$ \Comment{Gradual Decrease}
+\Else
+    \State $S_{\mathrm{next}} \gets S_{\mathrm{curr}}$ \Comment{Maintain Baseline}
 \EndIf
-\State $S_{\mathrm{next}} \gets \max(S_{\min}, \min(S_{\mathrm{target}}, S_{\max}))$ \Comment{Clamp to $[1, S_{\max}]$}
+\State $S_{\mathrm{next}} \gets \max\left(1, \min\left(S_{\mathrm{next}}, \left\lfloor \frac{T_{\mathrm{window}}}{T_{\mathrm{slot}}} \right\rfloor\right)\right)$ \Comment{Clamp boundaries}
 \State \Return $S_{\mathrm{next}}$
 \end{algorithmic}
 \end{algorithm}
