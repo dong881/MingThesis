@@ -113,7 +113,7 @@ The slots ahead trigger timing $S_{\mathrm{ahead}}$ is dynamically updated using
 
 The decision rules are defined as follows:
 \begin{itemize}
-    \item \textbf{Rapid Increase (Preserve Throughput):} If the latest sample is late ($\mathit{TimingInfo}[i] > 0$) or the smoothed worst-case arrival estimate (representing timing risk $\mathit{TimingInfoEWMA}[i] + \mathit{TimingInfoDev}[i]$) crosses the deadline ($\mathit{TimingInfoEWMA}[i] + \mathit{TimingInfoDev}[i] > 0$), the slots ahead value is immediately increased to prevent late packet arrivals and slot dropouts:
+    \item \textbf{Rapid Increase (Preserve Throughput):} If the smoothed worst-case arrival estimate (representing timing risk $\mathit{TimingInfoEWMA}[i] + \mathit{TimingInfoDev}[i]$) crosses the deadline ($\mathit{TimingInfoEWMA}[i] + \mathit{TimingInfoDev}[i] > 0$), the slots ahead value is immediately increased to prevent late packet arrivals and slot dropouts:
           \begin{equation}
           S_{\mathrm{next}} = S_{\mathrm{curr}} + \left\lceil \frac{\mathit{TimingInfoEWMA}[i] + \mathit{TimingInfoDev}[i]}{T_{\mathrm{slot}}} \right\rceil
           \end{equation}
@@ -158,8 +158,7 @@ The core delay management strategy is condensed in Algorithm~\ref{alg:delay_mana
 \Statex \hskip\algorithmicindent $\beta |\mathit{TimingInfo}[i] - \mathit{TimingInfoEWMA}[i]|$
 
 \Statex \textbf{Phase II: Adjustment Decision}
-\If{$\mathit{TimingInfo}[i] > 0$ \textbf{or}}
-    \Statex \hskip\algorithmicindent $\mathit{TimingInfoEWMA}[i] + \mathit{TimingInfoDev}[i] > 0$
+\If{$\mathit{TimingInfoEWMA}[i] + \mathit{TimingInfoDev}[i] > 0$}
     \State $S_{\mathrm{next}} \gets S_{\mathrm{curr}} + {}$
     \Statex \hskip 2.5em $\left\lceil \frac{\mathit{TimingInfoEWMA}[i] + \mathit{TimingInfoDev}[i]}{T_{\mathrm{slot}}} \right\rceil$ \Comment{Rapid Increase}
 \ElsIf{$\mathit{TimingInfoEWMA}[i] + 4 \times \mathit{TimingInfoDev}[i] < -T_{\mathrm{slot}}$}
