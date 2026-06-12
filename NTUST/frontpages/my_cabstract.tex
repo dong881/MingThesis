@@ -1,3 +1,3 @@
-\indent\hspace{2em}在基於 nFAPI（Option 6）的拆分式無線接取網路（RAN）架構中，將媒體存取控制層（MAC Layer）與實體（PHY Layer）層分別部署於虛擬化網路功能（VNF）與實體網路功能（PNF）上，會因封包交換網路傳輸而引入關鍵的時序同步問題。為避免控制訊息因超出 PNF 的嚴格時序視窗而被丟棄，VNF 必須提前排程並發送控制訊息。本論文提出一套自適應時序控制框架，利用 PNF 即時回報的時序資訊（Timing Info）建立閉迴路回饋機制，動態調整 VNF 提前發送的提前量（slots ahead）。透過持續微調提前量，此方法能自動適應多樣的部署環境，包括動態變化的網路負載（offered load）、傳輸延遲與網路抖動（jitter）。在整合商用 Radio Unit（O-RU）與 OpenAirInterface（OAI）的實體測試平台驗證下，本機制能有效大幅減少時槽遺失錯誤、穩定來回延遲（RTT），並在嚴重網路壅塞下維持系統吞吐量之穩定。
+\indent\hspace{2em}在基於 nFAPI（Option 6）的拆分式無線接取網路（RAN）架構中，將媒體存取控制層（MAC Layer）與實體（PHY Layer）層分別部署於虛擬化網路功能（VNF）與實體網路功能（PNF）上，會因封包交換網路傳輸而引入關鍵的時序同步問題。為避免控制訊息因超出 PNF 的嚴格時序視窗而被丟棄，VNF 必須提前排程並發送控制訊息。本論文提出一套自適應時序控制框架，利用 PNF 即時回報的時序資訊（Timing Info）建立閉迴路回饋機制，動態進行自適應時序控制（Adaptive Timing Control）。透過持續微調發送時序，此方法能自動適應多樣的部署環境，包括動態變化的網路負載（offered load）、傳輸延遲與網路抖動（jitter）。在整合商用 Radio Unit（O-RU）與 OpenAirInterface（OAI）的實體測試平台驗證下，本機制能有效大幅減少時槽遺失錯誤、穩定來回延遲（RTT），並在嚴重網路壅塞下維持系統吞吐量之穩定。
 
-\noindent 關鍵字：nFAPI、RAN 拆分、時序同步、提前量調整、網路負載適應、O-RU、OAI
+\noindent 關鍵字：nFAPI、RAN 拆分、時序同步、自適應時序控制、網路負載適應、O-RU、OAI
