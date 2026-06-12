@@ -187,7 +187,28 @@ This scenario verifies the effectiveness of applying the Exponentially Weighted 
 
 In this scenario, we evaluate the benchmark performance of the proposed adaptive timing mechanism against a standard static slots ahead configuration. Figure~\ref{fig:exp2} presents the performance evaluation in terms of MAC layer latency and system throughput.
 
-Figure~\ref{fig:exp2} displays the performance evaluation under varying Offered Load. The proposed algorithm prioritizes ensuring optimal throughput, consistently maintaining near-peak throughput performance under all load conditions. Simultaneously, while ensuring this optimal throughput, the algorithm optimizes the selection of the slots ahead trigger offset to optimize the MAC layer HARQ Round-Trip Time (RTT), effectively avoiding unnecessary extra overhead. Specifically, at 1000~Mbps offered load, the proposed method achieves approximately 940~Mbps throughput with a MAC HARQ RTT of about 8~ms—comparable to the RTT with 4 slots ahead—while the static 10 slots ahead configuration incurs approximately 10~ms RTT with no throughput advantage. Furthermore, the 2 slots ahead configuration collapses to near-zero throughput beyond 200~Mbps offered load, confirming that an aggressive static setting is insufficient for high-load conditions.
+Figure~\ref{fig:exp2} displays the performance evaluation under different offered loads.
+The proposed method aims to sustain the target throughput across varying offered loads while keeping the average MAC HARQ RTT
+as low as possible.
+As shown in Figure~\ref{fig:exp2a}, when the offered load is low (between 100~Mbps and 800~Mbps), all configurations except
+2 slots ahead can track the offered load and sustain the target throughput.
+However, when the offered load increases to 1000~Mbps, static configurations with smaller slots ahead settings fail to
+maintain the throughput: the 4 slots ahead configuration levels off at about 830~Mbps, and the 6 slots ahead configuration
+levels off at about 870~Mbps.
+The 2 slots ahead configuration drops to near-zero throughput when the offered load goes beyond 200~Mbps because the fixed
+timing advance is too small.
+Although larger static configurations like 8 slots ahead can sustain the throughput at 940~Mbps under high load, they
+introduce larger RTT latency across all loads, as shown in Figure~\ref{fig:exp2b}.
+The proposed method dynamically adjusts the slots ahead based on the feedback.
+For offered loads from 100~Mbps to 700~Mbps, it selects smaller slots ahead settings, maintaining a lower average MAC HARQ RTT
+of about 5.8~ms to 6.7~ms, which is lower than the 4 slots ahead configuration (about 7.0~ms).
+When the offered load increases to 1000~Mbps, the proposed method dynamically increases the scheduling advance to sustain
+the target throughput.
+This increase causes the average MAC HARQ RTT to rise to about 7.9~ms at 1000~Mbps.
+However, this RTT is still lower than that of static 6 slots ahead (about 8.4~ms), 8 slots ahead (about 9.2~ms), and
+10 slots ahead (about 10.6~ms) configurations.
+These results show that the proposed method effectively minimizes RTT overhead while sustaining the target throughput
+under different offered loads.
 
 \begin{figure}[!htbp]
   \centering

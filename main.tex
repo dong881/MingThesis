@@ -402,7 +402,21 @@ Fronthaul & O-RAN F release \\
 \subsection{Exp 2: Throughput \& MAC RTT efficiency against static baselines}
 \label{subsec:scenario_2}
 
-\textcolor{blue}{We benchmark the peak throughput and MAC HARQ RTT against a static baseline. Under stable fronthaul conditions, as shown in Fig.~\ref{fig:exp2}, the proposed algorithm prioritizes guaranteeing the optimal throughput under different offered loads, consistently maintaining near-peak throughput performance. Simultaneously, while ensuring this optimal throughput, the algorithm also optimizes the selection of the slots ahead trigger offset to optimize the MAC layer HARQ Round-Trip Time (RTT), effectively avoiding unnecessary overhead. Specifically, at 1000~Mbps offered load, the proposed method achieves approximately 940~Mbps throughput with a MAC HARQ RTT of about 8~ms—comparable to the RTT with 4 slots ahead—while the static 10 slots ahead configuration incurs approximately 10~ms RTT with no throughput advantage. The 2 slots ahead configuration collapses to near-zero throughput beyond 200~Mbps offered load.}
+\textcolor{blue}{We evaluate the system throughput and average MAC HARQ RTT under stable fronthaul conditions,
+as shown in Fig.~\ref{fig:exp2}.
+The proposed method aims to sustain the target throughput across varying offered loads while minimizing the MAC HARQ RTT.
+As shown in Fig.~\ref{fig:exp2a}, the proposed method and the static 8 slots ahead configuration sustain a throughput of
+about 940~Mbps at 1000~Mbps offered load.
+In contrast, the 4 slots ahead and 6 slots ahead configurations level off at about 830~Mbps and 870~Mbps, and the
+2 slots ahead configuration drops to near-zero throughput beyond 200~Mbps.
+However, as shown in Fig.~\ref{fig:exp2b}, the static 8 slots ahead configuration has a high average MAC HARQ RTT of
+about 9.2~ms.
+The proposed method dynamically adjusts the scheduling advance, keeping a low RTT of 5.8~ms to 6.7~ms at lower loads
+(100--700~Mbps).
+Under 1000~Mbps offered load, it adjusts to a higher scheduling advance to sustain throughput, resulting in an average
+RTT of about 7.9~ms.
+This RTT is still lower than that of static 6, 8, and 10 slots ahead configurations, showing that the proposed method
+effectively minimizes RTT overhead while sustaining the target throughput.}
 
 \begin{figure}[!htbp]
   \centering
