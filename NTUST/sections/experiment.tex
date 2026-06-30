@@ -8,9 +8,9 @@
 
 This study conducts experiments in an OpenAirInterface (OAI) nFAPI end-to-end environment to verify the proposed delay management method. To ensure the statistical reliability of the evaluation, each throughput value reported represents the average of 180 data points (3 independent trials $\times$ 60 samples per trial). Unless specified otherwise, the default nFAPI parameters used across all evaluations are configured with a timing window of 6000~$\mu$s, a periodic timing info mode, and a timing info period of 1~slot.
 
-To evaluate the performance of our proposed closed-loop synchronization and delay management algorithms, the experiments are designed to verify several key aspects of the system. First, we examine whether the EWMA-based filtering effectively stabilizes the noisy PNF timing info feedback under transport network jitter. Second, we evaluate whether the adaptive slots ahead method can maintain stable throughput while minimizing unnecessary MAC HARQ RTT compared with static baselines. Third, we test if the proposed closed-loop delay management preserves end-to-end synchronization stability and throughput under severe network congestion and dynamic jitter. Fourth, we verify whether the node sync algorithm dynamically corrects the time-base offset and maintains alignment under a multi-hop campus network. Fifth, we evaluate the ping latency under different throughput and real deployment scenarios. Finally, we study the impact of different timing info reporting modes and periods on the packet loss rate under different transport distances.
+To evaluate the performance of our proposed closed-loop synchronization and delay management algorithms, the experiments are designed to verify several key aspects of the system. First, we examine whether the EWMA-based filtering effectively stabilizes the noisy PNF timing info feedback under transport network jitter. Second, we evaluate whether the adaptive slots ahead method can maintain stable throughput while minimizing unnecessary MAC HARQ RTT compared with static baselines. Third, we test the system performance under a dynamic offered-load sweep without softmodem resets. Fourth, we validate the stability of the closed-loop delay management under severe network congestion and dynamic jitter. Fifth, we analyze the sensitivity of the EWMA parameters $\alpha$ and $\beta$ to evaluate system stability and deadline-miss rates. Sixth, we verify whether the node sync algorithm dynamically corrects the time-base offset and maintains alignment under a multi-hop campus network. Seventh, we evaluate the ping latency under different throughput and real deployment scenarios. Finally, we study the impact of different timing info reporting modes and periods on the packet loss rate under different transport distances.
 
-The rest of this chapter is organized as follows: Section~\ref{subsec:experimental_scenario} outlines the hardware, software, and the automated rApp evaluation framework, defining Experimental Scenario I, Experimental Scenario II, and Experimental Scenario III. Section~\ref{subsec:scenario_1} presents the validation of the EWMA filter under Experiment~1: Validation of EWMA for PNF Timing Info. Section~\ref{subsec:scenario_2} evaluates the throughput and latency performance under Experiment~2: Throughput \& MAC RTT efficiency against static baselines. Section~\ref{subsec:scenario_3} validates the closed-loop delay management stability under Experiment~3: Stability under Traffic Control Network Congestion. Section~\ref{subsec:scenario_4} evaluates the node sync accuracy under Experiment~4: Synchronization Offset. Section~\ref{subsec:scenario_5} assesses the ping latency under Experiment~5: Ping Latency under Different Throughput. Finally, Section~\ref{subsec:scenario_6} analyzes the impact of reporting modes and periods under Experiment~6: Timing Info Mode.
+The rest of this chapter is organized as follows: Section~\ref{subsec:experimental_scenario} outlines the hardware, software, and the automated rApp evaluation framework, defining Experimental Scenario I, Experimental Scenario II, and Experimental Scenario III. Section~\ref{subsec:scenario_1} presents the validation of the EWMA filter under Experiment~1: Validation of EWMA for PNF Timing Info. Section~\ref{subsec:scenario_2} evaluates the throughput and latency performance under Experiment~2: Throughput \& MAC RTT efficiency against static baselines. Section~\ref{subsec:scenario_expadd1} analyzes the system behavior under Experiment~3: Dynamic Offered Load Sweep without Reset. Section~\ref{subsec:scenario_3} validates the closed-loop delay management stability under Experiment~4: Stability under Traffic Control Network Congestion. Section~\ref{subsec:scenario_expadd2} investigates parameter configurations under Experiment~5: Sensitivity Analysis of EWMA Parameters \(\alpha\) and \(\beta\). Section~\ref{subsec:scenario_4} evaluates the node sync accuracy under Experiment~6: Synchronization Offset. Section~\ref{subsec:scenario_5} assesses the ping latency under Experiment~7: Ping Latency under Different Throughput. Finally, Section~\ref{subsec:scenario_6} analyzes the impact of reporting modes and periods under Experiment~8: Timing Info Mode.
 
 \iffalse
 \section{實驗情境}
@@ -25,7 +25,7 @@ To evaluate the performance of our proposed timing adjustment framework under di
 \item \textbf{Experimental Scenario III (Multi-Switch/Router Campus Deployment):} A realistic multi-hop campus network topology where the VNF and PNF are physically disaggregated across different campus buildings. As shown in Figure~\ref{fig:scenario2_topology}, the connection traverses $3$ commercial switches and $3$ commercial routers, introducing realistic transport delays and route-dependent jitter (ping latency up to 2.0~ms).
 \end{itemize}
 
-The detailed hardware and software configuration of the end-to-end network deployment in the testbed environment is shown in the table below.
+The detailed hardware and software configuration of the end-to-end network deployment in the testbed environment is shown in the table below. Running the VNF and PNF on identical DGX Spark units ensures symmetric hardware processing capabilities (identical CPU architecture/frequency, cache sizes, memory speed, and NIC drivers).
 
 \begin{table}[!htbp]
 \iffalse
@@ -139,7 +139,13 @@ These regression and compilation results prove that the proposed dynamic delay-a
 \section{Experiment 1: Validation of EWMA for PNF Timing Info}
 \label{subsec:scenario_1}
 
-This scenario verifies the effectiveness of applying the Exponentially Weighted Moving Average (EWMA) to smooth the PNF Timing Info ($\mathit{TimingInfo}[i]$). Due to network jitter and processing delays, directly using the raw PNF Timing Info can lead to unstable scheduling decisions. Figure~\ref{fig:exp1a} shows the timing control directly using the raw PNF Timing Info ($\mathit{TimingInfo}[i]$), where the raw timing values change a lot. Figure~\ref{fig:exp1b} represents the cumulative count of the packets that exceed the deadline when the timing adjustment directly uses the raw PNF Timing Info ($\mathit{TimingInfo}[i]$). The EWMA mechanism filters out the high-frequency jitter, as shown in the PNF Timing Info ($\mathit{TimingInfo}[i]$) after applying EWMA in Figure~\ref{fig:exp1c}. Finally, Figure~\ref{fig:exp1d} shows the cumulative count of the packets exceeding the deadline under the EWMA-based timing control. The results show that applying EWMA allows the timing loop to adjust the slots ahead stably, which greatly reduces the number of packets that arrive after the deadline.
+This scenario verifies the effectiveness of applying the Exponentially Weighted Moving Average (EWMA) to smooth the PNF Timing Info ($\mathit{TimingInfo}[i]$). Due to network jitter and server processing delays, directly using the raw PNF Timing Info can lead to unstable scheduling decisions. 
+
+Before describing the results, we introduce the axes of the charts. For the timing tracking charts, Figure~\ref{fig:exp1a} and Figure~\ref{fig:exp1c}, the X-axis represents the elapsed slots and the Y-axis represents the PNF Timing Info value (in microseconds). For the deadline-miss cumulative charts, Figure~\ref{fig:exp1b} and Figure~\ref{fig:exp1d}, the X-axis represents the elapsed slots and the Y-axis represents the cumulative count of packets exceeding the deadline.
+
+Figure~\ref{fig:exp1a} shows the timing control directly using the raw PNF Timing Info ($\mathit{TimingInfo}[i]$), where the raw timing values change a lot. Figure~\ref{fig:exp1b} represents the cumulative count of the packets that exceed the deadline when the timing adjustment directly uses the raw feedback. The EWMA mechanism filters out the high-frequency jitter, as shown in the PNF Timing Info ($\mathit{TimingInfo}[i]$) after applying EWMA in Figure~\ref{fig:exp1c}. Finally, Figure~\ref{fig:exp1d} shows the cumulative count of the packets exceeding the deadline under the EWMA-based timing control. 
+
+The main conclusion is that applying EWMA filters out high-frequency transport network jitter, allowing the timing loop to adjust the slots ahead stably and significantly reducing the count of late-arriving packets to prevent packet loss.
 
 \begin{figure}[!htbp]
   \centering
@@ -185,61 +191,60 @@ This scenario verifies the effectiveness of applying the Exponentially Weighted 
 \section{Experiment 2: Throughput \& MAC RTT efficiency against static baselines}
 \label{subsec:scenario_2}
 
-In this scenario, we evaluate the benchmark performance of the proposed adaptive timing mechanism against a standard static slots ahead configuration. Figure~\ref{fig:exp2} presents the performance evaluation in terms of MAC layer latency and system throughput.
+In this scenario, we evaluate the benchmark performance of the proposed adaptive timing mechanism against standard static slots ahead configurations. Figure~\ref{fig:exp2} presents the performance evaluation.
 
-Figure~\ref{fig:exp2} displays the performance evaluation under different offered loads.
-The proposed method aims to sustain the target throughput across varying offered loads while keeping the average MAC HARQ RTT
-as low as possible.
-As shown in Figure~\ref{fig:exp2a}, when the offered load is low (between 100~Mbps and 800~Mbps), all configurations except
-2 slots ahead can track the offered load and sustain the target throughput.
-However, when the offered load increases to 1000~Mbps, static configurations with smaller slots ahead settings fail to
-maintain the throughput: the 4 slots ahead configuration levels off at about 830~Mbps, and the 6 slots ahead configuration
-levels off at about 870~Mbps.
-The 2 slots ahead configuration drops to near-zero throughput when the offered load goes beyond 200~Mbps because the fixed
-timing advance is too small.
-Although larger static configurations like 8 slots ahead can sustain the throughput at 940~Mbps under high load, they
-introduce larger RTT latency across all loads, as shown in Figure~\ref{fig:exp2b}.
-The proposed method dynamically adjusts the slots ahead based on the feedback.
-For offered loads from 100~Mbps to 700~Mbps, it selects smaller slots ahead settings, maintaining a lower average MAC HARQ RTT
-of about 5.8~ms to 6.7~ms, which is lower than the 4 slots ahead configuration (about 7.0~ms).
-When the offered load increases to 1000~Mbps, the proposed method dynamically increases the scheduling advance to sustain
-the target throughput.
-This increase causes the average MAC HARQ RTT to rise to about 7.9~ms at 1000~Mbps.
-However, this RTT is still lower than that of static 6 slots ahead (about 8.4~ms), 8 slots ahead (about 9.2~ms), and
-10 slots ahead (about 10.6~ms) configurations.
-These results show that the proposed method effectively minimizes RTT overhead while sustaining the target throughput
-under different offered loads.
+Before describing the results, we introduce the axes of the charts. In Figure~\ref{fig:exp2a}, the X-axis represents the offered load (in Mbps) and the Y-axis represents the achieved throughput (in Mbps). In Figure~\ref{fig:exp2b}, the X-axis represents the offered load (in Mbps) and the Y-axis represents the average MAC HARQ RTT (in milliseconds).
+
+As shown in Figure~\ref{fig:exp2a}, when the offered load is low (between 100~Mbps and 800~Mbps), all configurations except the static 2 slots ahead configuration can track the offered load and sustain the target throughput. However, when the offered load increases to 1000~Mbps, static configurations with smaller slots ahead settings fail to maintain the throughput: the 4 slots ahead configuration levels off at about 830~Mbps, and the 6 slots ahead configuration levels off at about 870~Mbps. The 2 slots ahead configuration drops to near-zero throughput when the offered load goes beyond 200~Mbps because the fixed timing advance is too small. Although larger static configurations like 8 slots ahead can sustain the throughput at 940~Mbps under high load, they introduce larger RTT latency across all loads, as shown in Figure~\ref{fig:exp2b}.
+
+The proposed method dynamically adjusts the slots ahead based on the feedback. For offered loads from 100~Mbps to 700~Mbps, it selects smaller slots ahead settings, maintaining a lower average MAC HARQ RTT of about 5.8~ms to 6.7~ms, which is lower than that of the static 4 slots ahead configuration (about 7.0~ms). When the offered load increases to 1000~Mbps, the proposed method dynamically increases the scheduling advance to sustain the target throughput. This increase causes the average MAC HARQ RTT to rise to about 7.9~ms at 1000~Mbps. However, this RTT is still lower than that of static 6 slots ahead (about 8.4~ms), 8 slots ahead (about 9.2~ms), and 10 slots ahead (about 10.6~ms) configurations.
+
+The main conclusion is that the proposed method effectively minimizes MAC RTT latency while sustaining the target throughput under different offered loads, achieving an optimal latency-throughput trade-off.
+
+\section{Experiment 3: Dynamic Offered Load Sweep without Reset}
+\label{subsec:scenario_expadd1}
+
+To evaluate the system behavior under dynamic traffic changes, we conduct a continuous offered-load sweep using an iPerf3 client on the UE toward a CN-side server. The offered load is dynamically changed from 100~Mbps to 1000~Mbps in steps while the gNB-UE connection remains active, without any softmodem resets.
+
+Figure~\ref{fig:expadd1} displays the results of this dynamic load sweep. For Figure~\ref{fig:expadd1a}, the X-axis represents the elapsed time (in seconds) and the Y-axis represents the throughput (in Mbps). For Figure~\ref{fig:expadd1b}, the X-axis represents the elapsed time (in seconds) and the Y-axis represents the dynamically adjusted slots ahead value.
+
+As shown in Figure~\ref{fig:expadd1a}, the system throughput tracks the offered load changes smoothly as the load steps up and down. Figure~\ref{fig:expadd1b} demonstrates that the proposed method adjusts the slots ahead parameter on the fly to match the changing offered load. The slots ahead parameter increases under high load to prevent late packet arrivals and decreases under low load to minimize latency. 
+
+The main conclusion is that the proposed method adaptively adjusts the slots ahead parameter on the fly without requiring softmodem resets, successfully maintaining stable throughput and connection reliability under dynamically changing traffic loads.
 
 \begin{figure}[!htbp]
   \centering
-\iffalse
-  \subfloat[吞吐量優化]{\includegraphics[width=0.7\textwidth]{figures/exp2a.png}\label{fig:exp2a}} \\
-\fi
+  \subfloat[Throughput Tracking]{\includegraphics[width=0.7\textwidth]{figures/expadd1a.png}\label{fig:expadd1a}} \\
+  \vspace{0.3cm}
+  \subfloat[Dynamic slots ahead Adjustment]{\includegraphics[width=0.7\textwidth]{figures/expadd1b.png}\label{fig:expadd1b}}
+  \caption{System performance under dynamic offered-load sweep without softmodem resets.}
+  \label{fig:expadd1}
+\end{figure}
+
+\begin{figure}[!htbp]
+  \centering
   \subfloat[Throughput Optimization]{\includegraphics[width=0.7\textwidth]{figures/exp2a.png}\label{fig:exp2a}} \\
   \vspace{0.5cm}
-\iffalse
-  \subfloat[MAC 延遲與可靠性]{\includegraphics[width=0.7\textwidth]{figures/exp2b.png}\label{fig:exp2b}}
-\fi
   \subfloat[MAC Latency and Reliability]{\includegraphics[width=0.7\textwidth]{figures/exp2b.png}\label{fig:exp2b}}
   \caption{Performance Evaluation: MAC RTT Efficiency and System Throughput.}
   \label{fig:exp2}
 \end{figure}
 
-\iffalse
-\section{實驗三：網路擁塞下的穩定性}
-\fi
-\section{Experiment 3: Stability under Traffic Control Network Congestion}
+\section{Experiment 4: Stability under Traffic Control Network Congestion}
 \label{subsec:scenario_3}
 
-To test the system's stability, we utilized Linux TC to inject artificial network congestion into the $T_2-T_1$ and $T_5-T_4$ segments, altering the One-Way Delay (OWD) and jitter. As shown in Figure~\ref{fig:exp3a}, when the delay exceeds the fixed timing window, the static configuration experiences a severe drop in throughput and frequent connection resets. In contrast, the proposed adaptive timing control dynamically expands the slots ahead ($S_{ahead}$). This expansion allows the MAC scheduler to trigger messages in advance, ensuring that messages can still arrive at the PNF within the valid timing window despite the increased transmission delay. Therefore, even at congestion levels that would previously cause complete synchronization failure, the system can maintain stable throughput. Specifically, the proposed method maintains a throughput above 900~Mbps across all tested VNF-PNF latency values up to 3.0~ms, whereas the best-performing static configuration (10~slots ahead) degrades to near-zero throughput at approximately 2.5~ms injected latency.
+To test the system's stability, we utilized Linux TC to inject artificial network congestion into the $T_2-T_1$ and $T_5-T_4$ segments, altering the One-Way Delay (OWD) and jitter. Figure~\ref{fig:exp3} displays the performance results under these conditions.
 
-To further evaluate the impact of unpredictable network jitter between the VNF and PNF, we perform a second experiment using Linux TC to simulate random jitter on the fronthaul link. In this test, we run iPerf UDP traffic with an offered load of 1~Gbps to fully saturate the downlink transmission. We measure the resulting downlink (DL) receiver (RX) throughput at the UE, comparing different fixed slots ahead configurations against our proposed adaptive timing mechanism. As shown in Figure~\ref{fig:exp3b}, when network jitter is high and unpredictable, fixed slots ahead settings cannot handle the timing variations, leading to packet losses, sync failures, and a major drop in throughput. On the other hand, the proposed adaptive method dynamically adjusts the scheduling advance, keeping the transmission timing aligned. As a result, the UE achieves and maintains stable and high DL RX throughput even under severe jitter conditions. Quantitatively, the proposed method exhibits graceful throughput degradation, maintaining over 900~Mbps at 0--600~$\mu$s jitter and approximately 750~Mbps even at 1000~$\mu$s jitter. In contrast, static configurations collapse sharply at their respective thresholds: the best-performing static configuration (6~slots ahead) drops below 300~Mbps at 800~$\mu$s and near zero at 1000~$\mu$s, while configurations with 4, 8, and 10~slots ahead all fail below 600~$\mu$s.
+Before describing the results, we introduce the axes of the charts. In Figure~\ref{fig:exp3a}, the X-axis represents the injected latency (in milliseconds) and the Y-axis represents the achieved UE RX throughput (in Mbps). In Figure~\ref{fig:exp3b}, the X-axis represents the injected network jitter (in microseconds) and the Y-axis represents the achieved UE RX throughput (in Mbps).
+
+As shown in Figure~\ref{fig:exp3a}, when the delay exceeds the fixed timing window, static configurations experience a severe drop in throughput and frequent connection resets. In contrast, the proposed method dynamically expands the slots ahead ($S_{ahead}$). This expansion allows the MAC scheduler to trigger scheduling commands in advance, ensuring that packets can still arrive at the PNF within the valid timing window despite the increased transmission delay. Therefore, even at congestion levels that would cause complete synchronization failure under static configurations, the system can maintain stable throughput. Specifically, the proposed method maintains a throughput above 900~Mbps across all tested VNF-PNF latency values up to 3.0~ms, whereas the best-performing static configuration (10~slots ahead) degrades to near-zero throughput at approximately 2.5~ms injected latency.
+
+To further evaluate the impact of unpredictable network jitter between the VNF and PNF, we perform a second experiment using Linux TC to simulate random jitter on the fronthaul link. In this test, we run iPerf UDP traffic with an offered load of 1~Gbps to fully saturate the downlink transmission. As shown in Figure~\ref{fig:exp3b}, when network jitter is high and unpredictable, fixed slots ahead settings cannot handle the timing variations, leading to packet losses, synchronization failures, and a major drop in throughput. On the other hand, the proposed method dynamically adjusts the scheduling advance, keeping the transmission timing aligned. As a result, the UE achieves and maintains stable and high DL RX throughput even under severe jitter conditions. Quantitatively, the proposed method exhibits graceful throughput degradation, maintaining over 900~Mbps at 0--600~$\mu$s jitter and approximately 750~Mbps even at 1000~$\mu$s jitter. In contrast, static configurations collapse sharply at their respective thresholds: the best-performing static configuration (6~slots ahead) drops below 300~Mbps at 800~$\mu$s and near zero at 1000~$\mu$s, while configurations with 4, 8, and 10~slots ahead all fail below 600~$\mu$s.
+
+The main conclusion is that the proposed method ensures high stability and throughput under severe transport latency and jitter, whereas static configurations suffer from severe degradation or failure.
 
 \begin{figure}[!htbp]
   \centering
-\iffalse
-  \subfloat[不同網路擁塞程度下的系統穩定性]{\includegraphics[width=0.7\textwidth]{figures/exp3a.png}\label{fig:exp3a}} \\
-\fi
   \subfloat[System Stability under Network Congestion]{\includegraphics[width=0.7\textwidth]{figures/exp3a.png}\label{fig:exp3a}} \\
   \vspace{0.5cm}
 \iffalse
@@ -250,12 +255,38 @@ To further evaluate the impact of unpredictable network jitter between the VNF a
   \label{fig:exp3}
 \end{figure}
 
-\section{Experiment 4: Synchronization Offset}
+\section{Experiment 5: Sensitivity Analysis of EWMA Parameters \(\alpha\) and \(\beta\)}
+\label{subsec:scenario_expadd2}
+
+To fully evaluate the behavior of the proposed method under different EWMA filtering parameters, we design a sensitivity comparison experiment. This experiment cross-compares different parameter combinations by fixing $\alpha$ while changing $\beta$, and fixing $\beta$ while changing $\alpha$, to observe how parameter sensitivity affects system stability under network jitter.
+
+Figure~\ref{fig:expadd2} presents the experimental results. Before describing the results, we introduce the axes of the charts. In the line chart of Figure~\ref{fig:expadd2a}, the X-axis represents the elapsed slots and the Y-axis represents the slots ahead value. In the bar chart of Figure~\ref{fig:expadd2b}, the X-axis represents the different parameter configurations, and the Y-axis represents the deadline-miss rate (in percentage).
+
+From the line chart in Figure~\ref{fig:expadd2a}, we observe that when the parameters are extreme, the system behavior degrades. For example, in the DangerCorner configuration ($\alpha=1/2$, $\beta=1/32$) or the SluggishBeta configuration, the timing adjustment loop reacts too strongly or converges too slowly to network jitter. This causes the slots ahead parameter to oscillate frequently, making it unable to maintain a safe buffer time. In contrast, the Default combination ($\alpha=1/8$, $\beta=1/4$) achieves excellent stability in tracking delay variations.
+
+This stability is also reflected in the bar chart in Figure~\ref{fig:expadd2b}. The Default configuration successfully reduces the deadline-miss rate to only $0.022\%$. This rate is about 32 times lower than that of the DangerCorner configuration, which has the most severe timing oscillations. 
+
+The main conclusion is that the Default parameter combination ($\alpha=1/8$, $\beta=1/4$) provides the best stability, effectively absorbing unexpected transport delays and ensuring high transmission reliability.
+
+\begin{figure}[!htbp]
+  \centering
+  \subfloat[Dynamic slots ahead under Different Parameters]{\includegraphics[width=0.7\textwidth]{figures/expadd2a.png}\label{fig:expadd2a}} \\
+  \vspace{0.3cm}
+  \subfloat[Deadline-miss Rate Comparison]{\includegraphics[width=0.7\textwidth]{figures/expadd2b.png}\label{fig:expadd2b}}
+  \caption{Sensitivity analysis of the EWMA parameters $\alpha$ and $\beta$.}
+  \label{fig:expadd2}
+\end{figure}
+
+\section{Experiment 6: Synchronization Offset}
 \label{subsec:scenario_4}
 
-To evaluate the synchronization performance of the proposed node sync mechanism under a multi-hop transport network, we deploy the VNF and PNF across the campus network in Experimental Scenario III. As shown in Fig.~\ref{fig:scenario2_topology}, the VNF-side components are placed at a remote computing site, while the radio-side components and UE remain at the local radio site. Fig.~\ref{fig:exp4} shows the measured VNF-PNF synchronization offset in microseconds over elapsed slots.
+To evaluate the synchronization performance of the proposed node sync mechanism under a multi-hop transport network, we deploy the VNF and PNF across the campus network in Experimental Scenario III. As shown in Fig.~\ref{fig:scenario2_topology}, the VNF-side components are placed at a remote computing site, while the radio-side components and UE remain at the local radio site. 
 
-When the connection between the VNF and PNF is established, they start calculating slot 0 independently. Program start-up timing differences cause an initial program execution timing offset. In addition, their clock phase drifts during operation. When the calculated offset accumulates and becomes larger than one slot (500~$\mu$s for subcarrier spacing of 30~kHz and slot duration of 500~$\mu$s), the system triggers the node sync algorithm to adjust the VNF's scheduling time base. This readjusts the VNF's slot boundaries to align with the PNF, correcting the time-base offset and stabilizing the synchronization offset within a small range of 0 to 100~$\mu$s. This result confirms that the proposed node sync algorithm can dynamically correct the time-base offset and maintain high synchronization accuracy even under a realistic, non-deterministic campus network environment.
+Figure~\ref{fig:exp4} shows the measured VNF-PNF synchronization offset. Before describing the results, we introduce the axes of the chart: the X-axis represents the elapsed slots, and the Y-axis represents the synchronization offset (in microseconds).
+
+When the connection between the VNF and PNF is established, they start calculating slot 0 independently. Program start-up timing differences cause an initial program execution timing offset. In addition, their clock phase drifts during operation. When the calculated offset accumulates and becomes larger than one slot (500~$\mu$s for subcarrier spacing of 30~kHz and slot duration of 500~$\mu$s), the system triggers the node sync algorithm to adjust the VNF's scheduling time base. This readjusts the VNF's slot boundaries to align with the PNF, correcting the time-base offset and stabilizing the synchronization offset within a small range of 0 to 100~$\mu$s. 
+
+The main conclusion is that the proposed node sync algorithm dynamically corrects the time-base offset and maintains high synchronization accuracy within a small range (0 to 100~$\mu$s) even under a realistic, non-deterministic campus network environment.
 
 \begin{figure}[!htbp]
   \centering
@@ -265,10 +296,16 @@ When the connection between the VNF and PNF is established, they start calculati
 \end{figure}
 
 
-\section{Experiment 5: Ping Latency under Different Throughput}
+\section{Experiment 7: Ping Latency under Different Throughput}
 \label{subsec:scenario_5}
 
-To evaluate the system-level throughput stability of the proposed timing-control mechanism under different real deployment conditions, we execute end-to-end data transmission under Experimental Scenario II and Experimental Scenario III. We use ping to measure the network interface latency between the VNF and PNF. Under Scenario II (Near-site deployment, Fig.~\ref{fig:exp5}(a)), the base latency is lower and more stable (around 0.3 to 0.5~ms). As illustrated in the metrics-specific line charts of Fig.~\ref{fig:exp5}(a), which effectively illustrate the performance trade-offs, the proposed method maintains stable near-peak throughput, and because the transport delay is lower, the required slots ahead parameter is smaller, which also reduces the MAC HARQ RTT. Under Scenario III (Remote deployment, Fig.~\ref{fig:exp5}(b)), the connection spans the campus network and traverses multiple switches and routers, resulting in higher base latency and queueing delay variations (ping latency up to 2.0~ms). Despite this severe transport jitter, the proposed method dynamically adapts the slots ahead parameter to prevent late packet arrivals, maintaining stable data transmission.
+To evaluate the system-level throughput stability of the proposed method under different real deployment conditions, we execute end-to-end data transmission under Experimental Scenario II and Experimental Scenario III. We use ping to measure the network interface latency between the VNF and PNF. Figure~\ref{fig:exp5} shows the results.
+
+Before analyzing the results, we introduce the axes of the charts. In both Figure~\ref{fig:exp5a} (Scenario II) and Figure~\ref{fig:exp5b} (Scenario III), the X-axis represents the elapsed time (in seconds), and the Y-axis represents either the achieved UE RX throughput (in Mbps) or the ping latency (in milliseconds).
+
+Under Scenario II (Near-site deployment, Figure~\ref{fig:exp5a}), the base latency is lower and more stable (around 0.3 to 0.5~ms). The proposed method maintains stable near-peak throughput. Because the transport delay is lower, the required slots ahead parameter is smaller, which also reduces the MAC HARQ RTT. Under Scenario III (Remote deployment, Figure~\ref{fig:exp5b}), the connection spans the campus network and traverses multiple switches and routers, resulting in higher base latency and queueing delay variations (ping latency up to 2.0~ms). Despite this severe transport jitter, the proposed method dynamically adapts the slots ahead parameter to prevent late packet arrivals.
+
+The main conclusion is that the proposed method successfully maintains stable, near-peak throughput (close to 940~Mbps) in both near-site and remote multi-hop deployments, demonstrating high resilience to real-world transport latency and jitter.
 
 \begin{figure}[!htbp]
   \centering
@@ -279,10 +316,16 @@ To evaluate the system-level throughput stability of the proposed timing-control
   \label{fig:exp5}
 \end{figure}
 
-\section{Experiment 6: Timing Info Mode}
+\section{Experiment 8: Timing Info Mode}
 \label{subsec:scenario_6}
 
-We evaluate the impact of different timing info reporting modes and periods under Scenario II (Near-site deployment, Fig.~\ref{fig:exp6}(a)) and Scenario III (Remote deployment, Fig.~\ref{fig:exp6}(b)). The nFAPI protocol supports periodic and aperiodic timing info feedback modes. Fig.~\ref{fig:exp6}(a) and Fig.~\ref{fig:exp6}(b) present the packet loss rate under different reporting configurations for both deployment scenarios. In both cases, increasing the timing period in periodic mode leads to a higher packet loss rate. This is because a longer period reduces feedback frequency. As a result, the VNF timing loop cannot adjust the slots ahead parameter fast enough to adapt to network variations, causing more slot packets to arrive late and be discarded by the PNF. Under Scenario III (Remote deployment), the longer distance and higher transport jitter result in a higher base packet loss rate, making the system more sensitive to feedback delay. Under Scenario II (Near-site deployment), the lower base latency and jitter allow the system to maintain a lower packet loss rate even with a slightly longer timing period.
+We evaluate the impact of different timing info reporting modes and periods under Scenario II (Near-site deployment) and Scenario III (Remote deployment). The nFAPI protocol supports periodic and aperiodic timing info feedback modes. Figure~\ref{fig:exp6} presents the evaluation results.
+
+Before describing the results, we introduce the axes of the charts. In both Figure~\ref{fig:exp6a} (Scenario II) and Figure~\ref{fig:exp6b} (Scenario III), the X-axis represents the different reporting configurations (periodic periods in slots, and the aperiodic mode), and the Y-axis represents the packet loss rate (in percentage).
+
+As shown in Figure~\ref{fig:exp6}, in both cases, increasing the timing period in periodic mode leads to a higher packet loss rate. This is because a longer period reduces feedback frequency. As a result, the VNF timing loop cannot adjust the slots ahead parameter fast enough to adapt to network variations, causing more slot packets to arrive late and be discarded by the PNF. Under Scenario III (Remote deployment), the longer distance and higher transport jitter result in a higher base packet loss rate, making the system more sensitive to feedback delay. Under Scenario II (Near-site deployment), the lower base latency and jitter allow the system to maintain a lower packet loss rate even with a slightly longer timing period.
+
+The main conclusion is that using periodic mode with a short period (1 slot) or aperiodic mode is essential to keep the packet loss rate low (close to 0\%) under transport networks with high jitter, whereas longer reporting periods degrade performance.
 
 \begin{figure}[!htbp]
   \centering
