@@ -43,7 +43,6 @@ nFAPI, O-RAN, Functional Split, Adaptive Control.
 \end{IEEEkeywords}
 
 \section{Introduction}
-\subsection{Background and Motivation}
 
 \textcolor{blue}{Functional split architectures have been widely studied as a key enabler for flexible and cost-efficient 5G/O-RAN deployments, where different protocol functions can be distributed across centralized and distributed nodes depending on bandwidth, latency, and coordination requirements \cite{Larsen2019}, \cite{3GPP_TR_38_801}, \cite{11124199}. In nFAPI-based Split Option 6, the MAC scheduler in the VNF must send scheduling control messages sufficiently ahead of the target slot so that the PNF can process them within its timing window. If a scheduling control message arrives later than the deadline, the PNF discards the scheduling request, resulting in missing-slot events and throughput degradation.}
 
@@ -55,8 +54,6 @@ nFAPI, O-RAN, Functional Split, Adaptive Control.
 
 \textcolor{blue}{This paper addresses the following problem: how to maintain nFAPI Split 6 scheduling stability over non-deterministic packet-switched transport without relying on hardware-level synchronization or statically configured worst-case ahead times. The key challenge is that the scheduler must choose a slots ahead value before observing the future network delay. A conservative value improves robustness but increases MAC HARQ RTT, while an aggressive value reduces latency but risks late packet arrivals and slot loss. To resolve this trade-off, we propose a closed-loop delay management method that uses PNF Timing Info to estimate the Timing Info and adapt the slots ahead value online.}
 
-\subsection{Related Works}
-
 \textcolor{blue}{Recent advancements in Open RAN (O-RAN) architectures have driven significant research into enhancing split-architecture performance and managing network latency. These works can be broadly classified into three categories.}
 
 \textcolor{blue}{\textbf{Hardware-assisted Split 7.2:} Hardware-assisted O-RAN testbeds such as X5G \cite{Villa2025} demonstrate the feasibility of high-throughput end-to-end private 5G deployments by integrating OpenAirInterface with NVIDIA ARC, GPU acceleration, and high-performance networking support. However, such designs primarily improve performance through specialized acceleration and synchronization infrastructure, whereas this work targets a software-only timing adaptation method for nFAPI Split Option 6 over general-purpose packet-switched transport.}
@@ -66,8 +63,6 @@ nFAPI, O-RAN, Functional Split, Adaptive Control.
 \textcolor{blue}{\textbf{nFAPI Delay Management Gap:} nFAPI has been proposed as a standard interface for 5G small cell networks \cite{Douros2018}, and open-source implementations of 5G NR Split Option 6 have demonstrated its feasibility in practical platforms \cite{Wang2022}. Nevertheless, existing implementations still largely rely on static trigger offsets, leaving the SCF-defined Timing Info based delay-management loop underexplored. Our proposed EWMA-based adaptive slots ahead adjustment method fills this critical gap, providing a cost-effective, software-only solution for COTS servers.}
 
 \textcolor{blue}{Specifically, compared to Split 7.2 implementations like X5G \cite{Villa2025} that require hardware-level PTP synchronization and GPU/SmartNIC offloads, or FAPI-based Split 6 designs \cite{Lee2022} restricted to intra-node shared memory and process-level adjustments, our proposed method operates at the slot/TTI level on standard COTS servers, actively managing cross-node network jitter and delay over standard packet-switched Ethernet without hardware acceleration dependencies.}
-
-\subsection{Research Scope and Contributions}
 
 \textcolor{blue}{In this paper, we focus on the nFAPI-based Option 6 split as a representative case of timing-sensitive yet transport-flexible RAN disaggregation. While Option 6 offers significant advantages in terms of reduced fronthaul bandwidth and deployment flexibility, its performance is highly sensitive to non-deterministic latency introduced by transport networks and server processing.}
 
