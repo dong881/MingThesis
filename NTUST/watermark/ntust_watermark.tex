@@ -42,19 +42,19 @@ width=2.8cm]{watermark/ntust_watermark.eps}}
 %% 如果不需整篇論文都要浮水印
 %% 則下面  >>> 與 <<< 之間的程式碼請關閉
 %% >>> 全篇浮水印
-\PlaceWaterMark  % 每一頁都有浮水印 (除了 plain、empty 頁以外)
+% \PlaceWaterMark  % 每一頁都有浮水印 (除了 plain、empty 頁以外)
 
-% 重新定義 plain 頁面
-% 每張 plain 頁面 (每一章的第一頁) 也加浮水印
+% % 重新定義 plain 頁面
+% % 每張 plain 頁面 (每一章的第一頁) 也加浮水印
 
-\fancypagestyle{plain}{%
-\fancyhead{}%
-\PlaceWaterMark%
-\fancyfoot{}%
-\fancyfoot[C]{\thepage}
-\renewcommand{\headrulewidth}{0pt}%
-\renewcommand{\footrulewidth}{0pt}%
-}
+% \fancypagestyle{plain}{%
+% \fancyhead{}%
+% \PlaceWaterMark%
+% \fancyfoot{}%
+% \fancyfoot[C]{\thepage}
+% \renewcommand{\headrulewidth}{0pt}%
+% \renewcommand{\footrulewidth}{0pt}%
+% }
 %% <<< 全篇浮水印
 
 %% 如果只有一、兩頁需要有浮水印
