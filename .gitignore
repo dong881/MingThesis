@@ -11,3 +11,6 @@ indent.log
 *.lof
 *.lot
 *.toc
+
+.agent/
+.claude/
