@@ -88,12 +88,8 @@ The negative sign in the microsecond adjustment reduces the local thread sleep t
 
 To counteract changing network latency and maintain scheduling stability, a dynamic delay management strategy is implemented. This strategy operates as a closed-loop feedback mechanism based on standard Small Cell Forum (SCF) PNF Timing Info reported by the PNF. By evaluating the Timing Info relative to the PNF deadline, the algorithm dynamically adjusts the scheduling ahead time $S_{\mathrm{ahead}}$.
 
-
 To formalize the delay management problem, this section introduces the mathematical timing model of the nFAPI-based Split Option 6 architecture. Let $T_{\mathrm{slot}}$ denote the slot duration and $S_{\mathrm{ahead}}$ denote the number of slots by which the VNF scheduler triggers earlier than the target slot. For a scheduling message generated at VNF time $t_g$, the corresponding target PNF processing deadline is determined by the target slot boundary. The Timing Info reported by the PNF is denoted by $\mathit{TimingInfo}[i]$, where $\mathit{TimingInfo}[i] < 0$ indicates that the message arrives before the deadline (early arrival), and $\mathit{TimingInfo}[i] > 0$ indicates a late arrival. Therefore, the delay management objective is to select the minimum stable $S_{\mathrm{ahead}}$ such that late arrivals are avoided ($\mathit{TimingInfo}[i] \le 0$) while the MAC HARQ Round-Trip Time (RTT) is not unnecessarily inflated.
 
-
-\subsection{EWMA-based Timing Info Estimation}
-\label{subsubsec:ewma_estimation}
 When functional splits are deployed over packet-switched networks, the jitter of packet latency varies a lot with the network load. To address this, the proposed method references the congestion avoidance and control algorithm proposed by Jacobson and Karels~\cite{jacobson1988congestion} to introduce an Exponentially Weighted Moving Average (EWMA) filter that tracks both the mean and the deviation of the timing info. This filter smooths sudden network jitter, and its weight parameters can be changed into bitwise shift operations to reduce the computing overhead in the RAN underlayer~\cite{jacobson1988congestion}. Specifically, an EWMA filter is used to estimate the mean late arrival $\mathit{TimingInfoEWMA}[i]$ and the arrival jitter deviation $\mathit{TimingInfoDev}[i]$ based on the observed PNF Timing Info $\mathit{TimingInfo}[i]$ at slot $i$. The mean estimation is updated as:
 \begin{equation}
 \begin{split}
@@ -112,8 +108,6 @@ The jitter deviation $\mathit{TimingInfoDev}[i]$ is updated to capture timing va
 \end{equation}
 where $\beta = 1/4$ is the deviation smoothing factor, and its initial value is set to half of the absolute first observed Timing Info value. To design the decision thresholds for the slots ahead, we use the network latency estimation parameters defined in the IETF RFC 6298 standard~\cite{rfc6298}. Specifically, we set the mean gain to $\alpha = 1/8$ and the deviation gain to $\beta = 1/4$, and use four times the deviation as a safety margin~\cite{rfc6298}. This parameter combination is a standard that has been tested in the industry for a long time. It covers most extreme network delays in a safe and stable way, ensuring that the nFAPI Split 6 architecture keeps strict timing synchronization and system stability under unpredictable jitter. These parameters are chosen as negative powers of two ($\alpha = 2^{-3}$, $\beta = 2^{-2}$) to allow the algorithm to perform fast bitwise shift operations in real time.
 
-\subsection{Adaptive Slots Ahead Control}
-\label{subsubsec:delay_control}
 The slots ahead trigger timing $S_{\mathrm{ahead}}$ is dynamically updated using a fast-increase and conservative-decrease control law. The adjustment logic is executed upon receiving each Timing Info report.
 
 The decision rules are defined as follows:
@@ -175,9 +169,6 @@ The core delay management strategy is condensed in Algorithm~\ref{alg:delay_mana
 \State \Return $S_{\mathrm{next}}$
 \end{algorithmic}
 \end{algorithm}
-
-
-
 
 To ensure stable operation under real-world conditions, node sync and delay management must coordinate without inducing control loop oscillations. The microsecond-level node sync focuses strictly on correcting clock phase offsets to align the VNF's scheduling thread with the PNF's slot transitions. Because it directly shifts the VNF's time base, any clock adjustment ($S_{adj}, \mu s_{adj}$) temporarily shifts the arrival timestamp reference. Delay management is designed to absorb this transient shifting. By relying on history-weighted EWMA-based risk tracking ($\mathit{TimingInfoEWMA}[i]$ $+$ $\mathit{TimingInfoDev}[i]$), delay management avoids reacting to the temporary timing offsets caused by clock adjustments, allowing node sync to converge. Once node sync locks synchronization ($\mathit{sync\_locked} = 1$), the time base stabilizes, allowing delay management to achieve precise slot-level optimizations ($S_{\mathrm{ahead}}$).
 
