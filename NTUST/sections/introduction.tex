@@ -7,9 +7,9 @@
 \label{sec:intro}
 
 \iffalse
-\section{研究背景與 O-RAN 架構演進}
+\section{O-RAN 功能切分背景}
 \fi
-\section{Research Background and O-RAN Architecture Evolution}
+\section{Background of O-RAN Functional Split}
 \label{sec:background}
 
 In the architectural evolution of the fifth-generation (5G) and the upcoming sixth-generation (6G) mobile communication standards, the Radio Access Network (RAN) is undergoing a fundamental transformation from the traditional monolithic base station to a highly virtualized, cloudified, and disaggregated architecture. Under the traditional architecture, baseband processing and Radio Frequency (RF) functions were tightly bound to the special hardware equipment of a single vendor, which not only limited the flexibility of network deployment but also significantly increased the capital and operational expenditures of operators.
@@ -18,64 +18,22 @@ With the rise of Cloud-RAN (C-RAN), disaggregated deployment methods have gradua
 
 In this disaggregated model, functional split options have become the most critical design core for determining network performance, hardware complexity, bandwidth consumption, and latency tolerance \cite{larsen2019comparison, PerezRomero2023}. 3GPP has standardized a variety of functional split options to adapt to diverse network requirements and deployment scenarios.
 
-\iffalse
-\subsection{Split Option 2}
-\fi
 \subsection{Split Option 2}
 \label{subsec:split2}
 Split Option 2 is a High Layer Split (HLS) architecture that primarily separates the CU and DU. Under this split, higher-layer protocols such as the Packet Data Convergence Protocol (PDCP) and Radio Resource Control (RRC) run centrally in the CU, while lower-layer Radio Link Control (RLC), Medium Access Control (MAC), and Physical Layer (PHY) remain in the DU. This architecture has relatively loose fronthaul bandwidth and latency requirements, making it easy to deploy over general packet-switched networks. The design of its synchronization mechanism is also very simple; due to its high tolerance, it only relies on flow control and deep buffering to operate stably \cite{larsen2019comparison}, and is widely recognized as the standard configuration with the best cost-effectiveness ratio, especially suitable for non-real-time data transmission scenarios.
 
-\iffalse
-\subsection{Split Option 6}
-\fi
 \subsection{Split Option 6}
 \label{subsec:split6}
 Split Option 6, also known as the MAC-PHY split, precisely places the architectural separation point between the MAC layer and the PHY layer. In this option, the DU is responsible for processing upper-layer protocols including the MAC layer, while the RU retains complete physical layer (PHY) processing capabilities. Since the fronthaul network transmits MAC Protocol Data Units (MAC PDUs) scheduled by the MAC layer, its bandwidth requirements are dynamically adjusted based on the actual load of the users. Notably, although the nFAPI-based Split Option 6 architecture also supports deployment over general packet-switched networks, its synchronization requirements are completely different from Split 2. It must strictly follow the scheduler's synchronization baseline at every slot level, ensuring data is delivered precisely on time from the VNF to the PNF. During this process, the operating system scheduling delays on the VNF side, as well as the unknown transmission delays and jitter introduced by the packet-switched network, are major challenges that must be overcome to maintain precise time synchronization \cite{Foukas2021_ICC}.
 
-\iffalse
-\subsection{Split Option 7.2}
-\fi
 \subsection{Split Option 7.2}
 \label{subsec:split72}
 Split Option 7.2x (Low-PHY split) places the split point inside the physical layer, and is currently the primary Lower Layer Split (LLS) standard promoted by the O-RAN Alliance \cite{oran_wg4_cus}. Although moving partial computations (such as FFT/IFFT) to the RU alleviates fronthaul pressure, its fronthaul transmits frequency-domain IQ symbols processed by the physical layer, demanding extremely high bandwidth. Because of this, Split 7.2 must be deployed under very strict network conditions, and its reliance on hardware equipment (such as hardware-level Precision Time Protocol, PTP) results in extremely high deployment costs \cite{11039666}. However, precisely because it has a strict private network environment and transmits a stable, continuous stream of IQ data, its synchronization mechanism is relatively stable and does not require special handling for latency variation issues caused by different offered loads.
 
-\iffalse
-\subsection{Split Option 8}
-\fi
 \subsection{Split Option 8}
 \label{subsec:split8}
 Split Option 8 is the most traditional lower-layer split architecture, placing the split point between the Radio Frequency (RF) and the Physical Layer (PHY). Under this architecture, all baseband processing functions (including complete PHY, MAC, and higher-layer protocols) are centralized in the DU or CU, while the RU is only responsible for RF signal transmission and reception. This configuration produces a fronthaul data stream dominated by time-domain IQ samples, usually relying on CPRI or enhanced CPRI (eCPRI) for transmission. Although it highly centralizes hardware resources, its fronthaul network bandwidth requirements are extremely high, and it is strictly constrained by system bandwidth and antenna count. Furthermore, its latency limits are extremely strict (maximum allowable one-way latency is $250~\mu$s \cite{3gpp_tr_38_801}), thus, similar to Split 7.2, it heavily relies on high-quality private optical networks and precise timing synchronization hardware.
 
-\iffalse
-\section{基於 Split Option 6 之網路架構與挑戰}
-\fi
-\section{Network Architecture and Challenges Based on Split Option 6}
-\label{sec:split6_details}
-
-This thesis focuses on the architectural design and application of Split Option 6. As mentioned earlier, while adopting lower-layer splits (such as Split Option 7.2) can further centralize computational resources, it requires a more expensive PTP deployment environment and a transmission network with extremely high demands for low latency, which will lead to high capital and operational expenditures. In light of this, choosing the Split Option 6 approach, which leaves the complete physical layer (Monolithic PHY) at the remote node, can strike the best balance between resource requirements and cost-effectiveness. According to research by Khan et al. \cite{10014970}, cost-benefit trade-off analysis for 5G NR small cells indicates that compared to strict lower-layer splits, the architecture separating the MAC and PHY layers can significantly reduce the required fronthaul bandwidth while ensuring goodput, thereby achieving the goal of lowering overall deployment costs. Therefore, in non-ideal or resource-constrained network environments, Split Option 6 becomes the ideal choice that balances performance and cost.
-
-\iffalse
-\subsection{FAPI 介面介紹}
-\fi
-\subsection{Introduction to the FAPI Interface}
-\label{subsec:fapi}
-
-Within the disaggregated RAN architecture, the Functional Application Platform Interface (FAPI) is standardized by the Small Cell Forum (SCF) for Split Option 6 (the MAC-PHY split) \cite{SCF222}. The FAPI design assumes that the MAC layer and the PHY layer are deployed on the same physical machine. Under this same-machine deployment, communication is performed using shared memory, which provides very low latency. The timing is driven by the PHY layer, which sends a \texttt{slot.indication} message to the MAC layer at every slot boundary. This message acts as a trigger to run the MAC scheduling loop. However, since FAPI relies on shared memory on a single host, it does not support physical separation or remote deployment of the base station components.
-
-\subsection{Introduction to the nFAPI Interface}
-\label{subsec:nfapi}
-
-To support remote deployment and physical separation under Split Option 6, the SCF defined the network Functional Application Platform Interface (nFAPI) \cite{SCF225}. The core design of nFAPI is to wrap FAPI messages into IP network packets and transmit them over packet-switched networks using network sockets \cite{douros2018nfapi}. This socket-based communication allows the virtualized MAC layer (operating as a Virtual Network Function or VNF) and the physical PHY layer (operating as a Physical Network Function or PNF) to be deployed on separate machines, providing high flexibility.
-
-Unlike FAPI where the \texttt{slot.indication} directly triggers the MAC on the same machine, transmitting nFAPI messages over network sockets introduces transmission delays and jitter. To maintain synchronization, the SCF specification defines standard interface messages for node sync and delay management. Rather than fixing a single implementation, the specification provides generic inputs (such as observed packet arrival times and offsets) and generic outputs (such as timing adjustments). This generic input/output framework allows developers to build and use their own timing adjustment algorithms, preparing the system for flexible and customizable deployments in non-ideal networks.
-
-It is particularly important to note that according to 3GPP TR 38.801 \cite{3gpp_tr_38_801} specifications, the ideal fronthaul one-way latency limit for Split Option 6 is $250~\mu$s. However, the SCF provides a more practical interpretation for nFAPI's latency tolerance in its specifications \cite{SCF082, SCF225}. The SCF indicates that nFAPI is designed for packet-switched IP networks, and can support highly delayed and highly jittered transmission conditions, tolerating one-way latency ranging from 6 to 30~ms, by employing the built-in delay management mechanism of the nFAPI P7 interface and the SCTP protocol adapted for the P5 interface. This design specifically for non-ideal networks makes Split Option 6 highly practical and flexible in deployment.
-
-\iffalse
-\subsection{切分技術綜合比較}
-\fi
-\subsection{Comprehensive Comparison of Split Technologies}
-\label{subsec:split_comparison}
 To more intuitively present the differences between different split options, Table~\ref{tab:split_comparison_matrix} provides a comprehensive comparison of Split 2, Split Option 6, Split 7.2x, and Split 8 in terms of protocol boundaries, bandwidth requirements, and latency limits.
 
 \begin{table}[htbp]
@@ -83,7 +41,7 @@ To more intuitively present the differences between different split options, Tab
 \iffalse
 \caption{5G RAN 拆分部署比較表}
 \fi
-\caption{5G RAN Split Deployment Comparison Table}
+\caption{5G RAN Split Deployment Comparison Table (adapted from \cite{3gpp_tr_38_801, SCF082, larsen2019comparison}).}
 \label{tab:split_comparison_matrix}
 \small
 \begin{tabularx}{\textwidth}{@{}L L L L L@{}}
@@ -98,78 +56,78 @@ Optimal Deployment & Non-real-time services & Small cells, indoor private networ
 \end{tabularx}
 \end{table}
 
-This thesis focuses on the deployment and optimization of nFAPI because it provides excellent network flexibility, allowing network operators to logically split the base station and deploy it on two independent machines, even connected via general packet-switched networks. However, this physical split also brings great challenges: in a non-deterministic network environment, how to maintain time synchronization between the two nodes and conduct precise delay management has become the primary difficulty in ensuring stable system operation.
+Among these options, Split 6 provides the best balance between flexibility and deployment cost \cite{10014970}.
 
 \iffalse
-\section{研究動機與問題定義}
+\section{nFAPI Split 6 架構}
 \fi
-\section{Research Motivation and Problem Definition}
+\section{nFAPI Split 6 Architecture}
+\label{sec:split6_details}
+
+To deploy base station components remotely and physically separate the MAC and PHY layers, the Small Cell Forum (SCF) defined the network Functional Application Platform Interface (nFAPI) \cite{SCF225}. To understand the timing synchronization and delay management requirements of the nFAPI Split 6 architecture, it is necessary to first look at the local interface baseline.
+
+\subsection{The FAPI Interface}
+\label{subsec:fapi}
+
+Within the disaggregated RAN architecture, the Functional Application Platform Interface (FAPI) is standardized by the SCF for Split Option 6 (the MAC-PHY split) \cite{SCF222}. The FAPI design assumes that the MAC layer and the PHY layer are deployed on the same physical machine. Under this same-machine deployment, communication is performed using shared memory, which provides very low latency. The timing is driven by the PHY layer, which sends a \texttt{slot.indication} message to the MAC layer at every slot boundary. This message acts as a trigger to run the MAC scheduling loop. However, since FAPI relies on shared memory on a single host, it does not support physical separation or remote deployment of the base station components.
+
+\subsection{The nFAPI Interface}
+\label{subsec:nfapi}
+
+To support remote deployment and physical separation under Split Option 6, the SCF defined nFAPI \cite{SCF225}. The core design of nFAPI is to wrap FAPI messages into IP network packets and transmit them over packet-switched networks using network sockets \cite{douros2018nfapi}. This socket-based communication allows the virtualized MAC layer (operating as a Virtual Network Function or VNF) and the physical PHY layer (operating as a Physical Network Function or PNF) to be deployed on separate machines, providing high flexibility.
+
+Unlike FAPI where the \texttt{slot.indication} directly triggers the MAC on the same machine, transmitting nFAPI messages over network sockets introduces transmission delays and jitter. To maintain synchronization, the SCF specification defines standard interface messages for node sync and delay management. Rather than fixing a single implementation, the specification provides generic inputs (such as observed packet arrival times and offsets) and generic outputs (such as timing adjustments). This generic input/output framework allows developers to build and use their own timing adjustment algorithms, preparing the system for flexible and customizable deployments in non-ideal networks.
+
+According to 3GPP TR 38.801 \cite{3gpp_tr_38_801} specifications, the ideal fronthaul one-way latency limit for Split Option 6 is $250~\mu$s. However, the SCF provides a more practical interpretation for nFAPI's latency tolerance in its specifications \cite{SCF082, SCF225}. The SCF indicates that nFAPI is designed for packet-switched IP networks, and can support highly delayed and highly jittered transmission conditions, tolerating one-way latency ranging from 6 to 30~ms, by employing the built-in delay management mechanism of the nFAPI P7 interface and the SCTP protocol adapted for the P5 interface. This design specifically for non-ideal networks makes Split Option 6 highly practical and flexible in deployment.
+
+\subsection{Timing Synchronization and Delay Management in nFAPI}
+\label{subsec:nfapi_timing}
+
+To maintain correct wireless operations, the subframe and slot transmission between the VNF and PNF must be tightly synchronized. The MAC scheduler on the VNF must transmit the downlink control messages and resource assignments to the PNF such that they arrive before a strict timing window deadline. If a packet arrives late, the PNF cannot process the scheduling information for that slot, leading to slot packet loss and potential connection failure. To handle transport network latency and jitter without using hardware-level synchronization, the nFAPI specification introduces a delay management interface. This interface relies on periodic transmission of node sync and timing info messages. These messages allow the VNF to observe the arrival margin of the packets at the PNF side and adjust its scheduling trigger advance accordingly.
+
+\iffalse
+\section{問題定義}
+\fi
+\section{Problem Statement}
 \label{sec:motivation}
 
-Although Split Option 6 has flexible timing adjustment capabilities and better tolerance for non-ideal fronthaul networks, it still faces severe challenges in practical deployment. As radio access networks move towards virtualization and cloudification, the hosted MAC layer functions are typically deployed as Virtual Network Functions (VNFs) on general-purpose processors. However, in this general-purpose computing environment, non-deterministic operating system scheduling jitter and processing delay uncertainty often impact timing-sensitive baseband processing \cite{Foukas2021_ICC, Lee2022}.
+Although the nFAPI Split Option 6 architecture has flexible timing adjustment capabilities and better tolerance for non-ideal fronthaul networks, it still faces severe challenges in practical deployment. As radio access networks move towards virtualization and cloudification, the hosted MAC layer functions are typically deployed as VNFs on general-purpose processors. However, in this general-purpose computing environment, non-deterministic operating system scheduling jitter and processing delay uncertainty often impact timing-sensitive baseband processing \cite{Foukas2021_ICC, Lee2022}.
 
-Specifically, in existing open-source implementations including OpenAirInterface (OAI), they have not truly implemented a generic nFAPI interface according to the SCF specifications. Instead, they use an incorrect approach that leads to high latency. They forward the raw \texttt{slot.indication} directly over the network to drive the MAC scheduling, and they rely on a statically configured \textit{slots ahead} parameter (representing the scheduling ahead time of the VNF in units of slots) to handle delay. This design makes the system highly sensitive to packet-switched network jitter and operating system delays. To avoid packet loss in high-jitter environments, developers must set a very large static slots ahead value, which significantly increases transmission latency and defeats the benefits of the Split Option 6 architecture. When network congestion or CPU spikes occur, control messages still miss their deadlines, causing connection failures.
+Specifically, in existing open-source implementations including OpenAirInterface (OAI), they have not truly implemented a generic nFAPI interface according to the SCF specifications. Instead, they use an incorrect approach that leads to high latency. They forward the raw \texttt{slot.indication} directly over the network to drive the MAC scheduling, and they rely on a statically configured slots ahead parameter (representing the scheduling ahead time of the VNF in units of slots) to handle delay. This design makes the system highly sensitive to packet-switched network jitter and operating system delays. To avoid packet loss in high-jitter environments, developers must set a very large static slots ahead value, which significantly increases transmission latency and defeats the benefits of the Split Option 6 architecture. When network congestion or CPU spikes occur, control messages still miss their deadlines, causing connection failures.
 
-To address these limitations, this thesis re-develops the nFAPI interface based on the OAI project to support the standard node sync and delay management mechanisms. Specifically, this thesis addresses the following problem: how to maintain nFAPI Split 6 scheduling stability over non-deterministic packet-switched transport without relying on hardware-level synchronization or statically configured worst-case ahead times. The key challenge is that the scheduler must choose a slots ahead value before observing the future network delay. A conservative value improves robustness but increases MAC HARQ RTT, while an aggressive value reduces latency but risks late packet arrivals and slot loss. To resolve this trade-off, we propose a closed-loop delay management process that uses PNF timing info to estimate the arrival margin and adapt the slots ahead value online. By providing generic inputs and outputs rather than hardcoded slot forwarding, our framework enables dynamic timing control and flexible deployment, and we contribute this re-developed nFAPI implementation back to the upstream OAI repository to support reproducible Split 6 research.
+To address these limitations, this thesis re-develops the nFAPI interface based on the OAI project to support the standard node sync and delay management mechanisms. Specifically, this thesis addresses the following problem: how to maintain nFAPI Split 6 scheduling stability over non-deterministic packet-switched transport without relying on hardware-level synchronization or statically configured worst-case ahead times.
+
+The key challenge is that the scheduler must choose a slots ahead value before observing the future network delay. A conservative value improves robustness but increases MAC HARQ RTT, while an aggressive value reduces latency but risks late packet arrivals and slot loss. To resolve this trade-off, we propose a closed-loop delay management process that uses PNF timing info to estimate the arrival margin and adapt the slots ahead value online. By providing generic inputs and outputs rather than hardcoded slot forwarding, our framework enables dynamic timing control and flexible deployment, and we contribute this re-developed nFAPI implementation back to the upstream OAI repository to support reproducible Split 6 research.
 
 Therefore, the core research question of this thesis is defined as follows: In a cloud environment with non-deterministic processing loads and network jitter, how to dynamically and accurately compensate for end-to-end latency in the nFAPI Split Option 6 architecture to ensure the stability of timing synchronization?
 
 \iffalse
-\section{相關研究}
+\section{相關研究與研究缺口}
 \fi
-\section{Related Works}
+\section{Related Work and Research Gap}
 \label{sec:related_works}
 
-In recent years, the rapid development of the Open Radio Access Network (O-RAN) architecture has prompted many studies to optimize
-the performance and network latency management of the Split Architecture. For instance, the X5G testbed proposed by Villa et al.
-\cite{11039666} demonstrated an advanced 5G O-RAN deployment solution based on hardware acceleration. This research successfully
-achieved commercial-grade peak throughput by offloading the massive computations of the Physical Layer (PHY) to dedicated NVIDIA
-GPUs and Mellanox SmartNICs. To guide researchers and operators in
-transitioning these complex virtualized architectures from software simulators to emulated and real-world testbeds, deployment
-solutions and software interoperability issues on open-source platforms like OpenAirInterface have been comprehensively surveyed
-\cite{herrera2026tutorial}.
+In recent years, the rapid development of the Open Radio Access Network (O-RAN) architecture has prompted many studies to optimize the performance and network latency management of the Split Architecture. Existing research can be categorized into four main categories: hardware-accelerated solutions, operating system scheduling and software optimization, deterministic latency and quality-of-service (QoS) orchestration, and fronthaul latency modeling.
 
-To provide a highly flexible and cost-effective deployment solution, this thesis proposes a universal software-defined approach for non-ideal fronthaul environments. Unlike hardware-accelerated architectures like X5G, and unlike traditional methods that rely on static configurations to compromise on delay jitter, this thesis designs an Adaptive Slots Ahead Control Mechanism based on Exponentially Weighted Moving Average (EWMA) delay management specifically for the nFAPI architecture. This mechanism can run on general COTS servers, dynamically tracking and filtering network jitter, and actively adapting to unpredictable network congestion. Experimental results show that the method proposed in this thesis can effectively stabilize the HARQ loop latency (RTT) and maintain system throughput without relying on specialized hardware acceleration or precise clock synchronization equipment, providing a more cost-effective and flexible alternative for O-RAN deployment.
+First, regarding hardware-accelerated solutions, the X5G testbed proposed by Villa et al. \cite{11039666} demonstrated an advanced 5G O-RAN deployment solution based on hardware acceleration. This research successfully achieved commercial-grade peak throughput by offloading the massive computations of the Physical Layer (PHY) to dedicated NVIDIA GPUs and Mellanox SmartNICs. To guide researchers and operators in transitioning these complex virtualized architectures from software simulators to emulated and real-world testbeds, deployment solutions and software interoperability issues on open-source platforms like OpenAirInterface have been comprehensively surveyed \cite{herrera2026tutorial}. However, these approaches depend heavily on specialized and expensive hardware acceleration or precise time synchronization hardware.
 
-Simultaneously, current academic research on O-RAN delay management has explored various dimensions to address non-deterministic
-latency. At the intra-node level, Lee et al. \cite{Lee2022} proposed an adaptive transmission strategy based on the FAPI interface,
-utilizing the variance in Layer 1 software (L1SW) processing times to opportunistically advance transmissions, which effectively
-complements end-to-end transport delay management. To further mitigate intra-node scheduling jitter on general-purpose servers,
-Aquifer \cite{jia2024aquifer} introduced transparent microsecond-scale operating system scheduling by exploiting common
-producer-consumer patterns in virtualized base stations. For strict deterministic latency requirements in ultra-reliable
-low-latency communication (uRLLC), Adamuz-Hinojosa et al. \cite{Adamuz2024ORANUS} introduced the ORANUS framework, employing
-Stochastic Network Calculus (SNC) to provide strict mathematical bounds for latency violations. Furthermore, from the perspective
-of User Equipment (UE) Service Quality (QoS), Lv et al. \cite{Lv2024QoS} developed UQ-vRAN, which emphasizes the joint
-optimization of MAC scheduling and higher-layer orchestration through precise traffic digital twins. Additionally, resource
-allocation for Hybrid Automatic Repeat Request (HARQ) retransmissions in mobile networks can be dynamically pre-allocated based
-on user equipment error rates and scheduling cycles, reducing transport block loss and stabilizing scheduler goodput
-\cite{elfiky2024allocation}. From a computational perspective, AegisRAN \cite{hidalgo2025aegisran} dynamically scales computing
-resources to achieve energy savings in virtualized base stations; however, deactivating unused CPU cores can introduce transient
-processing delay fluctuations, which further increases the timing synchronization challenges at the MAC-PHY interface.
+Second, for operating system scheduling and software optimization, researchers have explored methods to mitigate scheduling jitter on general-purpose servers. Lee et al. \cite{Lee2022} proposed an adaptive transmission strategy based on the FAPI interface, utilizing the variance in Layer 1 software processing times to opportunistically advance transmissions. To further mitigate intra-node scheduling jitter on general-purpose servers, Aquifer \cite{jia2024aquifer} introduced transparent microsecond-scale operating system scheduling by exploiting common producer-consumer patterns in virtualized base stations. Additionally, AegisRAN \cite{hidalgo2025aegisran} dynamically scales computing resources to achieve energy savings in virtualized base stations. However, deactivating unused CPU cores can introduce transient processing delay fluctuations, which further increases the timing synchronization challenges at the MAC-PHY interface.
 
-To understand the delay bounds and capacity constraints of packet-switched transport networks, researchers have modeled fronthaul
-latency using queuing theory. Diez et al. \cite{diez2021flexible} developed a comprehensive end-to-end queuing model based on
-Open Jackson Networks to analyze how background traffic and heterogeneous architectures influence latency across different split
-points, demonstrating that delay increases significantly as load approaches link capacity. This queuing-based framework was
-subsequently extended by Khan et al. \cite{khan2026evaluating} to model time-window relationships and priority-based scheduling
-over spine-leaf fronthaul topologies, providing operators with analytical tools to evaluate delay violations without relying on
-full network emulation.
+Third, in the domain of deterministic latency and QoS orchestration, Adamuz-Hinojosa et al. \cite{Adamuz2024ORANUS} introduced the ORANUS framework, employing Stochastic Network Calculus (SNC) to provide strict mathematical bounds for latency violations in ultra-reliable low-latency communication (uRLLC). From the perspective of User Equipment (UE) QoS, Lv et al. \cite{Lv2024QoS} developed UQ-vRAN, which optimizes MAC scheduling and higher-layer orchestration through precise traffic digital twins. Furthermore, resource allocation for Hybrid Automatic Repeat Request (HARQ) retransmissions can be dynamically pre-allocated based on user equipment error rates and scheduling cycles, reducing transport block loss and stabilizing scheduler goodput \cite{elfiky2024allocation}.
 
-While these existing literatures \cite{Lee2022, jia2024aquifer, Adamuz2024ORANUS, Lv2024QoS, elfiky2024allocation,
-hidalgo2025aegisran, diez2021flexible, khan2026evaluating, Mohammed2026Fronthaul} have proposed optimization and delay-modeling
-schemes ranging from specific intra-node CPU adjustments to long-term QoS orchestration, they generally do not directly address
-the severe cross-node synchronization failures caused by non-deterministic fronthaul jitter in intermediate-layer splits. This
-thesis fills the critical gap by targeting the microsecond-level phase synchronization and latency challenges inherent in the
-nFAPI Split Option 6 architecture. Specifically, we focus on the fact that the Small Cell Forum (SCF) 225 nFAPI specification
-\cite{SCF225} defines the standard \texttt{Timing Info} message and interface-level delay management fields, yet existing
-open-source implementations only support static parameter initialization. Our proposed dynamic timing control completes this
-standardized framework by implementing an adaptive timing closed-loop feedback, presenting a unique academic contribution to
-realizing dynamic time synchronization under a pure software-defined network architecture without relying on specialized hardware.
+Fourth, to understand the delay bounds and capacity constraints of packet-switched transport networks, researchers have modeled fronthaul latency using queuing theory. Diez et al. \cite{diez2021flexible} developed an end-to-end queuing model based on Open Jackson Networks to analyze how background traffic and heterogeneous architectures influence latency across different split points, demonstrating that delay increases significantly as load approaches link capacity. This queuing-based framework was subsequently extended by Khan et al. \cite{khan2026evaluating} to model timing-window relationships and priority-based scheduling over spine-leaf fronthaul topologies, providing analytical tools to evaluate delay violations without relying on full network emulation.
+
+\subsection{Research Gap}
+\label{subsec:research_gap}
+
+While these existing studies \cite{Lee2022, jia2024aquifer, Adamuz2024ORANUS, Lv2024QoS, elfiky2024allocation, hidalgo2025aegisran, diez2021flexible, khan2026evaluating, Mohammed2026Fronthaul} have proposed optimization and delay-modeling schemes ranging from specific intra-node CPU adjustments to long-term QoS orchestration, they generally do not directly address the severe cross-node synchronization failures caused by non-deterministic fronthaul jitter in intermediate-layer splits. This thesis fills the critical gap by targeting the microsecond-level phase synchronization and latency challenges inherent in the nFAPI Split Option 6 architecture. Specifically, we focus on the fact that the Small Cell Forum (SCF) 225 nFAPI specification \cite{SCF225} defines the standard timing info message and interface-level delay management fields, yet existing open-source implementations only support static parameter initialization. Our proposed method completes this standardized framework by implementing an adaptive timing closed-loop feedback, presenting a unique academic contribution to realizing dynamic time synchronization under a pure software-defined network architecture without relying on specialized hardware.
+
+Existing studies do not provide a complete closed-loop timing control mechanism for nFAPI Split 6 over packet-switched networks.
 
 To clearly position the proposed work within the current state-of-the-art (SOTA) literature, Table~\ref{tab:sota_comparison} summarizes the comparison across key architectural and performance characteristics.
 
 \begin{table}[htbp]
-\caption{Comparison of Proposed Work with State-of-the-Art Solutions}
+\caption{Comparison of Proposed Work with State-of-the-Art Solutions \cite{11039666, Lee2022}.}
 \label{tab:sota_comparison}
 \centering
 \small
@@ -197,6 +155,5 @@ In response to the aforementioned issues, the main contributions of this thesis 
 \item \textbf{End-to-End Validation under Controlled and Multi-hop Transport:} We implemented the proposed mechanism on the OpenAirInterface platform and combined it with a commercial UE and O-RU for verification. Experimental results show that this mechanism can significantly reduce missing slot packet errors and maintain stable network throughput under both Linux-TC-injected delay/jitter (under Experimental Scenario I) and a realistic 3-switch/3-router campus network deployment (under Experimental Scenario III).
 \item \textbf{Open-Source nFAPI Platform Contribution to Upstream OAI:} We submitted our adaptive timing control and nFAPI modifications as a merge request (MR) to the official OpenAirInterface (OAI) \cite{oai_gitlab_ci} repository. This contribution was merged into the official codebase. It provides a standard open-source nFAPI platform that follows the Small Cell Forum (SCF) specification for future development and testing.
 \end{itemize}
-
 
 \end{document}
