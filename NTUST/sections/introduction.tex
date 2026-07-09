@@ -7,9 +7,9 @@
 \label{sec:intro}
 
 \iffalse
-\section{O-RAN 功能切分背景}
+\section{背景}
 \fi
-\section{Background of O-RAN Functional Split}
+\section{Background}
 \label{sec:background}
 
 In the architectural evolution of the fifth-generation (5G) and the upcoming sixth-generation (6G) mobile communication standards, the Radio Access Network (RAN) is undergoing a fundamental transformation from the traditional monolithic base station to a highly virtualized, cloudified, and disaggregated architecture. Under the traditional architecture, baseband processing and Radio Frequency (RF) functions were tightly bound to the special hardware equipment of a single vendor, which not only limited the flexibility of network deployment but also significantly increased the capital and operational expenditures of operators.
@@ -52,12 +52,6 @@ Optimal Deployment & Non-real-time services & Small cells, indoor private networ
 
 Among these options, Split 6 provides the best balance between flexibility and deployment cost \cite{10014970}.
 
-\iffalse
-\section{Split 6 架構}
-\fi
-\section{Split 6 Architecture}
-\label{sec:split6_details}
-
 To deploy base station components remotely and physically separate the MAC and PHY layers, the Small Cell Forum (SCF) defined the network Functional Application Platform Interface (nFAPI) \cite{SCF225}. To understand the timing synchronization and delay management requirements of the nFAPI Split 6 architecture, it is necessary to first look at the local interface baseline.
 
 \begin{itemize}
@@ -89,9 +83,9 @@ The key challenge is that the scheduler must choose a slots ahead value before o
 Therefore, the core research question of this thesis is defined as follows: In a cloud environment with non-deterministic processing loads and network jitter, how to dynamically and accurately compensate for end-to-end latency in the nFAPI Split Option 6 architecture to ensure the stability of timing synchronization?
 
 \iffalse
-\section{相關研究與研究缺口}
+\section{相關研究}
 \fi
-\section{Related Work and Research Gap}
+\section{Related Work}
 \label{sec:related_works}
 
 In recent years, the rapid development of the Open Radio Access Network (O-RAN) architecture has prompted many studies to optimize the performance and network latency management of the Split Architecture. Existing research can be categorized into four main categories: hardware-accelerated solutions, operating system scheduling and software optimization, deterministic latency and quality-of-service (QoS) orchestration, and fronthaul latency modeling.
@@ -129,7 +123,7 @@ Adaptation Domain & Hardware Offload & Intra-node CPU Scheduling & Cross-node Ji
 \iffalse
 \section{論文貢獻}
 \fi
-\section{Thesis Contributions}
+\section{Contributions}
 \label{sec:contribution}
 
 In response to the aforementioned issues, the main contributions of this thesis are as follows:
