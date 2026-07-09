@@ -88,8 +88,7 @@ The negative sign in the microsecond adjustment reduces the local thread sleep t
 
 To counteract changing network latency and maintain scheduling stability, a dynamic delay management strategy is implemented. This strategy operates as a closed-loop feedback mechanism based on standard Small Cell Forum (SCF) PNF Timing Info reported by the PNF. By evaluating the Timing Info relative to the PNF deadline, the algorithm dynamically adjusts the scheduling ahead time $S_{\mathrm{ahead}}$.
 
-\subsection{Timing Model}
-\label{subsec:timing_model}
+
 To formalize the delay management problem, this section introduces the mathematical timing model of the nFAPI-based Split Option 6 architecture. Let $T_{\mathrm{slot}}$ denote the slot duration and $S_{\mathrm{ahead}}$ denote the number of slots by which the VNF scheduler triggers earlier than the target slot. For a scheduling message generated at VNF time $t_g$, the corresponding target PNF processing deadline is determined by the target slot boundary. The Timing Info reported by the PNF is denoted by $\mathit{TimingInfo}[i]$, where $\mathit{TimingInfo}[i] < 0$ indicates that the message arrives before the deadline (early arrival), and $\mathit{TimingInfo}[i] > 0$ indicates a late arrival. Therefore, the delay management objective is to select the minimum stable $S_{\mathrm{ahead}}$ such that late arrivals are avoided ($\mathit{TimingInfo}[i] \le 0$) while the MAC HARQ Round-Trip Time (RTT) is not unnecessarily inflated.
 
 
@@ -178,8 +177,7 @@ The core delay management strategy is condensed in Algorithm~\ref{alg:delay_mana
 \end{algorithm}
 
 
-\subsection{Coordination between Node Sync and Delay Management}
-\label{subsec:coordination}
+
 
 To ensure stable operation under real-world conditions, node sync and delay management must coordinate without inducing control loop oscillations. The microsecond-level node sync focuses strictly on correcting clock phase offsets to align the VNF's scheduling thread with the PNF's slot transitions. Because it directly shifts the VNF's time base, any clock adjustment ($S_{adj}, \mu s_{adj}$) temporarily shifts the arrival timestamp reference. Delay management is designed to absorb this transient shifting. By relying on history-weighted EWMA-based risk tracking ($\mathit{TimingInfoEWMA}[i]$ $+$ $\mathit{TimingInfoDev}[i]$), delay management avoids reacting to the temporary timing offsets caused by clock adjustments, allowing node sync to converge. Once node sync locks synchronization ($\mathit{sync\_locked} = 1$), the time base stabilizes, allowing delay management to achieve precise slot-level optimizations ($S_{\mathrm{ahead}}$).
 
