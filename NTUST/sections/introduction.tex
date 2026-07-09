@@ -53,31 +53,24 @@ Optimal Deployment & Non-real-time services & Small cells, indoor private networ
 Among these options, Split 6 provides the best balance between flexibility and deployment cost \cite{10014970}.
 
 \iffalse
-\section{nFAPI Split 6 架構}
+\section{Split 6 架構}
 \fi
-\section{nFAPI Split 6 Architecture}
+\section{Split 6 Architecture}
 \label{sec:split6_details}
 
 To deploy base station components remotely and physically separate the MAC and PHY layers, the Small Cell Forum (SCF) defined the network Functional Application Platform Interface (nFAPI) \cite{SCF225}. To understand the timing synchronization and delay management requirements of the nFAPI Split 6 architecture, it is necessary to first look at the local interface baseline.
 
-\subsection{The FAPI Interface}
-\label{subsec:fapi}
+\begin{itemize}
+\item \textbf{The FAPI Interface:} Within the disaggregated RAN architecture, the Functional Application Platform Interface (FAPI) is standardized by the SCF for Split Option 6 (the MAC-PHY split) \cite{SCF222}. The FAPI design assumes that the MAC layer and the PHY layer are deployed on the same physical machine. Under this same-machine deployment, communication is performed using shared memory, which provides very low latency. The timing is driven by the PHY layer, which sends a \texttt{slot.indication} message to the MAC layer at every slot boundary. This message acts as a trigger to run the MAC scheduling loop. However, since FAPI relies on shared memory on a single host, it does not support physical separation or remote deployment of the base station components.
 
-Within the disaggregated RAN architecture, the Functional Application Platform Interface (FAPI) is standardized by the SCF for Split Option 6 (the MAC-PHY split) \cite{SCF222}. The FAPI design assumes that the MAC layer and the PHY layer are deployed on the same physical machine. Under this same-machine deployment, communication is performed using shared memory, which provides very low latency. The timing is driven by the PHY layer, which sends a \texttt{slot.indication} message to the MAC layer at every slot boundary. This message acts as a trigger to run the MAC scheduling loop. However, since FAPI relies on shared memory on a single host, it does not support physical separation or remote deployment of the base station components.
-
-\subsection{The nFAPI Interface}
-\label{subsec:nfapi}
-
-To support remote deployment and physical separation under Split Option 6, the SCF defined nFAPI \cite{SCF225}. The core design of nFAPI is to wrap FAPI messages into IP network packets and transmit them over packet-switched networks using network sockets \cite{douros2018nfapi}. This socket-based communication allows the virtualized MAC layer (operating as a Virtual Network Function or VNF) and the physical PHY layer (operating as a Physical Network Function or PNF) to be deployed on separate machines, providing high flexibility.
+\item \textbf{The nFAPI Interface:} To support remote deployment and physical separation under Split Option 6, the SCF defined nFAPI \cite{SCF225}. The core design of nFAPI is to wrap FAPI messages into IP network packets and transmit them over packet-switched networks using network sockets \cite{douros2018nfapi}. This socket-based communication allows the virtualized MAC layer (operating as a Virtual Network Function or VNF) and the physical PHY layer (operating as a Physical Network Function or PNF) to be deployed on separate machines, providing high flexibility.
 
 Unlike FAPI where the \texttt{slot.indication} directly triggers the MAC on the same machine, transmitting nFAPI messages over network sockets introduces transmission delays and jitter. To maintain synchronization, the SCF specification defines standard interface messages for node sync and delay management. Rather than fixing a single implementation, the specification provides generic inputs (such as observed packet arrival times and offsets) and generic outputs (such as timing adjustments). This generic input/output framework allows developers to build and use their own timing adjustment algorithms, preparing the system for flexible and customizable deployments in non-ideal networks.
 
 According to 3GPP TR 38.801 \cite{3gpp_tr_38_801} specifications, the ideal fronthaul one-way latency limit for Split Option 6 is $250~\mu$s. However, the SCF provides a more practical interpretation for nFAPI's latency tolerance in its specifications \cite{SCF082, SCF225}. The SCF indicates that nFAPI is designed for packet-switched IP networks, and can support highly delayed and highly jittered transmission conditions, tolerating one-way latency ranging from 6 to 30~ms, by employing the built-in delay management mechanism of the nFAPI P7 interface and the SCTP protocol adapted for the P5 interface. This design specifically for non-ideal networks makes Split Option 6 highly practical and flexible in deployment.
 
-\subsection{Timing Synchronization and Delay Management in nFAPI}
-\label{subsec:nfapi_timing}
-
-To maintain correct wireless operations, the subframe and slot transmission between the VNF and PNF must be tightly synchronized. The MAC scheduler on the VNF must transmit the downlink control messages and resource assignments to the PNF such that they arrive before a strict timing window deadline. If a packet arrives late, the PNF cannot process the scheduling information for that slot, leading to slot packet loss and potential connection failure. To handle transport network latency and jitter without using hardware-level synchronization, the nFAPI specification introduces a delay management interface. This interface relies on periodic transmission of node sync and timing info messages. These messages allow the VNF to observe the arrival margin of the packets at the PNF side and adjust its scheduling trigger advance accordingly.
+\item \textbf{Timing Synchronization and Delay Management in nFAPI:} To maintain correct wireless operations, the subframe and slot transmission between the VNF and PNF must be tightly synchronized. The MAC scheduler on the VNF must transmit the downlink control messages and resource assignments to the PNF such that they arrive before a strict timing window deadline. If a packet arrives late, the PNF cannot process the scheduling information for that slot, leading to slot packet loss and potential connection failure. To handle transport network latency and jitter without using hardware-level synchronization, the nFAPI specification introduces a delay management interface. This interface relies on periodic transmission of node sync and timing info messages. These messages allow the VNF to observe the arrival margin of the packets at the PNF side and adjust its scheduling trigger advance accordingly.
+\end{itemize}
 
 \iffalse
 \section{問題定義}
@@ -110,9 +103,6 @@ Second, for operating system scheduling and software optimization, researchers h
 Third, in the domain of deterministic latency and QoS orchestration, Adamuz-Hinojosa et al. \cite{Adamuz2024ORANUS} introduced the ORANUS framework, employing Stochastic Network Calculus (SNC) to provide strict mathematical bounds for latency violations in ultra-reliable low-latency communication (uRLLC). From the perspective of User Equipment (UE) QoS, Lv et al. \cite{Lv2024QoS} developed UQ-vRAN, which optimizes MAC scheduling and higher-layer orchestration through precise traffic digital twins. Furthermore, resource allocation for Hybrid Automatic Repeat Request (HARQ) retransmissions can be dynamically pre-allocated based on user equipment error rates and scheduling cycles, reducing transport block loss and stabilizing scheduler goodput \cite{elfiky2024allocation}.
 
 Fourth, to understand the delay bounds and capacity constraints of packet-switched transport networks, researchers have modeled fronthaul latency using queuing theory. Diez et al. \cite{diez2021flexible} developed an end-to-end queuing model based on Open Jackson Networks to analyze how background traffic and heterogeneous architectures influence latency across different split points, demonstrating that delay increases significantly as load approaches link capacity. This queuing-based framework was subsequently extended by Khan et al. \cite{khan2026evaluating} to model timing-window relationships and priority-based scheduling over spine-leaf fronthaul topologies, providing analytical tools to evaluate delay violations without relying on full network emulation.
-
-\subsection{Research Gap}
-\label{subsec:research_gap}
 
 While these existing studies \cite{Lee2022, jia2024aquifer, Adamuz2024ORANUS, Lv2024QoS, elfiky2024allocation, hidalgo2025aegisran, diez2021flexible, khan2026evaluating, Mohammed2026Fronthaul} have proposed optimization and delay-modeling schemes ranging from specific intra-node CPU adjustments to long-term QoS orchestration, they generally do not directly address the severe cross-node synchronization failures caused by non-deterministic fronthaul jitter in intermediate-layer splits. This thesis fills the critical gap by targeting the microsecond-level phase synchronization and latency challenges inherent in the nFAPI Split Option 6 architecture. Specifically, we focus on the fact that the Small Cell Forum (SCF) 225 nFAPI specification \cite{SCF225} defines the standard timing info message and interface-level delay management fields, yet existing open-source implementations only support static parameter initialization. Our proposed method completes this standardized framework by implementing an adaptive timing closed-loop feedback, presenting a unique academic contribution to realizing dynamic time synchronization under a pure software-defined network architecture without relying on specialized hardware.
 
